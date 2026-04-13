@@ -334,6 +334,31 @@ namespace PhanHe1
             }
         }
 
+        private void ExecuteProcedure(string procName, Dictionary<string, object> parameters)
+        {
+            using (DbConnection conn = factory.CreateConnection())
+            {
+                conn.ConnectionString = connectionString;
+                conn.Open();
+
+                using (DbCommand cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = procName;
+                    cmd.CommandType = CommandType.StoredProcedure;
+
+                    foreach (var kv in parameters)
+                    {
+                        var param = cmd.CreateParameter();
+                        param.ParameterName = kv.Key;
+                        param.Value = kv.Value ?? DBNull.Value;
+                        cmd.Parameters.Add(param);
+                    }
+
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
         private static string SafeIdentifier(string name)
         {
             string value = (name ?? string.Empty).Trim().ToUpperInvariant();

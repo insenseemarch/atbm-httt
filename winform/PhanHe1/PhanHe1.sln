@@ -1,8 +1,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.5.2.0
+# Visual Studio Version 18
+VisualStudioVersion = 18.4.11626.88 stable
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PhanHe1", "PhanHe1.csproj", "{D33A848D-C747-63F2-8E7A-18AB623AFB62}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PhanHe1", "PhanHe1.csproj", "{0B268A7B-726F-4B6E-8F7B-8FC041A8D5F5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -10,10 +10,10 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{D33A848D-C747-63F2-8E7A-18AB623AFB62}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{D33A848D-C747-63F2-8E7A-18AB623AFB62}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{D33A848D-C747-63F2-8E7A-18AB623AFB62}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{D33A848D-C747-63F2-8E7A-18AB623AFB62}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0B268A7B-726F-4B6E-8F7B-8FC041A8D5F5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0B268A7B-726F-4B6E-8F7B-8FC041A8D5F5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0B268A7B-726F-4B6E-8F7B-8FC041A8D5F5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0B268A7B-726F-4B6E-8F7B-8FC041A8D5F5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
