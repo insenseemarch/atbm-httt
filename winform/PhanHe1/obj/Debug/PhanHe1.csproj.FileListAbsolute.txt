@@ -68,3 +68,5 @@ D:\HCMUS\atbm\ph1\atbm-httt\winform\PhanHe1\obj\Debug\PhanHe1.csproj.CoreCompile
 D:\HCMUS\atbm\ph1\atbm-httt\winform\PhanHe1\obj\Debug\PhanHe1.csproj.Up2Date
 D:\HCMUS\atbm\ph1\atbm-httt\winform\PhanHe1\obj\Debug\PhanHe1.exe
 D:\HCMUS\atbm\ph1\atbm-httt\winform\PhanHe1\obj\Debug\PhanHe1.pdb
+D:\HCMUS\atbm\ph1\atbm-httt\winform\PhanHe1\obj\Debug\PhanHe1.csproj.SuggestedBindingRedirects.cache
+D:\HCMUS\atbm\ph1\atbm-httt\winform\PhanHe1\obj\Debug\PhanHe1.exe.config
