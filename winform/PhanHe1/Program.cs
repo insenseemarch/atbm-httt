@@ -18,11 +18,30 @@ namespace PhanHe1
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
-            using (var loginForm = new LoginForm())
+            bool continueLoop = true;
+            while (continueLoop)
             {
-                if (loginForm.ShowDialog() == DialogResult.OK)
+                using (var loginForm = new LoginForm())
                 {
-                    Application.Run(new Form1(loginForm.AuthenticatedService));
+                    if (loginForm.ShowDialog() == DialogResult.OK)
+                    {
+                        using (var mainForm = new Form1(loginForm.AuthenticatedService))
+                        {
+                            if (mainForm.ShowDialog() == DialogResult.Cancel)
+                            {
+                                // User clicked logout
+                                continueLoop = true;
+                            }
+                            else
+                            {
+                                continueLoop = false;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        continueLoop = false;
+                    }
                 }
             }
         }

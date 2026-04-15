@@ -102,10 +102,10 @@ namespace PhanHe1
         {
             var list = new List<string>();
             DataTable dt = Query(
-                "SELECT OWNER || '.' || OBJECT_NAME AS FULL_NAME " +
+                "SELECT OBJECT_TYPE || ' | ' || OWNER || '.' || OBJECT_NAME AS DISPLAY_NAME " +
                 "FROM DBA_OBJECTS " +
                 "WHERE OBJECT_TYPE IN ('TABLE', 'VIEW', 'PROCEDURE', 'FUNCTION') " +
-                "ORDER BY OWNER, OBJECT_NAME");
+                "ORDER BY CASE OBJECT_TYPE WHEN 'TABLE' THEN 1 WHEN 'VIEW' THEN 2 WHEN 'PROCEDURE' THEN 3 WHEN 'FUNCTION' THEN 4 ELSE 5 END, OWNER, OBJECT_NAME");
 
             foreach (DataRow row in dt.Rows)
             {
@@ -122,18 +122,65 @@ namespace PhanHe1
             string objectName = parts.Item2;
 
             var list = new List<string>();
-            DataTable dt = Query(
-                string.Format(
-                    "SELECT COLUMN_NAME FROM DBA_TAB_COLUMNS WHERE OWNER = '{0}' AND TABLE_NAME = '{1}' ORDER BY COLUMN_ID",
-                    owner,
-                    objectName));
-
-            foreach (DataRow row in dt.Rows)
+            
+            // Thử query từ DBA_TAB_COLUMNS (cho TABLE và VIEW)
+            try
             {
-                list.Add(row[0].ToString());
+                DataTable dt = Query(
+                    string.Format(
+                        "SELECT COLUMN_NAME FROM DBA_TAB_COLUMNS WHERE OWNER = '{0}' AND TABLE_NAME = '{1}' ORDER BY COLUMN_ID",
+                        owner,
+                        objectName));
+
+                foreach (DataRow row in dt.Rows)
+                {
+                    list.Add(row[0].ToString());
+                }
+            }
+            catch
+            {
+                // Nếu không tìm thấy (PROCEDURE/FUNCTION), trả về list rỗng
             }
 
             return list;
+        }
+
+        public string GetObjectType(string fullObjectName)
+        {
+            var parts = SplitOwnerAndObject(fullObjectName);
+            string owner = parts.Item1;
+            string objectName = parts.Item2;
+
+            // Kiểm tra loại object
+            try
+            {
+                // Kiểm tra TABLE
+                DataTable dtTable = Query(
+                    $"SELECT OBJECT_TYPE FROM DBA_OBJECTS WHERE OWNER = '{owner}' AND OBJECT_NAME = '{objectName}' AND OBJECT_TYPE IN ('TABLE', 'VIEW')");
+                if (dtTable.Rows.Count > 0)
+                {
+                    return dtTable.Rows[0][0].ToString();
+                }
+
+                // Kiểm tra PROCEDURE
+                DataTable dtProc = Query(
+                    $"SELECT OBJECT_TYPE FROM DBA_OBJECTS WHERE OWNER = '{owner}' AND OBJECT_NAME = '{objectName}' AND OBJECT_TYPE = 'PROCEDURE'");
+                if (dtProc.Rows.Count > 0)
+                {
+                    return "PROCEDURE";
+                }
+
+                // Kiểm tra FUNCTION
+                DataTable dtFunc = Query(
+                    $"SELECT OBJECT_TYPE FROM DBA_OBJECTS WHERE OWNER = '{owner}' AND OBJECT_NAME = '{objectName}' AND OBJECT_TYPE = 'FUNCTION'");
+                if (dtFunc.Rows.Count > 0)
+                {
+                    return "FUNCTION";
+                }
+            }
+            catch { }
+
+            return "TABLE"; // Mặc định là TABLE
         }
 
         public void CreateUser(string userName, string password)

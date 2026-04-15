@@ -34,6 +34,8 @@ namespace PhanHe1
         private ComboBox cmbGrantType;
         private ComboBox cmbGrantToType;
         private ComboBox cmbGrantToName;
+        private Label lblGrantToType;
+        private Label lblGrantToName;
         private CheckBox chkGrantOption;
 
         private Panel pnlGrantSystem;
@@ -61,6 +63,7 @@ namespace PhanHe1
             InitializeComponent();
             BuildUi();
             LoadInitialData();
+            DialogResult = DialogResult.OK;
         }
 
         private void BuildUi()
@@ -79,42 +82,68 @@ namespace PhanHe1
                 Padding = new Padding(12, 10, 12, 10)
             };
 
+            var headerLeft = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                Padding = new Padding(0, 6, 0, 0),
+                BackColor = Color.Transparent
+            };
+
+            var picHeaderLogo = new PictureBox
+            {
+                Width = 170,
+                Height = 46,
+                SizeMode = PictureBoxSizeMode.Zoom,
+                Image = CreateHeaderLogoImage(170, 46),
+                Margin = new Padding(0, 0, 10, 0)
+            };
+
             lblHeader = new Label
             {
-                AutoSize = false,
-                Dock = DockStyle.Fill,
+                AutoSize = true,
                 TextAlign = ContentAlignment.MiddleLeft,
                 ForeColor = UiTheme.WhiteText,
                 Font = new Font("Segoe UI", 12F, FontStyle.Bold),
-                Text = "BỆNH VIỆN DocCare | Đăng nhập: " + service.CurrentUser + " | Chỉ cho phép DBA/ADMIN"
+                Text = "Xin chào: @" + service.CurrentUser,
+                Margin = new Padding(0, 10, 0, 0)
             };
+
+            headerLeft.Controls.Add(picHeaderLogo);
+            headerLeft.Controls.Add(lblHeader);
 
             var buttonPanel = new FlowLayoutPanel
             {
                 Dock = DockStyle.Right,
-                Width = 500,
+                Width = 550,
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = false,
                 Padding = new Padding(0, 6, 0, 0)
             };
 
-            btnRefreshAll = new Button { Text = "Tải lại dữ liệu", Width = 160, Height = 40, Margin = new Padding(0, 0, 10, 0) };
-            StyleSecondaryButton(btnRefreshAll);
+            btnRefreshAll = new Button { Text = "Tải lại dữ liệu", Width = 130, Height = 40, Margin = new Padding(0, 0, 8, 0) };
+            StylePrimaryButton(btnRefreshAll);
             btnRefreshAll.Click += delegate { LoadInitialData(); };
 
-            btnCreateUser = new Button { Text = "Tạo User", Width = 150, Height = 40, Margin = new Padding(0, 0, 10, 0) };
+            btnCreateUser = new Button { Text = "Tạo User", Width = 110, Height = 40, Margin = new Padding(0, 0, 8, 0) };
             StylePrimaryButton(btnCreateUser);
             btnCreateUser.Click += btnCreateUser_Click;
 
-            btnCreateRole = new Button { Text = "Tạo Role", Width = 150, Height = 40 };
+            btnCreateRole = new Button { Text = "Tạo Role", Width = 110, Height = 40, Margin = new Padding(0, 0, 8, 0) };
             StylePrimaryButton(btnCreateRole);
             btnCreateRole.Click += btnCreateRole_Click;
+
+            var btnLogout = new Button { Text = "Đăng xuất", Width = 110, Height = 40, Margin = new Padding(0, 0, 0, 0) };
+            StylePrimaryButton(btnLogout);
+            btnLogout.Click += BtnLogout_Click;
 
             buttonPanel.Controls.Add(btnRefreshAll);
             buttonPanel.Controls.Add(btnCreateUser);
             buttonPanel.Controls.Add(btnCreateRole);
+            buttonPanel.Controls.Add(btnLogout);
 
-            topPanel.Controls.Add(lblHeader);
+            topPanel.Controls.Add(headerLeft);
             topPanel.Controls.Add(buttonPanel);
 
             tabMain = new TabControl { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 10F, FontStyle.Bold) };
@@ -138,15 +167,50 @@ namespace PhanHe1
 
         private void BuildManageTab()
         {
+            tabManage.Padding = new Padding(12);
+
             var split = new SplitContainer
             {
                 Dock = DockStyle.Fill,
                 Orientation = Orientation.Vertical,
-                SplitterDistance = 580
+                SplitterDistance = 520
             };
             split.BackColor = Color.FromArgb(225, 245, 255);
             split.Panel1.BackColor = Color.FromArgb(245, 250, 248);
             split.Panel2.BackColor = Color.FromArgb(245, 250, 248);
+            split.Panel1.Padding = new Padding(8, 8, 4, 8);
+            split.Panel2.Padding = new Padding(4, 8, 8, 8);
+
+            EventHandler keepRolePanelVisible = delegate
+            {
+                int totalWidth = split.ClientSize.Width;
+                if (totalWidth <= 0)
+                {
+                    return;
+                }
+
+                int userMin = 320;
+                int roleMin = 330;
+                int desired = (int)(totalWidth * 0.64);
+                int maxDistance = totalWidth - roleMin - split.SplitterWidth;
+
+                if (maxDistance < userMin)
+                {
+                    split.SplitterDistance = Math.Max(1, totalWidth / 2);
+                    return;
+                }
+
+                int safeDistance = Math.Max(userMin, Math.Min(desired, maxDistance));
+                if (safeDistance > 0 && safeDistance < totalWidth)
+                {
+                    split.SplitterDistance = safeDistance;
+                }
+            };
+            split.SizeChanged += delegate { keepRolePanelVisible(split, EventArgs.Empty); };
+            split.HandleCreated += delegate
+            {
+                BeginInvoke((Action)delegate { keepRolePanelVisible(split, EventArgs.Empty); });
+            };
 
             var grpUsers = new GroupBox { Dock = DockStyle.Fill, Text = "Danh sách User", Font = new Font("Segoe UI", 10F, FontStyle.Bold), BackColor = colorCardBackground };
             var grpRoles = new GroupBox { Dock = DockStyle.Fill, Text = "Danh sách Role", Font = new Font("Segoe UI", 10F, FontStyle.Bold), BackColor = colorCardBackground };
@@ -171,25 +235,84 @@ namespace PhanHe1
                 RowCount = 2
             };
             root.BackColor = colorPageBackground;
-            root.RowStyles.Add(new RowStyle(SizeType.Percent, 82F));
-            root.RowStyles.Add(new RowStyle(SizeType.Percent, 18F));
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 76F));
 
-            var grp = new GroupBox { Dock = DockStyle.Fill, Text = "Cấp quyền", Font = new Font("Segoe UI", 10F, FontStyle.Bold), BackColor = colorCardBackground };
-            var layout = new TableLayoutPanel
+            var grp = new GroupBox
+            {
+                Dock = DockStyle.Fill,
+                Text = "Cấp quyền",
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                BackColor = colorCardBackground,
+                Padding = new Padding(12)
+            };
+
+            var content = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 4,
+                BackColor = Color.FromArgb(236, 246, 250),
+                Padding = new Padding(12)
+            };
+            content.RowStyles.Add(new RowStyle(SizeType.Absolute, 72F));
+            content.RowStyles.Add(new RowStyle(SizeType.Absolute, 218F));
+            content.RowStyles.Add(new RowStyle(SizeType.Absolute, 58F));
+            content.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            var grpRecipient = new GroupBox
+            {
+                Dock = DockStyle.Fill,
+                Text = "Nhóm 1 - Đối tượng nhận quyền",
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                BackColor = Color.FromArgb(236, 246, 250)
+            };
+            var recipientLayout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 4,
-                RowCount = 6,
-                BackColor = Color.FromArgb(236, 246, 250),
-                Padding = new Padding(10)
+                RowCount = 1,
+                Padding = new Padding(10, 8, 10, 8)
             };
+            recipientLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170F));
+            recipientLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40F));
+            recipientLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170F));
+            recipientLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60F));
 
-            for (int i = 0; i < 4; i++)
+            lblGrantToType = new Label { Text = "Cấp cho (User/Role):", AutoSize = true, Anchor = AnchorStyles.Left };
+            recipientLayout.Controls.Add(lblGrantToType, 0, 0);
+            cmbGrantToType = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
+            cmbGrantToType.Items.AddRange(new object[] { "USER", "ROLE" });
+            cmbGrantToType.SelectedIndex = 0;
+            cmbGrantToType.SelectedIndexChanged += delegate { LoadPrincipalCombo(cmbGrantToType, cmbGrantToName); };
+            recipientLayout.Controls.Add(cmbGrantToType, 1, 0);
+
+            lblGrantToName = new Label { Text = "Đối tượng nhận quyền:", AutoSize = true, Anchor = AnchorStyles.Left };
+            recipientLayout.Controls.Add(lblGrantToName, 2, 0);
+            cmbGrantToName = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
+            recipientLayout.Controls.Add(cmbGrantToName, 3, 0);
+            grpRecipient.Controls.Add(recipientLayout);
+
+            var grpDetail = new GroupBox
             {
-                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
-            }
+                Dock = DockStyle.Fill,
+                Text = "Nhóm 2 - Chi tiết quyền",
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                BackColor = Color.FromArgb(236, 246, 250)
+            };
+            var detailLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 2,
+                Padding = new Padding(10, 8, 10, 10)
+            };
+            detailLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170F));
+            detailLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            detailLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
+            detailLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
-            layout.Controls.Add(new Label { Text = "Kiểu cấp quyền:", AutoSize = true }, 0, 0);
+            detailLayout.Controls.Add(new Label { Text = "Kiểu cấp quyền:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 0);
             cmbGrantType = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
             cmbGrantType.Items.AddRange(new object[]
             {
@@ -199,25 +322,22 @@ namespace PhanHe1
             });
             cmbGrantType.SelectedIndex = 0;
             cmbGrantType.SelectedIndexChanged += delegate { UpdateGrantPanels(); };
-            layout.Controls.Add(cmbGrantType, 1, 0);
+            detailLayout.Controls.Add(cmbGrantType, 1, 0);
 
-            layout.Controls.Add(new Label { Text = "Cấp cho (User/Role):", AutoSize = true }, 2, 0);
-            cmbGrantToType = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
-            cmbGrantToType.Items.AddRange(new object[] { "USER", "ROLE" });
-            cmbGrantToType.SelectedIndex = 0;
-            cmbGrantToType.SelectedIndexChanged += delegate { LoadPrincipalCombo(cmbGrantToType, cmbGrantToName); };
-            layout.Controls.Add(cmbGrantToType, 3, 0);
-
-            layout.Controls.Add(new Label { Text = "Đối tượng nhận quyền:", AutoSize = true }, 0, 1);
-            cmbGrantToName = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
-            layout.Controls.Add(cmbGrantToName, 1, 1);
-
-            chkGrantOption = new CheckBox { Text = "Cho phép cấp tiếp quyền này", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
-            layout.Controls.Add(chkGrantOption, 2, 1);
+            var detailHost = new Panel { Dock = DockStyle.Fill };
 
             pnlGrantSystem = new Panel { Dock = DockStyle.Fill };
-            pnlGrantSystem.Controls.Add(new Label { Text = "Quyền hệ thống:", AutoSize = true, Location = new Point(0, 8) });
-            cmbSystemPrivilege = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 260, Left = 130, Top = 4 };
+            var sysLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                ColumnCount = 2,
+                RowCount = 1,
+                Height = 40
+            };
+            sysLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170F));
+            sysLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            sysLayout.Controls.Add(new Label { Text = "Quyền hệ thống:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 0);
+            cmbSystemPrivilege = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
             cmbSystemPrivilege.Items.AddRange(new object[]
             {
                 "CREATE SESSION",
@@ -227,45 +347,99 @@ namespace PhanHe1
                 "UNLIMITED TABLESPACE"
             });
             cmbSystemPrivilege.SelectedIndex = 0;
-            pnlGrantSystem.Controls.Add(cmbSystemPrivilege);
+            sysLayout.Controls.Add(cmbSystemPrivilege, 1, 0);
+            pnlGrantSystem.Controls.Add(sysLayout);
 
             pnlGrantObject = new Panel { Dock = DockStyle.Fill };
-            pnlGrantObject.Controls.Add(new Label { Text = "Đối tượng:", AutoSize = true, Location = new Point(0, 8) });
-            cmbObjectName = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 290, Left = 75, Top = 4 };
-            cmbObjectName.SelectedIndexChanged += cmbObjectName_SelectedIndexChanged;
-            pnlGrantObject.Controls.Add(cmbObjectName);
+            var objLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 4,
+                RowCount = 2
+            };
+            objLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170F));
+            objLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45F));
+            objLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
+            objLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55F));
+            objLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
+            objLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
-            pnlGrantObject.Controls.Add(new Label { Text = "Quyền:", AutoSize = true, Location = new Point(380, 8) });
-            cmbObjectPrivilege = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 140, Left = 435, Top = 4 };
+            objLayout.Controls.Add(new Label { Text = "Tên bảng/view/SP/fn:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 0);
+            cmbObjectName = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
+            cmbObjectName.SelectedIndexChanged += cmbObjectName_SelectedIndexChanged;
+            objLayout.Controls.Add(cmbObjectName, 1, 0);
+
+            objLayout.Controls.Add(new Label { Text = "Quyền:", AutoSize = true, Anchor = AnchorStyles.Left }, 2, 0);
+            cmbObjectPrivilege = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
             cmbObjectPrivilege.Items.AddRange(new object[] { "SELECT", "INSERT", "UPDATE", "DELETE", "EXECUTE" });
             cmbObjectPrivilege.SelectedIndex = 0;
-            cmbObjectPrivilege.SelectedIndexChanged += delegate { clbColumns.Enabled = cmbObjectPrivilege.Text == "SELECT" || cmbObjectPrivilege.Text == "UPDATE"; };
-            pnlGrantObject.Controls.Add(cmbObjectPrivilege);
+            cmbObjectPrivilege.SelectedIndexChanged += CmbObjectPrivilege_SelectedIndexChanged;
+            objLayout.Controls.Add(cmbObjectPrivilege, 3, 0);
 
-            clbColumns = new CheckedListBox { Left = 580, Top = 4, Width = 320, Height = 95, CheckOnClick = true, Enabled = true };
-            pnlGrantObject.Controls.Add(clbColumns);
+            objLayout.Controls.Add(new Label { Text = "Tên cột (nếu có):", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 1);
+            clbColumns = new CheckedListBox { Dock = DockStyle.Fill, CheckOnClick = true, Enabled = true };
+            objLayout.Controls.Add(clbColumns, 1, 1);
+            objLayout.SetColumnSpan(clbColumns, 3);
+            pnlGrantObject.Controls.Add(objLayout);
 
             pnlGrantRole = new Panel { Dock = DockStyle.Fill };
-            pnlGrantRole.Controls.Add(new Label { Text = "Role cần cấp:", AutoSize = true, Location = new Point(0, 8) });
-            cmbGrantRoleName = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 260, Left = 100, Top = 4 };
-            pnlGrantRole.Controls.Add(cmbGrantRoleName);
+            var roleLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                ColumnCount = 4,
+                RowCount = 1,
+                Height = 40
+            };
+            roleLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170F));
+            roleLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45F));
+            roleLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
+            roleLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55F));
+            roleLayout.Controls.Add(new Label { Text = "Role cần cấp:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 0);
+            cmbGrantRoleName = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
+            roleLayout.Controls.Add(cmbGrantRoleName, 1, 0);
+            roleLayout.Controls.Add(new Label { Text = "User nhận role:", AutoSize = true, Anchor = AnchorStyles.Left }, 2, 0);
+            cmbGrantRoleToUser = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
+            roleLayout.Controls.Add(cmbGrantRoleToUser, 3, 0);
+            pnlGrantRole.Controls.Add(roleLayout);
 
-            pnlGrantRole.Controls.Add(new Label { Text = "User nhận role:", AutoSize = true, Location = new Point(380, 8) });
-            cmbGrantRoleToUser = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 260, Left = 490, Top = 4 };
-            pnlGrantRole.Controls.Add(cmbGrantRoleToUser);
+            detailHost.Controls.Add(pnlGrantSystem);
+            detailHost.Controls.Add(pnlGrantObject);
+            detailHost.Controls.Add(pnlGrantRole);
+            detailLayout.Controls.Add(detailHost, 0, 1);
+            detailLayout.SetColumnSpan(detailHost, 2);
+            grpDetail.Controls.Add(detailLayout);
 
-            layout.SetColumnSpan(pnlGrantSystem, 4);
-            layout.SetColumnSpan(pnlGrantObject, 4);
-            layout.SetColumnSpan(pnlGrantRole, 4);
-            layout.Controls.Add(pnlGrantSystem, 0, 2);
-            layout.Controls.Add(pnlGrantObject, 0, 3);
-            layout.Controls.Add(pnlGrantRole, 0, 4);
+            var grpOption = new GroupBox
+            {
+                Dock = DockStyle.Fill,
+                Text = "Nhóm 3 - Tùy chọn thêm",
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                BackColor = Color.FromArgb(236, 246, 250)
+            };
+            var optionLayout = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                Padding = new Padding(10, 8, 10, 8),
+                WrapContents = false
+            };
+            chkGrantOption = new CheckBox { Text = "WITH GRANT OPTION (Cho phép cấp tiếp quyền này)", AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            optionLayout.Controls.Add(chkGrantOption);
+            grpOption.Controls.Add(optionLayout);
 
-            grp.Controls.Add(layout);
+            content.Controls.Add(grpRecipient, 0, 0);
+            content.Controls.Add(grpDetail, 0, 1);
+            content.Controls.Add(grpOption, 0, 2);
+            grp.Controls.Add(content);
             root.Controls.Add(grp, 0, 0);
 
             var footer = new Panel { Dock = DockStyle.Fill, Padding = new Padding(12), BackColor = colorPageBackground };
-            btnExecuteGrant = new Button { Text = "Thực hiện cấp quyền", Width = 260, Height = 44, Dock = DockStyle.Right };
+            btnExecuteGrant = new Button { Text = "Thực hiện cấp quyền", Width = 260, Height = 44, Anchor = AnchorStyles.Right | AnchorStyles.Bottom };
+            btnExecuteGrant.Location = new Point(Math.Max(12, footer.Width - btnExecuteGrant.Width - 12), 12);
+            footer.Resize += delegate
+            {
+                btnExecuteGrant.Location = new Point(Math.Max(12, footer.Width - btnExecuteGrant.Width - 12), Math.Max(12, footer.Height - btnExecuteGrant.Height - 12));
+            };
             StylePrimaryButton(btnExecuteGrant);
             btnExecuteGrant.Click += btnExecuteGrant_Click;
             footer.Controls.Add(btnExecuteGrant);
@@ -280,13 +454,15 @@ namespace PhanHe1
             {
                 Dock = DockStyle.Fill,
                 RowCount = 2,
-                ColumnCount = 1
+                ColumnCount = 1,
+                Padding = new Padding(8, 8, 8, 8)
             };
             root.BackColor = colorPageBackground;
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 80));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 64));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
             var top = new Panel { Dock = DockStyle.Fill, Padding = new Padding(10), BackColor = colorPanelBackground };
+            top.Margin = new Padding(0, 0, 0, 10);
             top.Controls.Add(new Label { Text = "Loại:", AutoSize = true, Left = 6, Top = 16 });
             cmbViewType = new ComboBox { Left = 55, Top = 12, Width = 130, DropDownStyle = ComboBoxStyle.DropDownList };
             cmbViewType.Items.AddRange(new object[] { "USER", "ROLE" });
@@ -312,6 +488,7 @@ namespace PhanHe1
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect
             };
+            dgvPrivileges.Margin = new Padding(0);
             StyleGrid(dgvPrivileges);
 
             dgvPrivileges.Columns.Add("COL_OBJECT_TYPE", "Loại đối tượng");
@@ -325,6 +502,18 @@ namespace PhanHe1
                 Name = "COL_REVOKE",
                 HeaderText = "Thu hồi",
                 Text = "Thu hồi",
+                Width = 110,
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.None,
+                FlatStyle = FlatStyle.Flat,
+                DefaultCellStyle = new DataGridViewCellStyle
+                {
+                    BackColor = Color.FromArgb(255, 232, 232),
+                    ForeColor = Color.FromArgb(168, 28, 28),
+                    SelectionBackColor = Color.FromArgb(250, 205, 205),
+                    SelectionForeColor = Color.FromArgb(120, 0, 0),
+                    Alignment = DataGridViewContentAlignment.MiddleCenter,
+                    Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+                },
                 UseColumnTextForButtonValue = true
             };
             dgvPrivileges.Columns.Add(colRevoke);
@@ -343,7 +532,7 @@ namespace PhanHe1
                 ReadOnly = true,
                 AllowUserToAddRows = false,
                 AllowUserToDeleteRows = false,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
                 RowTemplate = { Height = 34 }
             };
@@ -352,7 +541,15 @@ namespace PhanHe1
 
             grid.Columns.Add("USERNAME", "User");
             grid.Columns.Add("ACCOUNT_STATUS", "Trạng thái");
-            grid.Columns.Add(CreateButtonColumn("USER_ACTION", "...", "Tùy chọn"));
+            grid.Columns.Add(CreateButtonColumn("USER_ACTION", "Thao tác", "Thao tác"));
+
+            grid.Columns["USERNAME"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+            grid.Columns["USERNAME"].MinimumWidth = 170;
+            grid.Columns["ACCOUNT_STATUS"].AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
+            grid.Columns["ACCOUNT_STATUS"].Width = 100;
+            grid.Columns["USER_ACTION"].AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
+            grid.Columns["USER_ACTION"].Width = 96;
+
             grid.CellContentClick += dgvUsers_CellContentClick;
             return grid;
         }
@@ -365,7 +562,7 @@ namespace PhanHe1
                 ReadOnly = true,
                 AllowUserToAddRows = false,
                 AllowUserToDeleteRows = false,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
                 RowTemplate = { Height = 34 }
             };
@@ -373,7 +570,13 @@ namespace PhanHe1
             StyleGrid(grid);
 
             grid.Columns.Add("ROLE", "Role");
-            grid.Columns.Add(CreateButtonColumn("ROLE_ACTION", "...", "Tùy chọn"));
+            grid.Columns.Add(CreateButtonColumn("ROLE_ACTION", "Thao tác", "Thao tác"));
+
+            grid.Columns["ROLE"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+            grid.Columns["ROLE"].MinimumWidth = 220;
+            grid.Columns["ROLE_ACTION"].AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
+            grid.Columns["ROLE_ACTION"].Width = 96;
+
             grid.CellContentClick += dgvRoles_CellContentClick;
             return grid;
         }
@@ -385,7 +588,7 @@ namespace PhanHe1
                 Name = name,
                 HeaderText = headerText,
                 Text = text,
-                Width = 46,
+                Width = 96,
                 AutoSizeMode = DataGridViewAutoSizeColumnMode.None,
                 Resizable = DataGridViewTriState.False,
                 UseColumnTextForButtonValue = true,
@@ -399,6 +602,35 @@ namespace PhanHe1
                     Alignment = DataGridViewContentAlignment.MiddleCenter
                 }
             };
+        }
+
+        private static Image CreateHeaderLogoImage(int width, int height)
+        {
+            var bmp = new Bitmap(width, height);
+            using (Graphics g = Graphics.FromImage(bmp))
+            {
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.Clear(Color.Transparent);
+
+                var rectH = new Rectangle(8, 18, 42, 14);
+                var rectV = new Rectangle(22, 8, 14, 30);
+                using (var deepBrush = new SolidBrush(UiTheme.DeepBlue))
+                using (var aquaBrush = new SolidBrush(UiTheme.JordyBlue))
+                using (var mintBrush = new SolidBrush(UiTheme.PastelGreen))
+                {
+                    g.FillRectangle(deepBrush, rectH);
+                    g.FillRectangle(aquaBrush, rectV);
+                    g.FillEllipse(mintBrush, 24, 0, 10, 10);
+                }
+
+                using (var font = new Font("Segoe UI", 19F, FontStyle.Bold, GraphicsUnit.Pixel))
+                using (var textBrush = new SolidBrush(UiTheme.WhiteText))
+                {
+                    g.DrawString("DocCare", font, textBrush, new PointF(58, 9));
+                }
+            }
+
+            return bmp;
         }
 
         private void StylePrimaryButton(Button button)
@@ -583,13 +815,21 @@ namespace PhanHe1
             bool isGrantRoleToUserMode = mode == 2;
             if (isGrantRoleToUserMode)
             {
+                lblGrantToType.Visible = false;
                 cmbGrantToType.SelectedItem = "USER";
                 cmbGrantToType.Enabled = false;
+                cmbGrantToType.Visible = false;
+                lblGrantToName.Visible = false;
+                cmbGrantToName.Visible = false;
                 LoadPrincipalCombo(cmbGrantToType, cmbGrantToName);
             }
             else
             {
+                lblGrantToType.Visible = true;
                 cmbGrantToType.Enabled = true;
+                cmbGrantToType.Visible = true;
+                lblGrantToName.Visible = true;
+                cmbGrantToName.Visible = true;
             }
         }
 
@@ -716,16 +956,69 @@ namespace PhanHe1
         private void cmbObjectName_SelectedIndexChanged(object sender, EventArgs e)
         {
             clbColumns.Items.Clear();
+            cmbObjectPrivilege.Items.Clear();
+            
             if (cmbObjectName.SelectedItem == null)
             {
                 return;
             }
 
-            List<string> columns = service.GetColumns(cmbObjectName.SelectedItem.ToString());
-            foreach (string col in columns)
+            Tuple<string, string> objectInfo = ParseGrantObjectSelection();
+            if (objectInfo == null)
             {
-                clbColumns.Items.Add(col);
+                return;
             }
+
+            string objectType = objectInfo.Item1;
+            string fullObjectName = objectInfo.Item2;
+            
+            // Lọc quyền dựa trên loại object
+            if (objectType == "PROCEDURE" || objectType == "FUNCTION")
+            {
+                // PROCEDURE/FUNCTION chỉ có quyền EXECUTE
+                cmbObjectPrivilege.Items.Add("EXECUTE");
+                cmbObjectPrivilege.SelectedIndex = 0;
+            }
+            else
+            {
+                // TABLE/VIEW có tất cả quyền
+                cmbObjectPrivilege.Items.AddRange(new object[] { "SELECT", "INSERT", "UPDATE", "DELETE", "EXECUTE" });
+                cmbObjectPrivilege.SelectedIndex = 0;
+            }
+            
+            // Lấy danh sách cột (nếu không phải PROCEDURE/FUNCTION)
+            if (objectType == "TABLE" || objectType == "VIEW")
+            {
+                List<string> columns = service.GetColumns(fullObjectName);
+                foreach (string col in columns)
+                {
+                    clbColumns.Items.Add(col);
+                }
+            }
+        }
+
+        private Tuple<string, string> ParseGrantObjectSelection()
+        {
+            if (cmbObjectName.SelectedItem == null)
+            {
+                return null;
+            }
+
+            string displayText = cmbObjectName.SelectedItem.ToString();
+            string[] parts = displayText.Split(new[] { " | " }, 2, StringSplitOptions.None);
+
+            if (parts.Length == 2)
+            {
+                return Tuple.Create(parts[0], parts[1]);
+            }
+
+            return Tuple.Create(service.GetObjectType(displayText), displayText);
+        }
+
+        private void CmbObjectPrivilege_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            // Chỉ enable columns cho SELECT hoặc UPDATE
+            clbColumns.Enabled = cmbObjectPrivilege.Text == "SELECT" || cmbObjectPrivilege.Text == "UPDATE";
         }
 
         private void btnExecuteGrant_Click(object sender, EventArgs e)
@@ -738,13 +1031,21 @@ namespace PhanHe1
                 }
                 else if (cmbGrantType.SelectedIndex == 1)
                 {
+                    Tuple<string, string> objectInfo = ParseGrantObjectSelection();
+                    if (objectInfo == null)
+                    {
+                        throw new InvalidOperationException("Vui lòng chọn đối tượng cấp quyền.");
+                    }
+
+                    string fullObjectName = objectInfo.Item2;
+
                     var columns = new List<string>();
                     foreach (object selected in clbColumns.CheckedItems)
                     {
                         columns.Add(selected.ToString());
                     }
 
-                    service.GrantObjectPrivilege(cmbObjectPrivilege.Text, cmbObjectName.Text, cmbGrantToName.Text, chkGrantOption.Checked, columns);
+                    service.GrantObjectPrivilege(cmbObjectPrivilege.Text, fullObjectName, cmbGrantToName.Text, chkGrantOption.Checked, columns);
                 }
                 else
                 {
@@ -855,6 +1156,16 @@ namespace PhanHe1
             }
 
             UpdateGrantPanels();
+        }
+
+        private void BtnLogout_Click(object sender, EventArgs e)
+        {
+            var result = MessageBox.Show("Bạn có chắc chắn muốn đăng xuất?", "Xác nhận đăng xuất", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (result == DialogResult.Yes)
+            {
+                DialogResult = DialogResult.Cancel;
+                Close();
+            }
         }
     }
 }
