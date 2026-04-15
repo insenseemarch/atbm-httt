@@ -138,82 +138,166 @@ namespace PhanHe1
 
         public void CreateUser(string userName, string password)
         {
-            string safeUser = SafeIdentifier(userName);
             if (string.IsNullOrWhiteSpace(password))
             {
                 throw new InvalidOperationException("Mật khẩu không được rỗng.");
             }
 
-            ExecuteNonQuery(string.Format("CREATE USER {0} IDENTIFIED BY \"{1}\"", safeUser, EscapeDoubleQuotes(password)));
+            ExecuteProcedure("sp_CreateUser", new Dictionary<string, object>
+            {
+                { "p_username", userName },
+                { "p_password", password }
+            });
         }
 
         public void AlterUserPassword(string userName, string password)
         {
-            string safeUser = SafeIdentifier(userName);
             if (string.IsNullOrWhiteSpace(password))
             {
                 throw new InvalidOperationException("Mật khẩu không được rỗng.");
             }
 
-            ExecuteNonQuery(string.Format("ALTER USER {0} IDENTIFIED BY \"{1}\"", safeUser, EscapeDoubleQuotes(password)));
+            ExecuteProcedure("sp_ChangePassword", new Dictionary<string, object>
+            {
+                { "p_username", userName },
+                { "p_newpassword", password }
+            });
         }
 
         public void DropUser(string userName)
         {
-            ExecuteNonQuery(string.Format("DROP USER {0} CASCADE", SafeIdentifier(userName)));
+            ExecuteProcedure("sp_DeleteUser", new Dictionary<string, object>
+            {
+                { "p_username", userName }
+            });
+        }
+
+        public void LockUser(string userName, bool lockStatus)
+        {
+            string action = lockStatus ? "LOCK" : "UNLOCK";
+            ExecuteProcedure("sp_LockUser", new Dictionary<string, object>
+            {
+                { "p_username", userName },
+                { "p_action", action }
+            });
         }
 
         public void CreateRole(string roleName)
         {
-            ExecuteNonQuery(string.Format("CREATE ROLE {0}", SafeIdentifier(roleName)));
+            ExecuteProcedure("sp_CreateRole", new Dictionary<string, object>
+            {
+                { "p_rolename", roleName }
+            });
         }
 
         public void DropRole(string roleName)
         {
-            ExecuteNonQuery(string.Format("DROP ROLE {0}", SafeIdentifier(roleName)));
+            ExecuteProcedure("sp_DeleteRole", new Dictionary<string, object>
+            {
+                { "p_rolename", roleName }
+            });
         }
 
         public void GrantSystemPrivilege(string privilege, string principal, bool withAdminOption)
         {
-            string sql = string.Format("GRANT {0} TO {1}", privilege.Trim().ToUpperInvariant(), SafeIdentifier(principal));
-            if (withAdminOption)
+            ExecuteProcedure("sp_GrantSysPrivs", new Dictionary<string, object>
             {
-                sql += " WITH ADMIN OPTION";
-            }
-
-            ExecuteNonQuery(sql);
+                { "p_privilege", privilege.Trim().ToUpperInvariant() },
+                { "p_grantee", principal },
+                { "p_admin_option", withAdminOption ? "YES" : "NO" }
+            });
         }
 
         public void GrantObjectPrivilege(string privilege, string fullObjectName, string principal, bool withGrantOption, List<string> columns)
         {
-            string safePrincipal = SafeIdentifier(principal);
             string safePrivilege = privilege.Trim().ToUpperInvariant();
-            string safeObject = SafeObjectName(fullObjectName);
+            var parts = SplitOwnerAndObject(fullObjectName);
+            string owner = parts.Item1;
+            string objName = parts.Item2;
 
-            string privilegeExpression = safePrivilege;
-            if ((safePrivilege == "SELECT" || safePrivilege == "UPDATE") && columns != null && columns.Count > 0)
+            // Nếu có danh sách cột và quyền là SELECT hoặc UPDATE
+            if (columns != null && columns.Count > 0 && (safePrivilege == "SELECT" || safePrivilege == "UPDATE"))
             {
-                privilegeExpression = safePrivilege + " (" + JoinSafeIdentifiers(columns) + ")";
-            }
+                // Kiểm tra principal là USER hay ROLE
+                bool isRole = false;
+                try
+                {
+                    DataTable dtRole = Query($"SELECT ROLE FROM DBA_ROLES WHERE ROLE = '{principal.ToUpperInvariant()}'");
+                    if (dtRole.Rows.Count > 0) isRole = true;
+                }
+                catch { }
 
-            string sql = string.Format("GRANT {0} ON {1} TO {2}", privilegeExpression, safeObject, safePrincipal);
-            if (withGrantOption)
+                // Nếu là ROLE, báo lỗi
+                if (isRole)
+                {
+                    throw new InvalidOperationException("Không được chỉ định cột khi cấp quyền cho ROLE. Chỉ USER mới được cấp quyền trên cột.");
+                }
+
+                // Gọi sp_GrantColPrivs để cấp quyền trên cột
+                string columnList = string.Join(",", columns);
+                string grantOption = withGrantOption ? "YES" : "NO";
+
+                ExecuteProcedure("sp_GrantColPrivs", new Dictionary<string, object>
+                {
+                    { "p_privilege", safePrivilege },
+                    { "p_schema", owner },
+                    { "p_object", objName },
+                    { "p_columns", columnList },
+                    { "p_grantee", principal },
+                    { "p_grant_option", grantOption }
+                });
+            }
+            else if (safePrivilege == "INSERT" || safePrivilege == "DELETE")
             {
-                sql += " WITH GRANT OPTION";
-            }
+                // INSERT, DELETE không được phép cấp mức cột
+                if (columns != null && columns.Count > 0)
+                {
+                    throw new InvalidOperationException($"Quyền {safePrivilege} không hỗ trợ phân quyền mức cột. Chỉ cấp ở mức toàn bảng!");
+                }
 
-            ExecuteNonQuery(sql);
+                // Gọi sp_GrantObjPrivs untuk cấp quyền toàn bảng
+                string grantOption = withGrantOption ? "YES" : "NO";
+                ExecuteProcedure("sp_GrantObjPrivs", new Dictionary<string, object>
+                {
+                    { "p_privilege", safePrivilege },
+                    { "p_schema", owner },
+                    { "p_object", objName },
+                    { "p_grantee", principal },
+                    { "p_grant_option", grantOption }
+                });
+            }
+            else
+            {
+                // Các quyền khác cấp toàn bảng
+                string grantOption = withGrantOption ? "YES" : "NO";
+                ExecuteProcedure("sp_GrantObjPrivs", new Dictionary<string, object>
+                {
+                    { "p_privilege", safePrivilege },
+                    { "p_schema", owner },
+                    { "p_object", objName },
+                    { "p_grantee", principal },
+                    { "p_grant_option", grantOption }
+                });
+            }
         }
 
         public void GrantRoleToUser(string roleName, string userName, bool withAdminOption)
         {
-            string sql = string.Format("GRANT {0} TO {1}", SafeIdentifier(roleName), SafeIdentifier(userName));
-            if (withAdminOption)
+            ExecuteProcedure("sp_GrantRole", new Dictionary<string, object>
             {
-                sql += " WITH ADMIN OPTION";
-            }
+                { "p_role", roleName },
+                { "p_grantee", userName },
+                { "p_admin_option", withAdminOption ? "YES" : "NO" }
+            });
+        }
 
-            ExecuteNonQuery(sql);
+        public void RevokeRoleFromUser(string roleName, string userName)
+        {
+            ExecuteProcedure("sp_RevokeRoleUser", new Dictionary<string, object>
+            {
+                { "p_role", roleName },
+                { "p_grantee", userName }
+            });
         }
 
         public DataTable GetPrivileges(string principalType, string principal)
@@ -227,7 +311,9 @@ namespace PhanHe1
                     "SELECT OBJECT_TYPE, OBJECT_NAME, PRIVILEGE, COLUMN_NAME, GRANTABLE FROM (" +
                     "SELECT 'SYSTEM' AS OBJECT_TYPE, '' AS OBJECT_NAME, PRIVILEGE, '' AS COLUMN_NAME, ADMIN_OPTION AS GRANTABLE FROM DBA_SYS_PRIVS WHERE GRANTEE = '" + safePrincipal + "' " +
                     "UNION ALL " +
-                    "SELECT 'OBJECT' AS OBJECT_TYPE, OWNER || '.' || TABLE_NAME AS OBJECT_NAME, PRIVILEGE, '' AS COLUMN_NAME, GRANTABLE FROM DBA_TAB_PRIVS WHERE GRANTEE = '" + safePrincipal + "' " +
+                    "SELECT 'OBJECT' AS OBJECT_TYPE, OWNER || '.' || TABLE_NAME AS OBJECT_NAME, PRIVILEGE, " +
+                    "CASE WHEN TABLE_NAME LIKE 'V$COL$%' THEN NVL((SELECT LISTAGG(c.COLUMN_NAME, ',') WITHIN GROUP (ORDER BY c.COLUMN_ID) FROM DBA_TAB_COLUMNS c WHERE c.OWNER = DBA_TAB_PRIVS.OWNER AND c.TABLE_NAME = DBA_TAB_PRIVS.TABLE_NAME), '') ELSE '' END AS COLUMN_NAME, " +
+                    "GRANTABLE FROM DBA_TAB_PRIVS WHERE GRANTEE = '" + safePrincipal + "' " +
                     "UNION ALL " +
                     "SELECT 'OBJECT' AS OBJECT_TYPE, OWNER || '.' || TABLE_NAME AS OBJECT_NAME, PRIVILEGE, COLUMN_NAME, GRANTABLE FROM DBA_COL_PRIVS WHERE GRANTEE = '" + safePrincipal + "'" +
                     ") ORDER BY OBJECT_TYPE, OBJECT_NAME, PRIVILEGE");
@@ -237,7 +323,9 @@ namespace PhanHe1
                 "SELECT OBJECT_TYPE, OBJECT_NAME, PRIVILEGE, COLUMN_NAME, GRANTABLE FROM (" +
                 "SELECT 'SYSTEM' AS OBJECT_TYPE, '' AS OBJECT_NAME, PRIVILEGE, '' AS COLUMN_NAME, ADMIN_OPTION AS GRANTABLE FROM DBA_SYS_PRIVS WHERE GRANTEE = '" + safePrincipal + "' " +
                 "UNION ALL " +
-                "SELECT 'OBJECT' AS OBJECT_TYPE, OWNER || '.' || TABLE_NAME AS OBJECT_NAME, PRIVILEGE, '' AS COLUMN_NAME, GRANTABLE FROM DBA_TAB_PRIVS WHERE GRANTEE = '" + safePrincipal + "' " +
+                "SELECT 'OBJECT' AS OBJECT_TYPE, OWNER || '.' || TABLE_NAME AS OBJECT_NAME, PRIVILEGE, " +
+                "CASE WHEN TABLE_NAME LIKE 'V$COL$%' THEN NVL((SELECT LISTAGG(c.COLUMN_NAME, ',') WITHIN GROUP (ORDER BY c.COLUMN_ID) FROM DBA_TAB_COLUMNS c WHERE c.OWNER = DBA_TAB_PRIVS.OWNER AND c.TABLE_NAME = DBA_TAB_PRIVS.TABLE_NAME), '') ELSE '' END AS COLUMN_NAME, " +
+                "GRANTABLE FROM DBA_TAB_PRIVS WHERE GRANTEE = '" + safePrincipal + "' " +
                 "UNION ALL " +
                 "SELECT 'OBJECT' AS OBJECT_TYPE, OWNER || '.' || TABLE_NAME AS OBJECT_NAME, PRIVILEGE, COLUMN_NAME, GRANTABLE FROM DBA_COL_PRIVS WHERE GRANTEE = '" + safePrincipal + "'" +
                 ") ORDER BY OBJECT_TYPE, OBJECT_NAME, PRIVILEGE");
@@ -245,16 +333,31 @@ namespace PhanHe1
 
         public void RevokePrivilege(string privilegeOrRole, string principal, string objectNameOrNull)
         {
-            string safePrincipal = SafeIdentifier(principal);
             string safePrivilege = privilegeOrRole.Trim().ToUpperInvariant();
 
             if (string.IsNullOrWhiteSpace(objectNameOrNull))
             {
-                ExecuteNonQuery(string.Format("REVOKE {0} FROM {1}", safePrivilege, safePrincipal));
+                // Thu hồi quyền hệ thống hoặc role
+                ExecuteProcedure("sp_RevokeSysPrivs", new Dictionary<string, object>
+                {
+                    { "p_privilege", safePrivilege },
+                    { "p_grantee", principal }
+                });
             }
             else
             {
-                ExecuteNonQuery(string.Format("REVOKE {0} ON {1} FROM {2}", safePrivilege, SafeObjectName(objectNameOrNull), safePrincipal));
+                // Thu hồi quyền trên đối tượng
+                var parts = SplitOwnerAndObject(objectNameOrNull);
+                string owner = parts.Item1;
+                string objName = parts.Item2;
+
+                ExecuteProcedure("sp_RevokeObjPrivs", new Dictionary<string, object>
+                {
+                    { "p_privilege", safePrivilege },
+                    { "p_schema", owner },
+                    { "p_object", objName },
+                    { "p_grantee", principal }
+                });
             }
         }
 
@@ -341,10 +444,13 @@ namespace PhanHe1
                 conn.ConnectionString = connectionString;
                 conn.Open();
 
+                string resolvedProcedure = ResolveProcedureName(conn, procName);
+
                 using (DbCommand cmd = conn.CreateCommand())
                 {
-                    cmd.CommandText = procName;
+                    cmd.CommandText = resolvedProcedure;
                     cmd.CommandType = CommandType.StoredProcedure;
+                    cmd.CommandTimeout = 30;
 
                     foreach (var kv in parameters)
                     {
@@ -354,9 +460,103 @@ namespace PhanHe1
                         cmd.Parameters.Add(param);
                     }
 
-                    cmd.ExecuteNonQuery();
+                    try
+                    {
+                        cmd.ExecuteNonQuery();
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new InvalidOperationException($"Lỗi thực thi procedure {resolvedProcedure}: {ex.Message}", ex);
+                    }
                 }
             }
+        }
+
+        private string ResolveProcedureName(DbConnection conn, string procName)
+        {
+            string rawName = (procName ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(rawName))
+            {
+                throw new InvalidOperationException("Tên procedure không hợp lệ.");
+            }
+
+            // If caller already provided OWNER.PROCEDURE, keep it and only validate each identifier.
+            if (rawName.Contains("."))
+            {
+                var parts = rawName.Split('.');
+                if (parts.Length != 2)
+                {
+                    throw new InvalidOperationException("Tên procedure phải có dạng PROC hoặc OWNER.PROC");
+                }
+
+                return SafeIdentifier(parts[0]) + "." + SafeIdentifier(parts[1]);
+            }
+
+            string safeProcName = SafeIdentifier(rawName);
+
+            using (DbCommand lookup = conn.CreateCommand())
+            {
+                lookup.CommandText =
+                    "SELECT OWNER FROM (" +
+                    "SELECT p.OWNER " +
+                    "FROM DBA_PROCEDURES p " +
+                    "LEFT JOIN DBA_USERS u ON u.USERNAME = p.OWNER " +
+                    "WHERE p.OBJECT_NAME = :p_obj " +
+                    "  AND p.PROCEDURE_NAME IS NULL " +
+                    "  AND p.OBJECT_TYPE = 'PROCEDURE' " +
+                    "  AND p.OWNER NOT IN ('SYS', 'SYSTEM') " +
+                    "ORDER BY CASE " +
+                    "  WHEN p.OWNER = USER THEN 0 " +
+                    "  WHEN p.OWNER = 'APP_ADMIN' THEN 1 " +
+                    "  WHEN NVL(u.ORACLE_MAINTAINED, 'N') = 'N' THEN 2 " +
+                    "  ELSE 9 END, p.OWNER" +
+                    ") WHERE ROWNUM = 1";
+
+                var param = lookup.CreateParameter();
+                param.ParameterName = "p_obj";
+                param.Value = safeProcName;
+                lookup.Parameters.Add(param);
+
+                try
+                {
+                    object owner = lookup.ExecuteScalar();
+                    if (owner != null && owner != DBNull.Value)
+                    {
+                        return owner.ToString().Trim().ToUpperInvariant() + "." + safeProcName;
+                    }
+                }
+                catch
+                {
+                    // Fall through to ALL_PROCEDURES fallback when DBA views are restricted.
+                }
+            }
+
+            using (DbCommand fallbackLookup = conn.CreateCommand())
+            {
+                fallbackLookup.CommandText =
+                    "SELECT OWNER FROM (" +
+                    "SELECT OWNER " +
+                    "FROM ALL_PROCEDURES " +
+                    "WHERE OBJECT_NAME = :p_obj " +
+                    "  AND PROCEDURE_NAME IS NULL " +
+                    "  AND OWNER NOT IN ('SYS', 'SYSTEM') " +
+                    "ORDER BY CASE WHEN OWNER = USER THEN 0 WHEN OWNER = 'APP_ADMIN' THEN 1 ELSE 2 END, OWNER" +
+                    ") WHERE ROWNUM = 1";
+
+                var param = fallbackLookup.CreateParameter();
+                param.ParameterName = "p_obj";
+                param.Value = safeProcName;
+                fallbackLookup.Parameters.Add(param);
+
+                object owner = fallbackLookup.ExecuteScalar();
+                if (owner != null && owner != DBNull.Value)
+                {
+                    return owner.ToString().Trim().ToUpperInvariant() + "." + safeProcName;
+                }
+            }
+
+            // Fall back to current schema lookup behavior if procedure is not visible in ALL_PROCEDURES.
+            return safeProcName;
         }
 
         private static string SafeIdentifier(string name)
@@ -375,9 +575,16 @@ namespace PhanHe1
             var safe = new List<string>();
             foreach (string value in values)
             {
-                safe.Add(SafeIdentifier(value));
+                // Nếu tên cột có ký tự thường hoặc ký tự đặc biệt, thêm dấu ngoặc kép
+                if (!IdentifierRegex.IsMatch(value) || value != value.ToUpperInvariant())
+                {
+                    safe.Add('"' + value + '"');
+                }
+                else
+                {
+                    safe.Add(SafeIdentifier(value));
+                }
             }
-
             return string.Join(",", safe);
         }
 

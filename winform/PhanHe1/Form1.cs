@@ -10,13 +10,13 @@ namespace PhanHe1
     public partial class Form1 : Form
     {
         private readonly OracleAdminService service;
-        private readonly Color colorPrimary = Color.FromArgb(178, 152, 231);   // #B298E7
-        private readonly Color colorPrimaryHover = Color.FromArgb(166, 139, 221);
-        private readonly Color colorSecondary = Color.FromArgb(184, 227, 233); // #B8E3E9
-        private readonly Color colorAccent = Color.FromArgb(245, 184, 213);    // #F5B8D5
-        private readonly Color colorPanelBackground = Color.FromArgb(245, 184, 213); // #F5B8D5
-        private readonly Color colorPageBackground = Color.FromArgb(248, 242, 253);
-        private readonly Color colorCardBackground = Color.FromArgb(243, 236, 251);
+        private readonly Color colorPrimary = UiTheme.PastelGreen;
+        private readonly Color colorPrimaryHover = Color.FromArgb(102, 235, 188);
+        private readonly Color colorSecondary = UiTheme.BrandeisBlue;
+        private readonly Color colorAccent = UiTheme.LightCyan;
+        private readonly Color colorPanelBackground = UiTheme.BrandeisBlue;
+        private readonly Color colorPageBackground = UiTheme.LightCyan;
+        private readonly Color colorCardBackground = UiTheme.JordyBlue;
 
         private Label lblHeader;
         private Button btnRefreshAll;
@@ -65,10 +65,10 @@ namespace PhanHe1
 
         private void BuildUi()
         {
-            Text = "PHÂN HỆ 1 - QUẢN TRỊ ORACLE";
+            Text = "PHÂN HỆ 1 - QUẢN TRỊ ORACLE BỆNH VIỆN";
             StartPosition = FormStartPosition.CenterScreen;
             MinimumSize = new Size(1200, 720);
-            Font = new Font("Segoe UI", 10F, FontStyle.Regular);
+            Font = UiTheme.BodyFont;
             BackColor = colorPageBackground;
 
             var topPanel = new Panel
@@ -84,9 +84,9 @@ namespace PhanHe1
                 AutoSize = false,
                 Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleLeft,
-                ForeColor = Color.FromArgb(64, 42, 85),
+                ForeColor = UiTheme.WhiteText,
                 Font = new Font("Segoe UI", 12F, FontStyle.Bold),
-                Text = "Đăng nhập bởi: " + service.CurrentUser + " | Chỉ cho phép DBA/ADMIN"
+                Text = "BỆNH VIỆN DocCare | Đăng nhập: " + service.CurrentUser + " | Chỉ cho phép DBA/ADMIN"
             };
 
             var buttonPanel = new FlowLayoutPanel
@@ -144,9 +144,9 @@ namespace PhanHe1
                 Orientation = Orientation.Vertical,
                 SplitterDistance = 580
             };
-            split.BackColor = Color.FromArgb(224, 212, 244);
-            split.Panel1.BackColor = colorPageBackground;
-            split.Panel2.BackColor = colorPageBackground;
+            split.BackColor = Color.FromArgb(225, 245, 255);
+            split.Panel1.BackColor = Color.FromArgb(245, 250, 248);
+            split.Panel2.BackColor = Color.FromArgb(245, 250, 248);
 
             var grpUsers = new GroupBox { Dock = DockStyle.Fill, Text = "Danh sách User", Font = new Font("Segoe UI", 10F, FontStyle.Bold), BackColor = colorCardBackground };
             var grpRoles = new GroupBox { Dock = DockStyle.Fill, Text = "Danh sách Role", Font = new Font("Segoe UI", 10F, FontStyle.Bold), BackColor = colorCardBackground };
@@ -393,9 +393,9 @@ namespace PhanHe1
                 DefaultCellStyle = new DataGridViewCellStyle
                 {
                     BackColor = colorAccent,
-                    ForeColor = Color.FromArgb(66, 36, 58),
+                    ForeColor = UiTheme.DeepBlue,
                     SelectionBackColor = colorPanelBackground,
-                    SelectionForeColor = Color.Black,
+                    SelectionForeColor = UiTheme.WhiteText,
                     Alignment = DataGridViewContentAlignment.MiddleCenter
                 }
             };
@@ -406,13 +406,13 @@ namespace PhanHe1
             button.FlatStyle = FlatStyle.Flat;
             button.FlatAppearance.BorderSize = 0;
             button.BackColor = colorPrimary;
-            button.ForeColor = Color.FromArgb(46, 38, 70);
+            button.ForeColor = UiTheme.DeepBlue;
             button.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
             button.Cursor = Cursors.Hand;
             button.FlatAppearance.MouseOverBackColor = colorPrimaryHover;
-            button.FlatAppearance.MouseDownBackColor = Color.FromArgb(154, 128, 206);
+            button.FlatAppearance.MouseDownBackColor = Color.FromArgb(44, 211, 152);
             EnableRoundedButton(button, 12);
-            EnhanceButtonDepth(button, Color.FromArgb(122, 99, 172));
+            EnhanceButtonDepth(button, Color.FromArgb(40, 180, 70));
         }
 
         private void StyleSecondaryButton(Button button)
@@ -420,13 +420,13 @@ namespace PhanHe1
             button.FlatStyle = FlatStyle.Flat;
             button.FlatAppearance.BorderSize = 0;
             button.BackColor = colorSecondary;
-            button.ForeColor = Color.FromArgb(29, 44, 61);
+            button.ForeColor = UiTheme.WhiteText;
             button.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
             button.Cursor = Cursors.Hand;
-            button.FlatAppearance.MouseOverBackColor = Color.FromArgb(170, 219, 226);
-            button.FlatAppearance.MouseDownBackColor = Color.FromArgb(158, 207, 214);
+            button.FlatAppearance.MouseOverBackColor = Color.FromArgb(42, 147, 232);
+            button.FlatAppearance.MouseDownBackColor = UiTheme.DeepBlue;
             EnableRoundedButton(button, 12);
-            EnhanceButtonDepth(button, Color.FromArgb(110, 161, 168));
+            EnhanceButtonDepth(button, Color.FromArgb(40, 80, 200));
         }
 
         private static void EnhanceButtonDepth(Button button, Color shadowColor)
@@ -495,19 +495,7 @@ namespace PhanHe1
 
         private static void StyleGrid(DataGridView grid)
         {
-            grid.BackgroundColor = Color.FromArgb(241, 233, 250);
-            grid.BorderStyle = BorderStyle.None;
-            grid.EnableHeadersVisualStyles = false;
-            grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(178, 152, 231);
-            grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(33, 24, 56);
-            grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-            grid.ColumnHeadersHeight = 40;
-            grid.DefaultCellStyle.Font = new Font("Segoe UI", 10F, FontStyle.Regular);
-            grid.DefaultCellStyle.BackColor = Color.FromArgb(252, 246, 255);
-            grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(249, 190, 221);
-            grid.DefaultCellStyle.SelectionForeColor = Color.Black;
-            grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(236, 246, 250);
-            grid.GridColor = Color.FromArgb(217, 204, 234);
+            UiTheme.StyleGrid(grid);
         }
 
         private void LoadInitialData()

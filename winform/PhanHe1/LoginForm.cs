@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Text;
 using System.Windows.Forms;
 
 namespace PhanHe1
@@ -14,6 +15,7 @@ namespace PhanHe1
         private TextBox txtPassword;
         private Button btnLogin;
         private Label lblStatus;
+        private PictureBox picLogo;
 
         public OracleAdminService AuthenticatedService { get; private set; }
 
@@ -24,55 +26,65 @@ namespace PhanHe1
 
         private void BuildUi()
         {
-            Text = "Đăng nhập Oracle Admin";
+            Text = "Đăng nhập Admin BỆNH VIỆN";
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
-            ClientSize = new Size(560, 360);
-            BackColor = Color.FromArgb(252, 248, 255);
-            Font = new Font("Segoe UI", 10F, FontStyle.Regular);
+            ClientSize = new Size(620, 460);
+            BackColor = Color.White;
+            Font = UiTheme.BodyFont;
 
             var panel = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 2,
-                RowCount = 7,
-                BackColor = Color.FromArgb(249, 190, 221),
-                Padding = new Padding(18)
+                RowCount = 8,
+                BackColor = Color.White,
+                Padding = new Padding(24, 18, 24, 18)
             };
             panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
             panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
-            panel.Controls.Add(new Label { Text = "Host:", AutoSize = true }, 0, 0);
+            picLogo = new PictureBox
+            {
+                Dock = DockStyle.Fill,
+                Height = 90,
+                SizeMode = PictureBoxSizeMode.CenterImage,
+                Image = CreateDocCareLogoImage(250, 72)
+            };
+            panel.Controls.Add(picLogo, 0, 0);
+            panel.SetColumnSpan(picLogo, 2);
+
+            panel.Controls.Add(new Label { Text = "Host:", AutoSize = true, ForeColor = UiTheme.DeepBlue, Font = UiTheme.HeaderFont }, 0, 1);
             txtHost = new TextBox { Dock = DockStyle.Fill, Text = "localhost" };
-            panel.Controls.Add(txtHost, 1, 0);
+            panel.Controls.Add(txtHost, 1, 1);
 
-            panel.Controls.Add(new Label { Text = "Port:", AutoSize = true }, 0, 1);
+            panel.Controls.Add(new Label { Text = "Port:", AutoSize = true, ForeColor = UiTheme.DeepBlue, Font = UiTheme.HeaderFont }, 0, 2);
             txtPort = new TextBox { Dock = DockStyle.Fill, Text = "1521" };
-            panel.Controls.Add(txtPort, 1, 1);
+            panel.Controls.Add(txtPort, 1, 2);
 
-            panel.Controls.Add(new Label { Text = "Service Name:", AutoSize = true }, 0, 2);
-            txtService = new TextBox { Dock = DockStyle.Fill, Text = "XE" };
-            panel.Controls.Add(txtService, 1, 2);
+            panel.Controls.Add(new Label { Text = "Service Name:", AutoSize = true, ForeColor = UiTheme.DeepBlue, Font = UiTheme.HeaderFont }, 0, 3);
+            txtService = new TextBox { Dock = DockStyle.Fill, Text = "PDBQLBV" };
+            panel.Controls.Add(txtService, 1, 3);
 
-            panel.Controls.Add(new Label { Text = "Tài khoản:", AutoSize = true }, 0, 3);
-            txtUser = new TextBox { Dock = DockStyle.Fill, Text = "sys" };
-            panel.Controls.Add(txtUser, 1, 3);
+            panel.Controls.Add(new Label { Text = "Tài khoản:", AutoSize = true, ForeColor = UiTheme.DeepBlue, Font = UiTheme.HeaderFont }, 0, 4);
+            txtUser = new TextBox { Dock = DockStyle.Fill, Text = "app_admin" };
+            panel.Controls.Add(txtUser, 1, 4);
 
-            panel.Controls.Add(new Label { Text = "Mật khẩu:", AutoSize = true }, 0, 4);
+            panel.Controls.Add(new Label { Text = "Mật khẩu:", AutoSize = true, ForeColor = UiTheme.DeepBlue, Font = UiTheme.HeaderFont }, 0, 5);
             txtPassword = new TextBox { Dock = DockStyle.Fill, UseSystemPasswordChar = true };
-            panel.Controls.Add(txtPassword, 1, 4);
+            panel.Controls.Add(txtPassword, 1, 5);
 
             lblStatus = new Label
             {
                 Dock = DockStyle.Fill,
-                ForeColor = Color.FromArgb(115, 48, 88),
-                Text = "Chỉ cho phép tài khoản admin/DBA đăng nhập.",
+                ForeColor = UiTheme.DeepBlue,
+                Text = "BỆNH VIỆN DocCare - Chỉ cho phép tài khoản APP_ADMIN đăng nhập.",
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
                 AutoSize = true
             };
-            panel.Controls.Add(lblStatus, 0, 5);
+            panel.Controls.Add(lblStatus, 0, 6);
             panel.SetColumnSpan(lblStatus, 2);
 
             var footer = new FlowLayoutPanel
@@ -85,30 +97,30 @@ namespace PhanHe1
             btnLogin = new Button { Text = "Đăng nhập", Width = 140, Height = 40 };
             btnLogin.FlatStyle = FlatStyle.Flat;
             btnLogin.FlatAppearance.BorderSize = 0;
-            btnLogin.BackColor = Color.FromArgb(178, 152, 231);
-            btnLogin.ForeColor = Color.FromArgb(46, 38, 70);
+            btnLogin.BackColor = UiTheme.PastelGreen;
+            btnLogin.ForeColor = UiTheme.DeepBlue;
             btnLogin.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-            btnLogin.FlatAppearance.MouseOverBackColor = Color.FromArgb(166, 139, 221);
-            btnLogin.FlatAppearance.MouseDownBackColor = Color.FromArgb(154, 128, 206);
+            btnLogin.FlatAppearance.MouseOverBackColor = Color.FromArgb(102, 235, 188);
+            btnLogin.FlatAppearance.MouseDownBackColor = Color.FromArgb(44, 211, 152);
             EnableRoundedButton(btnLogin, 12);
-            EnhanceButtonDepth(btnLogin, Color.FromArgb(122, 99, 172));
+            EnhanceButtonDepth(btnLogin, Color.FromArgb(40, 180, 70));
             btnLogin.Click += btnLogin_Click;
             var btnCancel = new Button { Text = "Thoát", Width = 140, Height = 40 };
             btnCancel.FlatStyle = FlatStyle.Flat;
             btnCancel.FlatAppearance.BorderSize = 0;
-            btnCancel.BackColor = Color.FromArgb(184, 227, 233);
-            btnCancel.ForeColor = Color.FromArgb(29, 44, 61);
+            btnCancel.BackColor = UiTheme.BrandeisBlue;
+            btnCancel.ForeColor = UiTheme.WhiteText;
             btnCancel.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-            btnCancel.FlatAppearance.MouseOverBackColor = Color.FromArgb(170, 219, 226);
-            btnCancel.FlatAppearance.MouseDownBackColor = Color.FromArgb(158, 207, 214);
+            btnCancel.FlatAppearance.MouseOverBackColor = Color.FromArgb(42, 147, 232);
+            btnCancel.FlatAppearance.MouseDownBackColor = UiTheme.DeepBlue;
             EnableRoundedButton(btnCancel, 12);
-            EnhanceButtonDepth(btnCancel, Color.FromArgb(110, 161, 168));
+            EnhanceButtonDepth(btnCancel, Color.FromArgb(40, 80, 200));
             btnCancel.Click += delegate { DialogResult = DialogResult.Cancel; Close(); };
 
             footer.Controls.Add(btnLogin);
             footer.Controls.Add(btnCancel);
 
-            panel.Controls.Add(footer, 0, 6);
+            panel.Controls.Add(footer, 0, 7);
             panel.SetColumnSpan(footer, 2);
 
             Controls.Add(panel);
@@ -201,6 +213,36 @@ namespace PhanHe1
             path.AddArc(rect.X, rect.Bottom - diameter, diameter, diameter, 90, 90);
             path.CloseFigure();
             return path;
+        }
+
+        private static Image CreateDocCareLogoImage(int width, int height)
+        {
+            var bmp = new Bitmap(width, height);
+            using (Graphics g = Graphics.FromImage(bmp))
+            {
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+                g.Clear(Color.White);
+
+                var rectH = new Rectangle(20, 24, 72, 24);
+                var rectV = new Rectangle(44, 10, 24, 52);
+                using (var deepBrush = new SolidBrush(UiTheme.DeepBlue))
+                using (var aquaBrush = new SolidBrush(UiTheme.JordyBlue))
+                using (var mintBrush = new SolidBrush(UiTheme.PastelGreen))
+                {
+                    g.FillRectangle(deepBrush, rectH);
+                    g.FillRectangle(aquaBrush, rectV);
+                    g.FillEllipse(mintBrush, 48, 0, 12, 12);
+                }
+
+                using (var font = new Font("Segoe UI", 26F, FontStyle.Bold, GraphicsUnit.Pixel))
+                using (var textBrush = new SolidBrush(UiTheme.DeepBlue))
+                {
+                    g.DrawString("DocCare", font, textBrush, new PointF(102, 15));
+                }
+            }
+
+            return bmp;
         }
     }
 }

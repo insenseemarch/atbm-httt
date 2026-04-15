@@ -1,5 +1,6 @@
 using System;
 using System.Windows.Forms;
+using PhanHe1;
 using PhanHe1.Services;
 
 namespace PhanHe1.Forms
@@ -24,6 +25,10 @@ namespace PhanHe1.Forms
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
+            Text = "Cấp quyền - BỆNH VIỆN DocCare";
+            BackColor = UiTheme.LightCyan;
+            Font = UiTheme.BodyFont;
+
             // Khởi tạo controls
             cbGranteeType = new ComboBox { Left = 20, Top = 20, Width = 120, DropDownStyle = ComboBoxStyle.DropDownList };
             cbGranteeType.Items.AddRange(new object[] { "User", "Role" });
@@ -45,10 +50,14 @@ namespace PhanHe1.Forms
             txtColumnName = new TextBox { Left = 320, Top = 60, Width = 120, PlaceholderText = "Column Name (nếu có)" };
             this.Controls.Add(txtColumnName);
 
-            chkGrantable = new CheckBox { Left = 20, Top = 100, Text = "WITH GRANT OPTION" };
+            chkGrantable = new CheckBox { Left = 20, Top = 100, Text = "WITH GRANT OPTION", ForeColor = UiTheme.ZucchiniGreen };
             this.Controls.Add(chkGrantable);
 
             btnGrant = new Button { Left = 160, Top = 100, Text = "Cấp quyền", Width = 100 };
+            btnGrant.FlatStyle = FlatStyle.Flat;
+            btnGrant.FlatAppearance.BorderSize = 0;
+            btnGrant.BackColor = UiTheme.PastelGreen;
+            btnGrant.ForeColor = UiTheme.WhiteText;
             btnGrant.Click += BtnGrant_Click;
             this.Controls.Add(btnGrant);
 

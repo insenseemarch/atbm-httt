@@ -1,5 +1,6 @@
 using System;
 using System.Windows.Forms;
+using PhanHe1;
 using PhanHe1.Services;
 
 namespace PhanHe1.Forms
@@ -20,8 +21,16 @@ namespace PhanHe1.Forms
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
+            Text = "Quản lý User - BỆNH VIỆN DocCare";
+            BackColor = UiTheme.LightCyan;
+            Font = UiTheme.BodyFont;
+
             _userService = new UserService();
             dgvUsers = new DataGridView { Left = 20, Top = 20, Width = 500, Height = 200, ReadOnly = true, SelectionMode = DataGridViewSelectionMode.FullRowSelect };
+            dgvUsers.BackgroundColor = UiTheme.LightCyan;
+            dgvUsers.EnableHeadersVisualStyles = false;
+            dgvUsers.ColumnHeadersDefaultCellStyle.BackColor = UiTheme.BrandeisBlue;
+            dgvUsers.ColumnHeadersDefaultCellStyle.ForeColor = UiTheme.WhiteText;
             this.Controls.Add(dgvUsers);
 
             txtUsername = new TextBox { Left = 20, Top = 240, Width = 100, PlaceholderText = "Username" };
@@ -38,12 +47,24 @@ namespace PhanHe1.Forms
             this.Controls.Add(cbStatus);
 
             btnCreate = new Button { Left = 20, Top = 280, Text = "Tạo mới", Width = 80 };
+            btnCreate.FlatStyle = FlatStyle.Flat;
+            btnCreate.FlatAppearance.BorderSize = 0;
+            btnCreate.BackColor = UiTheme.PastelGreen;
+            btnCreate.ForeColor = UiTheme.WhiteText;
             btnCreate.Click += BtnCreate_Click;
             this.Controls.Add(btnCreate);
             btnDelete = new Button { Left = 110, Top = 280, Text = "Xóa", Width = 80 };
+            btnDelete.FlatStyle = FlatStyle.Flat;
+            btnDelete.FlatAppearance.BorderSize = 0;
+            btnDelete.BackColor = UiTheme.BrandeisBlue;
+            btnDelete.ForeColor = UiTheme.WhiteText;
             btnDelete.Click += BtnDelete_Click;
             this.Controls.Add(btnDelete);
             btnUpdate = new Button { Left = 200, Top = 280, Text = "Sửa", Width = 80 };
+            btnUpdate.FlatStyle = FlatStyle.Flat;
+            btnUpdate.FlatAppearance.BorderSize = 0;
+            btnUpdate.BackColor = UiTheme.ZucchiniGreen;
+            btnUpdate.ForeColor = UiTheme.WhiteText;
             btnUpdate.Click += BtnUpdate_Click;
             this.Controls.Add(btnUpdate);
 

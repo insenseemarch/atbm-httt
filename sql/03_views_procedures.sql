@@ -225,6 +225,7 @@ CREATE OR REPLACE PROCEDURE sp_GrantColPrivs(
 ) AS
     v_view_name VARCHAR2(128);
     v_sql       VARCHAR2(1000);
+    v_has_grantable NUMBER := 0;
 BEGIN
     IF UPPER(p_privilege) IN ('INSERT', 'DELETE') THEN
         RAISE_APPLICATION_ERROR(-20001, 'INSERT/DELETE không hỗ trợ mức cột!');
@@ -237,6 +238,28 @@ BEGIN
         END IF;
         EXECUTE IMMEDIATE v_sql;
     ELSIF UPPER(p_privilege) = 'SELECT' THEN
+        -- Với object khác schema, APP_ADMIN phải có SELECT WITH GRANT OPTION
+        -- trên bảng/view gốc thì mới GRANT SELECT qua view trung gian được.
+        IF UPPER(p_schema) <> USER THEN
+            SELECT COUNT(*)
+            INTO v_has_grantable
+            FROM DBA_TAB_PRIVS
+            WHERE OWNER = DBMS_ASSERT.SIMPLE_SQL_NAME(UPPER(p_schema))
+              AND TABLE_NAME = DBMS_ASSERT.SIMPLE_SQL_NAME(UPPER(p_object))
+              AND GRANTEE = USER
+              AND PRIVILEGE = 'SELECT'
+              AND GRANTABLE = 'YES';
+
+            IF v_has_grantable = 0 THEN
+                RAISE_APPLICATION_ERROR(
+                    -20008,
+                    'Thiếu SELECT WITH GRANT OPTION trên ' ||
+                    DBMS_ASSERT.SIMPLE_SQL_NAME(UPPER(p_schema)) || '.' || DBMS_ASSERT.SIMPLE_SQL_NAME(UPPER(p_object)) ||
+                    '. Hãy cấp: GRANT SELECT ON ' || DBMS_ASSERT.SIMPLE_SQL_NAME(UPPER(p_schema)) || '.' || DBMS_ASSERT.SIMPLE_SQL_NAME(UPPER(p_object)) || ' TO ' || USER || ' WITH GRANT OPTION'
+                );
+            END IF;
+        END IF;
+
         v_view_name := SUBSTR('V$COL$' || DBMS_ASSERT.SIMPLE_SQL_NAME(UPPER(p_object)) || '$' || DBMS_ASSERT.SIMPLE_SQL_NAME(UPPER(p_grantee)), 1, 128);
         v_sql := 'CREATE OR REPLACE VIEW ' || v_view_name ||
                  ' AS SELECT ' || p_columns ||
@@ -254,7 +277,9 @@ BEGIN
 
 EXCEPTION
     WHEN OTHERS THEN
-        IF SQLCODE IN (-20001, -20003) THEN RAISE;
+        IF SQLCODE IN (-20001, -20003, -20008) THEN RAISE;
+        ELSIF SQLCODE = -1720 THEN
+            RAISE_APPLICATION_ERROR(-20009, 'Không thể GRANT SELECT theo cột vì APP_ADMIN chưa có GRANT OPTION trên object nguồn: ' || SQLERRM);
         ELSE RAISE_APPLICATION_ERROR(-20002, 'Lỗi cấp quyền cột: ' || SQLERRM);
         END IF;
 END;

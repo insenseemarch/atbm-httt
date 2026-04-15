@@ -1,5 +1,6 @@
 using System;
 using System.Windows.Forms;
+using PhanHe1;
 using PhanHe1.Services;
 
 namespace PhanHe1.Forms
@@ -21,6 +22,10 @@ namespace PhanHe1.Forms
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
+            Text = "Xem quyền - BỆNH VIỆN DocCare";
+            BackColor = UiTheme.LightCyan;
+            Font = UiTheme.BodyFont;
+
             cbType = new ComboBox { Left = 20, Top = 20, Width = 100, DropDownStyle = ComboBoxStyle.DropDownList };
             cbType.Items.AddRange(new object[] { "User", "Role" });
             cbType.SelectedIndex = 0;
@@ -31,10 +36,18 @@ namespace PhanHe1.Forms
             this.Controls.Add(cbName);
 
             btnView = new Button { Left = 300, Top = 20, Text = "Xem quyền", Width = 100 };
+            btnView.FlatStyle = FlatStyle.Flat;
+            btnView.FlatAppearance.BorderSize = 0;
+            btnView.BackColor = UiTheme.PastelGreen;
+            btnView.ForeColor = UiTheme.WhiteText;
             btnView.Click += BtnView_Click;
             this.Controls.Add(btnView);
 
             dgvPrivileges = new DataGridView { Left = 20, Top = 60, Width = 500, Height = 250, ReadOnly = true, SelectionMode = DataGridViewSelectionMode.FullRowSelect };
+            dgvPrivileges.BackgroundColor = UiTheme.LightCyan;
+            dgvPrivileges.EnableHeadersVisualStyles = false;
+            dgvPrivileges.ColumnHeadersDefaultCellStyle.BackColor = UiTheme.BrandeisBlue;
+            dgvPrivileges.ColumnHeadersDefaultCellStyle.ForeColor = UiTheme.WhiteText;
             this.Controls.Add(dgvPrivileges);
 
             LoadNames();

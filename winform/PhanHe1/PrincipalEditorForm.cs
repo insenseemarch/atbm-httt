@@ -31,21 +31,21 @@ namespace PhanHe1
 
         private void BuildUi(string title)
         {
-            Text = title;
+            Text = title + " - BỆNH VIỆN DocCare";
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
             ClientSize = new Size(460, 220);
-            BackColor = Color.FromArgb(252, 248, 255);
-            Font = new Font("Segoe UI", 10F, FontStyle.Regular);
+            BackColor = UiTheme.LightCyan;
+            Font = UiTheme.BodyFont;
 
             var panel = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 2,
                 RowCount = 4,
-                BackColor = Color.FromArgb(249, 190, 221),
+                BackColor = UiTheme.JordyBlue,
                 Padding = new Padding(14)
             };
 
@@ -69,22 +69,22 @@ namespace PhanHe1
             var btnOk = new Button { Text = "Đồng ý", Width = 120, Height = 34 };
             btnOk.FlatStyle = FlatStyle.Flat;
             btnOk.FlatAppearance.BorderSize = 0;
-            btnOk.BackColor = Color.FromArgb(178, 152, 231);
-            btnOk.ForeColor = Color.FromArgb(46, 38, 70);
-            btnOk.FlatAppearance.MouseOverBackColor = Color.FromArgb(166, 139, 221);
-            btnOk.FlatAppearance.MouseDownBackColor = Color.FromArgb(154, 128, 206);
+            btnOk.BackColor = UiTheme.PastelGreen;
+            btnOk.ForeColor = UiTheme.WhiteText;
+            btnOk.FlatAppearance.MouseOverBackColor = Color.FromArgb(102, 235, 188);
+            btnOk.FlatAppearance.MouseDownBackColor = Color.FromArgb(44, 211, 152);
             EnableRoundedButton(btnOk, 12);
-            EnhanceButtonDepth(btnOk, Color.FromArgb(122, 99, 172));
+            EnhanceButtonDepth(btnOk, Color.FromArgb(40, 180, 70));
             btnOk.Click += btnOk_Click;
             var btnCancel = new Button { Text = "Hủy", Width = 120, Height = 34 };
             btnCancel.FlatStyle = FlatStyle.Flat;
             btnCancel.FlatAppearance.BorderSize = 0;
-            btnCancel.BackColor = Color.FromArgb(184, 227, 233);
-            btnCancel.ForeColor = Color.FromArgb(29, 44, 61);
-            btnCancel.FlatAppearance.MouseOverBackColor = Color.FromArgb(170, 219, 226);
-            btnCancel.FlatAppearance.MouseDownBackColor = Color.FromArgb(158, 207, 214);
+            btnCancel.BackColor = UiTheme.BrandeisBlue;
+            btnCancel.ForeColor = UiTheme.WhiteText;
+            btnCancel.FlatAppearance.MouseOverBackColor = Color.FromArgb(42, 147, 232);
+            btnCancel.FlatAppearance.MouseDownBackColor = UiTheme.DeepBlue;
             EnableRoundedButton(btnCancel, 12);
-            EnhanceButtonDepth(btnCancel, Color.FromArgb(110, 161, 168));
+            EnhanceButtonDepth(btnCancel, Color.FromArgb(40, 80, 200));
             btnCancel.Click += delegate { DialogResult = DialogResult.Cancel; Close(); };
 
             var footer = new FlowLayoutPanel
