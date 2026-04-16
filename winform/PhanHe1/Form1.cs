@@ -146,7 +146,7 @@ namespace PhanHe1
 
             tabMain = new TabControl { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 10F, FontStyle.Bold) };
             tabManage = new TabPage("Quản lý User và Role");
-            tabGrant = new TabPage("Cấp quyền bằng nút bấm");
+            tabGrant = new TabPage("Cấp quyền");
             tabPrivileges = new TabPage("Xem quyền và thu hồi");
             tabManage.BackColor = colorPageBackground;
             tabGrant.BackColor = colorPageBackground;
