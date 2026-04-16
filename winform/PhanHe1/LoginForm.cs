@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.Windows.Forms;
+using Oracle.ManagedDataAccess.Client;
 
 namespace PhanHe1
 {
@@ -126,10 +127,39 @@ namespace PhanHe1
             Controls.Add(panel);
             AcceptButton = btnLogin;
         }
+        private static string MapLoginError(Exception ex)
+        {
+            OracleException oracleEx = ex as OracleException;
+            if (oracleEx != null)
+            {
+                switch (oracleEx.Number)
+                {
+                    case 1017:
+                        return "Sai tài khoản hoặc mật khẩu Oracle.";
+                    case 12514:
+                        return "Sai Service Name hoặc service chưa đăng ký trên listener.";
+                    case 12541:
+                        return "Không kết nối được Listener. Kiểm tra Host/Port và trạng thái Oracle.";
+                    case 12170:
+                        return "Kết nối Oracle bị timeout. Kiểm tra mạng hoặc firewall.";
+                    case 28000:
+                        return "Tài khoản Oracle đang bị khóa.";
+                    default:
+                        return "Không thể đăng nhập Oracle. Mã lỗi ORA-" + oracleEx.Number + ".";
+                }
+            }
 
+            if (ex is InvalidOperationException)
+            {
+                return ex.Message;
+            }
+
+            return "Không thể đăng nhập. Vui lòng kiểm tra lại thông tin kết nối.";
+        }
         private void btnLogin_Click(object sender, EventArgs e)
         {
             btnLogin.Enabled = false;
+            lblStatus.ForeColor = UiTheme.DeepBlue;
             lblStatus.Text = "Đang kết nối Oracle...";
 
             try
@@ -146,7 +176,19 @@ namespace PhanHe1
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "Đăng nhập thất bại: " + ex.Message;
+                string friendlyMessage = MapLoginError(ex);
+
+                lblStatus.ForeColor = Color.Firebrick;
+                lblStatus.Text = friendlyMessage;
+
+                MessageBox.Show(
+                    friendlyMessage,
+                    "Đăng nhập thất bại",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+            }
+            finally
+            {
                 btnLogin.Enabled = true;
             }
         }
