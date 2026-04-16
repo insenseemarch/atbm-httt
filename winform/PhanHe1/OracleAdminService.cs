@@ -98,14 +98,55 @@ namespace PhanHe1
             return list;
         }
 
-        public List<string> GetObjectsForGrant()
+        public List<string> GetObjectsForGrant(string objectType = null)
         {
             var list = new List<string>();
-            DataTable dt = Query(
-                "SELECT OBJECT_TYPE || ' | ' || OWNER || '.' || OBJECT_NAME AS DISPLAY_NAME " +
-                "FROM DBA_OBJECTS " +
-                "WHERE OBJECT_TYPE IN ('TABLE', 'VIEW', 'PROCEDURE', 'FUNCTION') " +
-                "ORDER BY CASE OBJECT_TYPE WHEN 'TABLE' THEN 1 WHEN 'VIEW' THEN 2 WHEN 'PROCEDURE' THEN 3 WHEN 'FUNCTION' THEN 4 ELSE 5 END, OWNER, OBJECT_NAME");
+
+            string safeType = string.IsNullOrWhiteSpace(objectType)
+                ? null
+                : objectType.Trim().ToUpperInvariant();
+
+            if (safeType != null &&
+                safeType != "TABLE" &&
+                safeType != "VIEW" &&
+                safeType != "PROCEDURE" &&
+                safeType != "FUNCTION")
+            {
+                throw new InvalidOperationException("Loại đối tượng không hợp lệ.");
+            }
+
+            string typeCondition = safeType == null
+                ? "OBJECT_TYPE IN ('TABLE', 'VIEW', 'PROCEDURE', 'FUNCTION')"
+                : "OBJECT_TYPE = '" + safeType + "'";
+
+            DataTable dt;
+            try
+            { 
+                dt = Query(
+                    "SELECT o.OBJECT_TYPE || ' | ' || o.OWNER || '.' || o.OBJECT_NAME AS DISPLAY_NAME " +
+                    "FROM ALL_OBJECTS o " +
+                    "WHERE " + typeCondition + " " +
+                    "AND o.OWNER = USER " +
+                    "AND o.OBJECT_NAME NOT LIKE 'BIN$%' " +
+                    "ORDER BY CASE o.OBJECT_TYPE " +
+                    "WHEN 'TABLE' THEN 1 WHEN 'VIEW' THEN 2 WHEN 'PROCEDURE' THEN 3 WHEN 'FUNCTION' THEN 4 ELSE 5 END, " +
+                    "o.OBJECT_NAME");
+            }
+            catch
+            {
+                dt = Query(
+                    "SELECT o.OBJECT_TYPE || ' | ' || o.OWNER || '.' || o.OBJECT_NAME AS DISPLAY_NAME " +
+                    "FROM DBA_OBJECTS o " +
+                    "WHERE " + typeCondition + " " +
+                    "AND o.OWNER NOT IN (" +
+                    "'SYS','SYSTEM','XDB','MDSYS','CTXSYS','ORDSYS','ORDDATA','LBACSYS','OUTLN','DBSNMP','SYSMAN'," +
+                    "'GSMADMIN_INTERNAL','OJVMSYS','GGSYS','AUDSYS','DVSYS','DVF','ANONYMOUS','WMSYS','APPQOSSYS'" +
+                    ") " +
+                    "AND o.OBJECT_NAME NOT LIKE 'BIN$%' " +
+                    "ORDER BY CASE o.OBJECT_TYPE " +
+                    "WHEN 'TABLE' THEN 1 WHEN 'VIEW' THEN 2 WHEN 'PROCEDURE' THEN 3 WHEN 'FUNCTION' THEN 4 ELSE 5 END, " +
+                    "o.OWNER, o.OBJECT_NAME");
+            }
 
             foreach (DataRow row in dt.Rows)
             {
@@ -242,16 +283,6 @@ namespace PhanHe1
             ExecuteProcedure("sp_DeleteRole", new Dictionary<string, object>
             {
                 { "p_rolename", roleName }
-            });
-        }
-
-        public void GrantSystemPrivilege(string privilege, string principal, bool withAdminOption)
-        {
-            ExecuteProcedure("sp_GrantSysPrivs", new Dictionary<string, object>
-            {
-                { "p_privilege", privilege.Trim().ToUpperInvariant() },
-                { "p_grantee", principal },
-                { "p_admin_option", withAdminOption ? "YES" : "NO" }
             });
         }
 

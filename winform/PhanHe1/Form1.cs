@@ -38,10 +38,8 @@ namespace PhanHe1
         private Label lblGrantToName;
         private CheckBox chkGrantOption;
 
-        private Panel pnlGrantSystem;
-        private ComboBox cmbSystemPrivilege;
-
         private Panel pnlGrantObject;
+        private ComboBox cmbObjectType;
         private ComboBox cmbObjectName;
         private ComboBox cmbObjectPrivilege;
         private CheckedListBox clbColumns;
@@ -326,60 +324,46 @@ namespace PhanHe1
 
             var detailHost = new Panel { Dock = DockStyle.Fill };
 
-            pnlGrantSystem = new Panel { Dock = DockStyle.Fill };
-            var sysLayout = new TableLayoutPanel
-            {
-                Dock = DockStyle.Top,
-                ColumnCount = 2,
-                RowCount = 1,
-                Height = 40
-            };
-            sysLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170F));
-            sysLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            sysLayout.Controls.Add(new Label { Text = "Quyền hệ thống:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 0);
-            cmbSystemPrivilege = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
-            cmbSystemPrivilege.Items.AddRange(new object[]
-            {
-                "CREATE SESSION",
-                "CREATE TABLE",
-                "CREATE VIEW",
-                "CREATE PROCEDURE",
-                "UNLIMITED TABLESPACE"
-            });
-            cmbSystemPrivilege.SelectedIndex = 0;
-            sysLayout.Controls.Add(cmbSystemPrivilege, 1, 0);
-            pnlGrantSystem.Controls.Add(sysLayout);
-
             pnlGrantObject = new Panel { Dock = DockStyle.Fill };
             var objLayout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 4,
-                RowCount = 2
+                RowCount = 3
             };
             objLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170F));
             objLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45F));
             objLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
             objLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55F));
             objLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
+            objLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
             objLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
-            objLayout.Controls.Add(new Label { Text = "Tên bảng/view/SP/fn:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 0);
-            cmbObjectName = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
-            cmbObjectName.SelectedIndexChanged += cmbObjectName_SelectedIndexChanged;
-            objLayout.Controls.Add(cmbObjectName, 1, 0);
+            // Row 0: Loại đối tượng + quyền
+            objLayout.Controls.Add(new Label { Text = "Loại đối tượng:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 0);
+            cmbObjectType = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
+            cmbObjectType.Items.AddRange(new object[] { "TABLE", "VIEW", "PROCEDURE", "FUNCTION" });
+            cmbObjectType.SelectedIndexChanged += cmbObjectType_SelectedIndexChanged;
+            objLayout.Controls.Add(cmbObjectType, 1, 0);
 
             objLayout.Controls.Add(new Label { Text = "Quyền:", AutoSize = true, Anchor = AnchorStyles.Left }, 2, 0);
             cmbObjectPrivilege = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
-            cmbObjectPrivilege.Items.AddRange(new object[] { "SELECT", "INSERT", "UPDATE", "DELETE", "EXECUTE" });
-            cmbObjectPrivilege.SelectedIndex = 0;
             cmbObjectPrivilege.SelectedIndexChanged += CmbObjectPrivilege_SelectedIndexChanged;
             objLayout.Controls.Add(cmbObjectPrivilege, 3, 0);
 
-            objLayout.Controls.Add(new Label { Text = "Tên cột (nếu có):", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 1);
+            // Row 1: Tên object
+            objLayout.Controls.Add(new Label { Text = "Tên đối tượng:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 1);
+            cmbObjectName = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
+            cmbObjectName.SelectedIndexChanged += cmbObjectName_SelectedIndexChanged;
+            objLayout.Controls.Add(cmbObjectName, 1, 1);
+            objLayout.SetColumnSpan(cmbObjectName, 3);
+
+            // Row 2: Cột
+            objLayout.Controls.Add(new Label { Text = "Tên cột (nếu có):", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 2);
             clbColumns = new CheckedListBox { Dock = DockStyle.Fill, CheckOnClick = true, Enabled = true };
-            objLayout.Controls.Add(clbColumns, 1, 1);
+            objLayout.Controls.Add(clbColumns, 1, 2);
             objLayout.SetColumnSpan(clbColumns, 3);
+
             pnlGrantObject.Controls.Add(objLayout);
 
             pnlGrantRole = new Panel { Dock = DockStyle.Fill };
@@ -754,7 +738,26 @@ namespace PhanHe1
                 dgvUsers.Rows.Add(row["USERNAME"].ToString(), row["ACCOUNT_STATUS"].ToString());
             }
         }
+        private void cmbObjectType_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            LoadObjectsByType();
+        }
 
+        private void LoadObjectsByType()
+        {
+            cmbObjectName.Items.Clear();
+            cmbObjectPrivilege.Items.Clear();
+            clbColumns.Items.Clear();
+
+            if (cmbObjectType.SelectedItem == null)
+            {
+                return;
+            }
+
+            string objectType = cmbObjectType.SelectedItem.ToString();
+            var objects = service.GetObjectsForGrant(objectType);
+            FillCombo(cmbObjectName, objects);
+        }
         private void LoadRoleGrid()
         {
             dgvRoles.Rows.Clear();
@@ -772,11 +775,14 @@ namespace PhanHe1
 
             var users = service.GetUserNames();
             var roles = service.GetRoleNames();
-            var objects = service.GetObjectsForGrant();
 
             FillCombo(cmbGrantRoleToUser, users);
             FillCombo(cmbGrantRoleName, roles);
-            FillCombo(cmbObjectName, objects);
+
+            if (cmbObjectType != null && cmbObjectType.Items.Count > 0)
+            {
+                cmbObjectType.SelectedIndex = 0; // tự động gọi LoadObjectsByType qua event
+            }
         }
 
         private void LoadPrincipalCombo(ComboBox typeCombo, ComboBox targetCombo)
