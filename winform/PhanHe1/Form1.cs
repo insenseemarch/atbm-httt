@@ -871,6 +871,7 @@ namespace PhanHe1
             }
 
             string userName = dgvUsers.Rows[e.RowIndex].Cells["USERNAME"].Value.ToString();
+            string accountStatus = dgvUsers.Rows[e.RowIndex].Cells["ACCOUNT_STATUS"].Value.ToString();
             string columnName = dgvUsers.Columns[e.ColumnIndex].Name;
 
             try
@@ -880,6 +881,8 @@ namespace PhanHe1
                     var menu = new ContextMenuStrip();
                     menu.Items.Add("Thêm quyền", null, delegate { SelectPrincipalForGrant("USER", userName); });
                     menu.Items.Add("Xem quyền", null, delegate { SelectPrincipalAndLoadPrivileges("USER", userName); });
+                    bool isLocked = IsUserLocked(accountStatus);
+                    menu.Items.Add(isLocked ? "Mở khóa tài khoản" : "Khóa tài khoản", null, delegate { ToggleUserStatus(userName, accountStatus); });
                     menu.Items.Add("Sửa (đổi mật khẩu)", null, delegate { EditUserPassword(userName); });
                     menu.Items.Add("Xóa user", null, delegate { DeleteUser(userName); });
 
@@ -933,6 +936,28 @@ namespace PhanHe1
                     LoadInitialData();
                 }
             }
+        }
+
+        private void ToggleUserStatus(string userName, string currentStatus)
+        {
+            bool isLocked = IsUserLocked(currentStatus);
+            bool lockStatus = !isLocked;
+            string actionText = lockStatus ? "khóa" : "mở khóa";
+
+            if (MessageBox.Show("Bạn có chắc muốn " + actionText + " tài khoản " + userName + "?", "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+            {
+                return;
+            }
+
+            service.LockUser(userName, lockStatus);
+            LoadInitialData();
+            MessageBox.Show("Đã " + actionText + " tài khoản " + userName + ".", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private static bool IsUserLocked(string accountStatus)
+        {
+            return !string.IsNullOrWhiteSpace(accountStatus)
+                && accountStatus.IndexOf("LOCKED", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private void DeleteUser(string userName)
@@ -1106,12 +1131,18 @@ namespace PhanHe1
             }
 
             string privilege = dgvPrivileges.Rows[e.RowIndex].Cells["COL_PRIVILEGE"].Value.ToString();
+            string objectType = dgvPrivileges.Rows[e.RowIndex].Cells["COL_OBJECT_TYPE"].Value.ToString();
             string objectName = dgvPrivileges.Rows[e.RowIndex].Cells["COL_OBJECT_NAME"].Value.ToString();
             string principal = cmbViewName.SelectedItem.ToString();
 
             try
             {
-                if (string.IsNullOrWhiteSpace(objectName) || objectName == "SYSTEM")
+                if (string.Equals(cmbViewType.Text, "USER", StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(objectType, "ROLE", StringComparison.OrdinalIgnoreCase))
+                {
+                    service.RevokeRoleFromUser(objectName, principal);
+                }
+                else if (string.IsNullOrWhiteSpace(objectName) || objectName == "SYSTEM")
                 {
                     service.RevokePrivilege(privilege, principal, null);
                 }
