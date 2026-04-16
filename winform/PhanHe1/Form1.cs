@@ -314,7 +314,6 @@ namespace PhanHe1
             cmbGrantType = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
             cmbGrantType.Items.AddRange(new object[]
             {
-                "Cấp quyền hệ thống",
                 "Cấp quyền đối tượng",
                 "Cấp role cho user"
             });
@@ -386,7 +385,6 @@ namespace PhanHe1
             roleLayout.Controls.Add(cmbGrantRoleToUser, 3, 0);
             pnlGrantRole.Controls.Add(roleLayout);
 
-            detailHost.Controls.Add(pnlGrantSystem);
             detailHost.Controls.Add(pnlGrantObject);
             detailHost.Controls.Add(pnlGrantRole);
             detailLayout.Controls.Add(detailHost, 0, 1);
@@ -814,11 +812,10 @@ namespace PhanHe1
         private void UpdateGrantPanels()
         {
             int mode = cmbGrantType.SelectedIndex;
-            pnlGrantSystem.Visible = mode == 0;
-            pnlGrantObject.Visible = mode == 1;
-            pnlGrantRole.Visible = mode == 2;
+            pnlGrantObject.Visible = mode == 0;
+            pnlGrantRole.Visible = mode == 1;
 
-            bool isGrantRoleToUserMode = mode == 2;
+            bool isGrantRoleToUserMode = mode == 1;
             if (isGrantRoleToUserMode)
             {
                 lblGrantToType.Visible = false;
@@ -1056,11 +1053,7 @@ namespace PhanHe1
         {
             try
             {
-                if (cmbGrantType.SelectedIndex == 0)
-                {
-                    service.GrantSystemPrivilege(cmbSystemPrivilege.Text, cmbGrantToName.Text, chkGrantOption.Checked);
-                }
-                else if (cmbGrantType.SelectedIndex == 1)
+                if (cmbGrantType.SelectedIndex == 1)
                 {
                     Tuple<string, string> objectInfo = ParseGrantObjectSelection();
                     if (objectInfo == null)
