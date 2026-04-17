@@ -131,6 +131,12 @@ INSERT INTO PRIVILEGES (privilege_name, object_type, description, column_level) 
     ('DELETE',    'TABLE',     'Quyền xóa dữ liệu khỏi bảng',              0);
 INSERT INTO PRIVILEGES (privilege_name, object_type, description, column_level) VALUES
     ('EXECUTE',   'PROCEDURE', 'Quyền thực thi stored procedure',            0);
+INSERT INTO PRIVILEGES (privilege_name, object_type, description, column_level) VALUES
+    ('DEBUG',     'PROCEDURE', 'Quyền gỡ lỗi stored procedure',              0);
+INSERT INTO PRIVILEGES (privilege_name, object_type, description, column_level) VALUES
+    ('EXECUTE',   'FUNCTION',  'Quyền thực thi function',                    0);
+INSERT INTO PRIVILEGES (privilege_name, object_type, description, column_level) VALUES
+    ('DEBUG',     'FUNCTION',  'Quyền gỡ lỗi function',                      0);
 COMMENT ON TABLE  PRIVILEGES                  IS 'Danh mục các loại quyền hạn trong Oracle';
 COMMENT ON COLUMN PRIVILEGES.privilege_name   IS 'Tên quyền: SELECT, INSERT, UPDATE, DELETE, EXECUTE';
 COMMENT ON COLUMN PRIVILEGES.object_type      IS 'Loại đối tượng áp dụng quyền này';

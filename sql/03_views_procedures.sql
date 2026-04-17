@@ -55,6 +55,25 @@ WHERE ROLE IN (SELECT ROLE FROM DBA_ROLES WHERE ORACLE_MAINTAINED = 'N')
   AND TABLE_NAME IN (SELECT object_name FROM APP_ADMIN.DB_OBJECTS)
 ORDER BY ROLE;
 
+-- 7. View tổng hợp Đối tượng Hệ thống đồ án (Phân chia Category)
+CREATE OR REPLACE VIEW v_ProjectObjects AS
+SELECT 
+    object_name, 
+    object_type, 
+    owner,
+    'Đối tượng của hệ thống đồ án' AS category
+FROM APP_ADMIN.DB_OBJECTS
+UNION ALL
+SELECT 
+    view_name AS object_name,
+    'VIEW' AS object_type,
+    owner,
+    'Đối tượng do người dùng tạo' AS category
+FROM DBA_VIEWS
+WHERE view_name LIKE 'V$COL$%'
+  AND owner = 'APP_ADMIN'
+ORDER BY category, object_type, object_name;
+
 -- Tạo procedure--
 
 -- Liên quan tới user:
@@ -294,4 +313,32 @@ EXCEPTION
 END;
 /
 
+-- 14. Cấp quyền Hệ thống (VD: CREATE TABLE, CREATE VIEW...)
+CREATE OR REPLACE PROCEDURE sp_GrantSysPrivs(
+    p_privilege IN VARCHAR2,
+    p_grantee   IN VARCHAR2,
+    p_admin_option IN VARCHAR2 DEFAULT 'NO'
+) AS 
+    v_sql VARCHAR2(500);
+BEGIN
+    v_sql := 'GRANT ' || p_privilege || ' TO ' || DBMS_ASSERT.SIMPLE_SQL_NAME(UPPER(p_grantee));
+    IF UPPER(p_admin_option) = 'YES' THEN
+        v_sql := v_sql || ' WITH ADMIN OPTION';
+    END IF;
+    EXECUTE IMMEDIATE v_sql;
+EXCEPTION
+    WHEN OTHERS THEN RAISE_APPLICATION_ERROR(-20010, 'Lỗi cấp quyền hệ thống: ' || SQLERRM);
+END;
+/
 
+-- 15. Thu hồi quyền Hệ thống
+CREATE OR REPLACE PROCEDURE sp_RevokeSysPrivs(
+    p_privilege IN VARCHAR2,
+    p_grantee   IN VARCHAR2
+) AS
+BEGIN
+    EXECUTE IMMEDIATE 'REVOKE ' || p_privilege || ' FROM ' || DBMS_ASSERT.SIMPLE_SQL_NAME(UPPER(p_grantee));
+EXCEPTION
+    WHEN OTHERS THEN RAISE_APPLICATION_ERROR(-20011, 'Lỗi thu hồi quyền hệ thống: ' || SQLERRM);
+END;
+/
