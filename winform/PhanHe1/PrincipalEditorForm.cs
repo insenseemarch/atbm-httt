@@ -9,8 +9,11 @@ namespace PhanHe1
     {
         private readonly bool isUserMode;
         private readonly string existingName;
+        private readonly bool requireAdminConfirmation;
         private TextBox txtName;
         private TextBox txtPassword;
+        private TextBox txtConfirmPassword;
+        private TextBox txtAdminPassword;
 
         public string PrincipalName
         {
@@ -22,10 +25,21 @@ namespace PhanHe1
             get { return txtPassword.Text; }
         }
 
-        public PrincipalEditorForm(string title, bool isUserMode, string existingName)
+        public string ConfirmPasswordValue
+        {
+            get { return txtConfirmPassword == null ? string.Empty : txtConfirmPassword.Text; }
+        }
+
+        public string AdminPasswordValue
+        {
+            get { return txtAdminPassword == null ? string.Empty : txtAdminPassword.Text; }
+        }
+
+        public PrincipalEditorForm(string title, bool isUserMode, string existingName, bool requireAdminConfirmation = false)
         {
             this.isUserMode = isUserMode;
             this.existingName = existingName;
+            this.requireAdminConfirmation = requireAdminConfirmation;
             BuildUi(title);
         }
 
@@ -36,7 +50,7 @@ namespace PhanHe1
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
-            ClientSize = new Size(460, 220);
+            ClientSize = requireAdminConfirmation ? new Size(560, 320) : new Size(460, 220);
             BackColor = UiTheme.LightCyan;
             Font = UiTheme.BodyFont;
 
@@ -44,7 +58,7 @@ namespace PhanHe1
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 2,
-                RowCount = 4,
+                RowCount = requireAdminConfirmation ? 6 : 4,
                 BackColor = UiTheme.JordyBlue,
                 Padding = new Padding(14)
             };
@@ -59,6 +73,17 @@ namespace PhanHe1
             panel.Controls.Add(new Label { Text = "Mật khẩu:", AutoSize = true }, 0, 1);
             txtPassword = new TextBox { Dock = DockStyle.Fill, UseSystemPasswordChar = true, Enabled = isUserMode };
             panel.Controls.Add(txtPassword, 1, 1);
+
+            if (requireAdminConfirmation)
+            {
+                panel.Controls.Add(new Label { Text = "Xác nhận mật khẩu mới:", AutoSize = true }, 0, 2);
+                txtConfirmPassword = new TextBox { Dock = DockStyle.Fill, UseSystemPasswordChar = true };
+                panel.Controls.Add(txtConfirmPassword, 1, 2);
+
+                panel.Controls.Add(new Label { Text = "Mật khẩu app_admin hiện tại:", AutoSize = true }, 0, 3);
+                txtAdminPassword = new TextBox { Dock = DockStyle.Fill, UseSystemPasswordChar = true };
+                panel.Controls.Add(txtAdminPassword, 1, 3);
+            }
 
             if (!string.IsNullOrWhiteSpace(existingName))
             {
@@ -96,7 +121,7 @@ namespace PhanHe1
             footer.Controls.Add(btnOk);
             footer.Controls.Add(btnCancel);
 
-            panel.Controls.Add(footer, 0, 3);
+            panel.Controls.Add(footer, 0, requireAdminConfirmation ? 5 : 3);
             panel.SetColumnSpan(footer, 2);
 
             Controls.Add(panel);
@@ -115,6 +140,27 @@ namespace PhanHe1
             {
                 MessageBox.Show("Bạn cần nhập mật khẩu cho user.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
+            }
+
+            if (requireAdminConfirmation)
+            {
+                if (string.IsNullOrWhiteSpace(ConfirmPasswordValue))
+                {
+                    MessageBox.Show("Bạn cần nhập xác nhận mật khẩu mới.", "Thiếu thông tin", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (!string.Equals(PasswordValue, ConfirmPasswordValue, StringComparison.Ordinal))
+                {
+                    MessageBox.Show("Mật khẩu mới và xác nhận mật khẩu không khớp.", "Sai xác nhận mật khẩu", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(AdminPasswordValue))
+                {
+                    MessageBox.Show("Bạn cần nhập mật khẩu app_admin hiện tại để xác nhận.", "Thiếu xác thực admin", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
             }
 
             DialogResult = DialogResult.OK;

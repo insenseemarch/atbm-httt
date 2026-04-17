@@ -13,13 +13,21 @@ namespace PhanHe1
 
         private readonly string connectionString;
         private readonly DbProviderFactory factory;
+        private readonly string host;
+        private readonly string port;
+        private readonly string serviceName;
+        private readonly string loginUser;
 
         public string CurrentUser { get; private set; }
 
-        private OracleAdminService(string connectionString)
+        private OracleAdminService(string connectionString, string host, string port, string serviceName, string loginUser)
         {
             this.connectionString = connectionString;
             factory = DbProviderFactories.GetFactory(ProviderInvariantName);
+            this.host = host;
+            this.port = port;
+            this.serviceName = serviceName;
+            this.loginUser = (loginUser ?? string.Empty).Trim();
         }
 
         public static OracleAdminService LoginAsAdmin(string host, string port, string serviceName, string userName, string password)
@@ -30,17 +38,57 @@ namespace PhanHe1
                 throw new InvalidOperationException("Bạn cần nhập đầy đủ thông tin kết nối.");
             }
 
-            string connStr = string.Format(
-                "User Id={0};Password={1};Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST={2})(PORT={3}))(CONNECT_DATA=(SERVICE_NAME={4})));",
-                userName,
-                password,
-                host,
-                port,
-                serviceName);
+            string connStr = BuildConnectionString(host, port, serviceName, userName, password);
 
-            var service = new OracleAdminService(connStr);
+            var service = new OracleAdminService(connStr, host, port, serviceName, userName);
             service.ValidateAdminSession();
             return service;
+        }
+
+        public bool VerifyCurrentPassword(string password)
+        {
+            if (string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(loginUser))
+            {
+                return false;
+            }
+
+            string verifyConn = BuildConnectionString(host, port, serviceName, loginUser, password);
+            try
+            {
+                using (DbConnection conn = factory.CreateConnection())
+                {
+                    conn.ConnectionString = verifyConn;
+                    conn.Open();
+
+                    using (DbCommand cmd = conn.CreateCommand())
+                    {
+                        cmd.CommandText = "SELECT 1 FROM DUAL";
+                        cmd.ExecuteScalar();
+                    }
+                }
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public void GrantSystemPrivilege(string privilege, string grantee, bool withAdminOption)
+        {
+            string safePrivilege = (privilege ?? string.Empty).Trim().ToUpperInvariant();
+            if (string.IsNullOrWhiteSpace(safePrivilege))
+            {
+                throw new InvalidOperationException("System privilege không được rỗng.");
+            }
+
+            ExecuteProcedure("sp_GrantSysPrivs", new Dictionary<string, object>
+            {
+                { "p_privilege", safePrivilege },
+                { "p_grantee", SafeIdentifier(grantee) },
+                { "p_admin_option", withAdminOption ? "YES" : "NO" }
+            });
         }
 
         public DataTable GetUsers()
@@ -100,11 +148,25 @@ namespace PhanHe1
 
         public List<string> GetObjectsForGrant(string objectType = null)
         {
+            return GetObjectsForGrant(null, objectType);
+        }
+
+        public List<string> GetObjectsForGrant(string objectSource, string objectType = null)
+        {
             var list = new List<string>();
+
+            string safeSource = string.IsNullOrWhiteSpace(objectSource)
+                ? null
+                : objectSource.Trim().ToUpperInvariant();
 
             string safeType = string.IsNullOrWhiteSpace(objectType)
                 ? null
                 : objectType.Trim().ToUpperInvariant();
+
+            if (safeSource != null && safeSource != "USER" && safeSource != "SYSTEM")
+            {
+                throw new InvalidOperationException("Nguồn đối tượng không hợp lệ.");
+            }
 
             if (safeType != null &&
                 safeType != "TABLE" &&
@@ -120,32 +182,56 @@ namespace PhanHe1
                 : "OBJECT_TYPE = '" + safeType + "'";
 
             DataTable dt;
-            try
-            { 
-                dt = Query(
-                    "SELECT o.OBJECT_TYPE || ' | ' || o.OWNER || '.' || o.OBJECT_NAME AS DISPLAY_NAME " +
-                    "FROM ALL_OBJECTS o " +
-                    "WHERE " + typeCondition + " " +
-                    "AND o.OWNER = USER " +
-                    "AND o.OBJECT_NAME NOT LIKE 'BIN$%' " +
-                    "ORDER BY CASE o.OBJECT_TYPE " +
-                    "WHEN 'TABLE' THEN 1 WHEN 'VIEW' THEN 2 WHEN 'PROCEDURE' THEN 3 WHEN 'FUNCTION' THEN 4 ELSE 5 END, " +
-                    "o.OBJECT_NAME");
-            }
-            catch
+            if (safeSource == "SYSTEM")
             {
+                string sourceCondition = safeSource == "SYSTEM"
+                    ? "AND EXISTS (SELECT 1 FROM DBA_USERS u WHERE u.USERNAME = o.OWNER AND u.ORACLE_MAINTAINED = 'Y')"
+                    : "";
+
                 dt = Query(
                     "SELECT o.OBJECT_TYPE || ' | ' || o.OWNER || '.' || o.OBJECT_NAME AS DISPLAY_NAME " +
                     "FROM DBA_OBJECTS o " +
                     "WHERE " + typeCondition + " " +
-                    "AND o.OWNER NOT IN (" +
-                    "'SYS','SYSTEM','XDB','MDSYS','CTXSYS','ORDSYS','ORDDATA','LBACSYS','OUTLN','DBSNMP','SYSMAN'," +
-                    "'GSMADMIN_INTERNAL','OJVMSYS','GGSYS','AUDSYS','DVSYS','DVF','ANONYMOUS','WMSYS','APPQOSSYS'" +
-                    ") " +
+                    sourceCondition + " " +
                     "AND o.OBJECT_NAME NOT LIKE 'BIN$%' " +
                     "ORDER BY CASE o.OBJECT_TYPE " +
                     "WHEN 'TABLE' THEN 1 WHEN 'VIEW' THEN 2 WHEN 'PROCEDURE' THEN 3 WHEN 'FUNCTION' THEN 4 ELSE 5 END, " +
                     "o.OWNER, o.OBJECT_NAME");
+            }
+            else
+            {
+                try
+                {
+                    string sourceCondition = safeSource == "USER"
+                        ? "AND o.OWNER = USER"
+                        : "";
+
+                    dt = Query(
+                        "SELECT o.OBJECT_TYPE || ' | ' || o.OWNER || '.' || o.OBJECT_NAME AS DISPLAY_NAME " +
+                        "FROM ALL_OBJECTS o " +
+                        "WHERE " + typeCondition + " " +
+                        sourceCondition + " " +
+                        "AND o.OBJECT_NAME NOT LIKE 'BIN$%' " +
+                        "ORDER BY CASE o.OBJECT_TYPE " +
+                        "WHEN 'TABLE' THEN 1 WHEN 'VIEW' THEN 2 WHEN 'PROCEDURE' THEN 3 WHEN 'FUNCTION' THEN 4 ELSE 5 END, " +
+                        "o.OWNER, o.OBJECT_NAME");
+                }
+                catch
+                {
+                    string sourceCondition = safeSource == "USER"
+                        ? "AND o.OWNER = USER"
+                        : "";
+
+                    dt = Query(
+                        "SELECT o.OBJECT_TYPE || ' | ' || o.OWNER || '.' || o.OBJECT_NAME AS DISPLAY_NAME " +
+                        "FROM DBA_OBJECTS o " +
+                        "WHERE " + typeCondition + " " +
+                        sourceCondition + " " +
+                        "AND o.OBJECT_NAME NOT LIKE 'BIN$%' " +
+                        "ORDER BY CASE o.OBJECT_TYPE " +
+                        "WHEN 'TABLE' THEN 1 WHEN 'VIEW' THEN 2 WHEN 'PROCEDURE' THEN 3 WHEN 'FUNCTION' THEN 4 ELSE 5 END, " +
+                        "o.OWNER, o.OBJECT_NAME");
+                }
             }
 
             foreach (DataRow row in dt.Rows)
@@ -648,6 +734,17 @@ namespace PhanHe1
             }
 
             return value;
+        }
+
+        private static string BuildConnectionString(string host, string port, string serviceName, string userName, string password)
+        {
+            return string.Format(
+                "User Id={0};Password={1};Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST={2})(PORT={3}))(CONNECT_DATA=(SERVICE_NAME={4})));",
+                userName,
+                password,
+                host,
+                port,
+                serviceName);
         }
 
         private static string JoinSafeIdentifiers(List<string> values)

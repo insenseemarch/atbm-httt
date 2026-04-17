@@ -52,45 +52,34 @@ namespace PhanHe1.Services
 
         public void GrantPrivilege(string grantee, string privilege, string objectName, string columnName, bool grantable)
         {
-            // Gọi đúng procedure thật
-            if (string.IsNullOrEmpty(columnName))
+            if (!string.IsNullOrEmpty(columnName))
             {
-                // Quyền hệ thống
-                if (privilege == "CREATE SESSION" || privilege == "CREATE USER" || privilege == "CREATE ROLE")
-                {
-                    _service.ExecuteProcedure("sp_GrantSysPrivs", new System.Collections.Generic.Dictionary<string, object>
-                    {
-                        { "p_privilege", privilege },
-                        { "p_grantee", grantee },
-                        { "p_admin_option", grantable ? "YES" : "NO" }
-                    });
-                }
-                else
-                {
-                    // Quyền trên object
-                    _service.ExecuteProcedure("sp_GrantObjPrivs", new System.Collections.Generic.Dictionary<string, object>
-                    {
-                        { "p_privilege", privilege },
-                        { "p_schema", "ADMIN" }, // hoặc schema phù hợp
-                        { "p_object", objectName },
-                        { "p_grantee", grantee },
-                        { "p_grant_option", grantable ? "YES" : "NO" }
-                    });
-                }
+                _service.GrantObjectPrivilege(privilege, objectName, grantee, grantable, new List<string> { columnName });
+                return;
             }
-            else
+
+            if (string.IsNullOrWhiteSpace(objectName))
             {
-                // Quyền trên cột
-                _service.ExecuteProcedure("sp_GrantColPrivs", new System.Collections.Generic.Dictionary<string, object>
-                {
-                    { "p_privilege", privilege },
-                    { "p_schema", "ADMIN" }, // hoặc schema phù hợp
-                    { "p_object", objectName },
-                    { "p_columns", columnName },
-                    { "p_grantee", grantee },
-                    { "p_grant_option", grantable ? "YES" : "NO" }
-                });
+                _service.GrantSystemPrivilege(privilege, grantee, grantable);
+                return;
             }
+
+            _service.GrantObjectPrivilege(privilege, objectName, grantee, grantable, null);
+        }
+
+        public void GrantRole(string roleName, string userName, bool adminOption)
+        {
+            _service.GrantRoleToUser(roleName, userName, adminOption);
+        }
+
+        public void RevokeRole(string roleName, string userName)
+        {
+            _service.RevokeRoleFromUser(roleName, userName);
+        }
+
+        public void RevokePrivilege(string privilegeOrRole, string principal, string objectNameOrNull)
+        {
+            _service.RevokePrivilege(privilegeOrRole, principal, objectNameOrNull);
         }
 
         // Lấy danh sách user/role cho UI

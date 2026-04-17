@@ -27,6 +27,7 @@ namespace PhanHe1
         private TabPage tabManage;
         private TabPage tabGrant;
         private TabPage tabPrivileges;
+        private TabPage tabAdvancedGrant;
 
         private DataGridView dgvUsers;
         private DataGridView dgvRoles;
@@ -36,7 +37,10 @@ namespace PhanHe1
         private ComboBox cmbGrantToName;
         private Label lblGrantToType;
         private Label lblGrantToName;
+        private GroupBox grpGrantOption;
         private CheckBox chkGrantOption;
+
+        private ComboBox cmbObjectSource;
 
         private Panel pnlGrantObject;
         private ComboBox cmbObjectType;
@@ -54,6 +58,14 @@ namespace PhanHe1
         private ComboBox cmbViewName;
         private Button btnLoadPrivileges;
         private DataGridView dgvPrivileges;
+
+        private ComboBox cmbAdvancedPrivilege;
+        private ComboBox cmbAdvancedTargetType;
+        private ComboBox cmbAdvancedTargetName;
+        private CheckBox chkAdvancedAdminOption;
+        private Button btnExecuteAdvancedGrant;
+        private bool advancedTabAccessVerified;
+        private bool suppressAdvancedTabEvent;
 
         public Form1(OracleAdminService service)
         {
@@ -146,18 +158,23 @@ namespace PhanHe1
 
             tabMain = new TabControl { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 10F, FontStyle.Bold) };
             tabManage = new TabPage("Quản lý User và Role");
-            tabGrant = new TabPage("Cấp quyền");
+            tabGrant = new TabPage("Cấp quyền cơ bản");
             tabPrivileges = new TabPage("Xem quyền và thu hồi");
+            tabAdvancedGrant = new TabPage("Cấp quyền nâng cao");
             tabManage.BackColor = colorPageBackground;
             tabGrant.BackColor = colorPageBackground;
             tabPrivileges.BackColor = colorPageBackground;
+            tabAdvancedGrant.BackColor = colorPageBackground;
             tabMain.TabPages.Add(tabManage);
             tabMain.TabPages.Add(tabGrant);
+            tabMain.TabPages.Add(tabAdvancedGrant);
             tabMain.TabPages.Add(tabPrivileges);
+            tabMain.SelectedIndexChanged += TabMain_SelectedIndexChanged;
 
             BuildManageTab();
             BuildGrantTab();
             BuildPrivilegesTab();
+            BuildAdvancedGrantTab();
 
             Controls.Add(tabMain);
             Controls.Add(topPanel);
@@ -239,7 +256,7 @@ namespace PhanHe1
             var grp = new GroupBox
             {
                 Dock = DockStyle.Fill,
-                Text = "Cấp quyền",
+                Text = "Cấp quyền cơ bản",
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold),
                 BackColor = colorCardBackground,
                 Padding = new Padding(12)
@@ -249,12 +266,13 @@ namespace PhanHe1
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
-                RowCount = 4,
+                RowCount = 5,
                 BackColor = Color.FromArgb(236, 246, 250),
                 Padding = new Padding(12)
             };
             content.RowStyles.Add(new RowStyle(SizeType.Absolute, 72F));
-            content.RowStyles.Add(new RowStyle(SizeType.Absolute, 218F));
+            content.RowStyles.Add(new RowStyle(SizeType.Absolute, 360F));
+            content.RowStyles.Add(new RowStyle(SizeType.Absolute, 58F));
             content.RowStyles.Add(new RowStyle(SizeType.Absolute, 58F));
             content.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
@@ -282,7 +300,7 @@ namespace PhanHe1
             cmbGrantToType = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
             cmbGrantToType.Items.AddRange(new object[] { "USER", "ROLE" });
             cmbGrantToType.SelectedIndex = 0;
-            cmbGrantToType.SelectedIndexChanged += delegate { LoadPrincipalCombo(cmbGrantToType, cmbGrantToName); };
+            cmbGrantToType.SelectedIndexChanged += delegate { LoadPrincipalCombo(cmbGrantToType, cmbGrantToName); UpdateGrantPanels(); };
             recipientLayout.Controls.Add(cmbGrantToType, 1, 0);
 
             lblGrantToName = new Label { Text = "Đối tượng nhận quyền:", AutoSize = true, Anchor = AnchorStyles.Left };
@@ -302,11 +320,12 @@ namespace PhanHe1
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 2,
-                RowCount = 2,
+                RowCount = 3,
                 Padding = new Padding(10, 8, 10, 10)
             };
             detailLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170F));
             detailLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            detailLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
             detailLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
             detailLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
@@ -320,6 +339,17 @@ namespace PhanHe1
             cmbGrantType.SelectedIndex = 0;
             cmbGrantType.SelectedIndexChanged += delegate { UpdateGrantPanels(); };
             detailLayout.Controls.Add(cmbGrantType, 1, 0);
+
+            detailLayout.Controls.Add(new Label { Text = "Nguồn đối tượng:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 1);
+            cmbObjectSource = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
+            cmbObjectSource.Items.AddRange(new object[]
+            {
+                "Đối tượng do người dùng tạo",
+                "Đối tượng của hệ thống"
+            });
+            cmbObjectSource.SelectedIndex = 0;
+            cmbObjectSource.SelectedIndexChanged += cmbObjectSource_SelectedIndexChanged;
+            detailLayout.Controls.Add(cmbObjectSource, 1, 1);
 
             var detailHost = new Panel { Dock = DockStyle.Fill };
 
@@ -387,11 +417,11 @@ namespace PhanHe1
 
             detailHost.Controls.Add(pnlGrantObject);
             detailHost.Controls.Add(pnlGrantRole);
-            detailLayout.Controls.Add(detailHost, 0, 1);
+            detailLayout.Controls.Add(detailHost, 0, 2);
             detailLayout.SetColumnSpan(detailHost, 2);
             grpDetail.Controls.Add(detailLayout);
 
-            var grpOption = new GroupBox
+            grpGrantOption = new GroupBox
             {
                 Dock = DockStyle.Fill,
                 Text = "Nhóm 3 - Tùy chọn thêm",
@@ -407,11 +437,21 @@ namespace PhanHe1
             };
             chkGrantOption = new CheckBox { Text = "WITH GRANT OPTION (Cho phép cấp tiếp quyền này)", AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
             optionLayout.Controls.Add(chkGrantOption);
-            grpOption.Controls.Add(optionLayout);
+            grpGrantOption.Controls.Add(optionLayout);
+
+            cmbGrantType.TabIndex = 0;
+            cmbObjectSource.TabIndex = 1;
+            cmbGrantToType.TabIndex = 2;
+            cmbGrantToName.TabIndex = 3;
+            cmbObjectType.TabIndex = 4;
+            cmbObjectPrivilege.TabIndex = 5;
+            cmbObjectName.TabIndex = 6;
+            clbColumns.TabIndex = 7;
+            chkGrantOption.TabIndex = 8;
 
             content.Controls.Add(grpRecipient, 0, 0);
             content.Controls.Add(grpDetail, 0, 1);
-            content.Controls.Add(grpOption, 0, 2);
+            content.Controls.Add(grpGrantOption, 0, 2);
             grp.Controls.Add(content);
             root.Controls.Add(grp, 0, 0);
 
@@ -504,6 +544,128 @@ namespace PhanHe1
             root.Controls.Add(top, 0, 0);
             root.Controls.Add(dgvPrivileges, 0, 1);
             tabPrivileges.Controls.Add(root);
+        }
+
+        private void BuildAdvancedGrantTab()
+        {
+            tabAdvancedGrant.Padding = new Padding(12);
+
+            var root = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 2,
+                BackColor = colorPageBackground,
+                Padding = new Padding(8)
+            };
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 76F));
+
+            var grp = new GroupBox
+            {
+                Dock = DockStyle.Fill,
+                Text = "Cấp quyền hệ thống nâng cao",
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                BackColor = colorCardBackground,
+                Padding = new Padding(12)
+            };
+
+            var content = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 4,
+                BackColor = Color.FromArgb(236, 246, 250),
+                Padding = new Padding(12)
+            };
+            content.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 240F));
+            content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            content.RowStyles.Add(new RowStyle(SizeType.Absolute, 92F));
+            content.RowStyles.Add(new RowStyle(SizeType.Absolute, 44F));
+            content.RowStyles.Add(new RowStyle(SizeType.Absolute, 44F));
+            content.RowStyles.Add(new RowStyle(SizeType.Absolute, 44F));
+
+            var lblWarning = new Label
+            {
+                Dock = DockStyle.Fill,
+                Text = "Cảnh báo: Cấp quyền nâng cao cho USER/ROLE có thể tác động trực tiếp đến CSDL, gây rủi ro bảo mật và toàn vẹn dữ liệu. Hệ thống yêu cầu xác thực lại mật khẩu trước khi sử dụng tab này và trước khi thực thi cấp quyền.",
+                ForeColor = Color.FromArgb(120, 0, 0),
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                AutoSize = false,
+                Padding = new Padding(0, 0, 0, 8)
+            };
+            content.Controls.Add(lblWarning, 0, 0);
+            content.SetColumnSpan(lblWarning, 2);
+
+            content.Controls.Add(new Label { Text = "System Privilege:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 1);
+            cmbAdvancedPrivilege = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
+            cmbAdvancedPrivilege.Items.AddRange(new object[]
+            {
+                "CREATE SESSION",
+                "CREATE TABLE",
+                "CREATE VIEW",
+                "CREATE PROCEDURE",
+                "CREATE USER",
+                "CREATE ROLE"
+            });
+            cmbAdvancedPrivilege.SelectedIndex = 0;
+            content.Controls.Add(cmbAdvancedPrivilege, 1, 1);
+
+            var recipientPanel = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1
+            };
+            recipientPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130F));
+            recipientPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+
+            cmbAdvancedTargetType = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
+            cmbAdvancedTargetType.Items.AddRange(new object[] { "USER", "ROLE" });
+            cmbAdvancedTargetType.SelectedIndex = 0;
+            cmbAdvancedTargetType.SelectedIndexChanged += delegate { LoadAdvancedPrincipalTargets(); };
+
+            cmbAdvancedTargetName = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
+            recipientPanel.Controls.Add(cmbAdvancedTargetType, 0, 0);
+            recipientPanel.Controls.Add(cmbAdvancedTargetName, 1, 0);
+
+            content.Controls.Add(new Label { Text = "Đối tượng nhận quyền:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 2);
+            content.Controls.Add(recipientPanel, 1, 2);
+
+            chkAdvancedAdminOption = new CheckBox
+            {
+                Text = "Cho phép cấp tiếp quyền hệ thống.",
+                AutoSize = true,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Anchor = AnchorStyles.Left
+            };
+            content.Controls.Add(new Label { Text = "Tùy chọn:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 3);
+            content.Controls.Add(chkAdvancedAdminOption, 1, 3);
+
+            grp.Controls.Add(content);
+            root.Controls.Add(grp, 0, 0);
+
+            var footer = new Panel { Dock = DockStyle.Fill, Padding = new Padding(12), BackColor = colorPageBackground };
+            btnExecuteAdvancedGrant = new Button
+            {
+                Text = "Xác nhận cấp quyền nâng cao",
+                Width = 300,
+                Height = 44,
+                Anchor = AnchorStyles.Right | AnchorStyles.Bottom
+            };
+            btnExecuteAdvancedGrant.Location = new Point(Math.Max(12, footer.Width - btnExecuteAdvancedGrant.Width - 12), 12);
+            footer.Resize += delegate
+            {
+                btnExecuteAdvancedGrant.Location = new Point(
+                    Math.Max(12, footer.Width - btnExecuteAdvancedGrant.Width - 12),
+                    Math.Max(12, footer.Height - btnExecuteAdvancedGrant.Height - 12));
+            };
+            StyleSecondaryButton(btnExecuteAdvancedGrant);
+            btnExecuteAdvancedGrant.Click += btnExecuteAdvancedGrant_Click;
+            footer.Controls.Add(btnExecuteAdvancedGrant);
+            root.Controls.Add(footer, 0, 1);
+
+            tabAdvancedGrant.Controls.Add(root);
         }
 
         private DataGridView CreateUserGrid()
@@ -741,6 +903,11 @@ namespace PhanHe1
             LoadObjectsByType();
         }
 
+        private void cmbObjectSource_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            LoadObjectsByType();
+        }
+
         private void LoadObjectsByType()
         {
             cmbObjectName.Items.Clear();
@@ -753,7 +920,8 @@ namespace PhanHe1
             }
 
             string objectType = cmbObjectType.SelectedItem.ToString();
-            var objects = service.GetObjectsForGrant(objectType);
+            string objectSource = GetSelectedGrantObjectSource();
+            var objects = service.GetObjectsForGrant(objectSource, objectType);
             FillCombo(cmbObjectName, objects);
         }
         private void LoadRoleGrid()
@@ -770,6 +938,7 @@ namespace PhanHe1
         {
             LoadPrincipalCombo(cmbGrantToType, cmbGrantToName);
             LoadPrincipalCombo(cmbViewType, cmbViewName);
+            LoadAdvancedPrincipalTargets();
 
             var users = service.GetUserNames();
             var roles = service.GetRoleNames();
@@ -777,10 +946,25 @@ namespace PhanHe1
             FillCombo(cmbGrantRoleToUser, users);
             FillCombo(cmbGrantRoleName, roles);
 
+            if (cmbObjectSource != null && cmbObjectSource.Items.Count > 0)
+            {
+                cmbObjectSource.SelectedIndex = 0;
+            }
+
             if (cmbObjectType != null && cmbObjectType.Items.Count > 0)
             {
                 cmbObjectType.SelectedIndex = 0; // tự động gọi LoadObjectsByType qua event
             }
+        }
+
+        private string GetSelectedGrantObjectSource()
+        {
+            if (cmbObjectSource == null || cmbObjectSource.SelectedItem == null)
+            {
+                return null;
+            }
+
+            return cmbObjectSource.SelectedIndex == 0 ? "USER" : "SYSTEM";
         }
 
         private void LoadPrincipalCombo(ComboBox typeCombo, ComboBox targetCombo)
@@ -809,6 +993,125 @@ namespace PhanHe1
             }
         }
 
+        private void LoadAdvancedPrincipalTargets()
+        {
+            if (cmbAdvancedTargetType == null || cmbAdvancedTargetName == null || cmbAdvancedTargetType.SelectedItem == null)
+            {
+                return;
+            }
+
+            bool targetUser = string.Equals(cmbAdvancedTargetType.SelectedItem.ToString(), "USER", StringComparison.OrdinalIgnoreCase);
+            var values = targetUser ? service.GetUserNames() : service.GetRoleNames();
+            FillCombo(cmbAdvancedTargetName, values);
+
+            if (targetUser && !string.IsNullOrWhiteSpace(service.CurrentUser) && cmbAdvancedTargetName.Items.Contains(service.CurrentUser))
+            {
+                cmbAdvancedTargetName.SelectedItem = service.CurrentUser;
+            }
+        }
+
+        private void TabMain_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (suppressAdvancedTabEvent || tabMain.SelectedTab != tabAdvancedGrant)
+            {
+                return;
+            }
+
+            string warning = "Bạn đang vào tab Cấp quyền nâng cao. Khi cấp quyền này cho USER hoặc ROLE, đối tượng được cấp có thể tác động trực tiếp đến DB và gây rủi ro bảo mật. Hệ thống yêu cầu xác thực lại mật khẩu để tiếp tục.";
+            MessageBox.Show(warning, "Cảnh báo bảo mật", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+
+            if (advancedTabAccessVerified)
+            {
+                return;
+            }
+
+            if (!PromptAndVerifyCurrentPassword("Xác thực tab nâng cao", "Nhập lại mật khẩu tài khoản admin đang đăng nhập để mở tab Cấp quyền nâng cao:"))
+            {
+                suppressAdvancedTabEvent = true;
+                tabMain.SelectedTab = tabManage;
+                suppressAdvancedTabEvent = false;
+                return;
+            }
+
+            advancedTabAccessVerified = true;
+        }
+
+        private bool PromptAndVerifyCurrentPassword(string title, string instruction)
+        {
+            using (var dialog = new Form())
+            {
+                dialog.Text = title;
+                dialog.StartPosition = FormStartPosition.CenterParent;
+                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+                dialog.MinimizeBox = false;
+                dialog.MaximizeBox = false;
+                dialog.ClientSize = new Size(500, 170);
+                dialog.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
+                dialog.ShowInTaskbar = false;
+
+                var lbl = new Label
+                {
+                    Text = instruction,
+                    Left = 16,
+                    Top = 16,
+                    Width = 468,
+                    Height = 48
+                };
+
+                var txt = new TextBox
+                {
+                    Left = 16,
+                    Top = 72,
+                    Width = 468,
+                    UseSystemPasswordChar = true
+                };
+
+                var btnOk = new Button
+                {
+                    Text = "Xác nhận",
+                    DialogResult = DialogResult.OK,
+                    Left = 286,
+                    Top = 112,
+                    Width = 96
+                };
+
+                var btnCancel = new Button
+                {
+                    Text = "Hủy",
+                    DialogResult = DialogResult.Cancel,
+                    Left = 388,
+                    Top = 112,
+                    Width = 96
+                };
+
+                dialog.Controls.Add(lbl);
+                dialog.Controls.Add(txt);
+                dialog.Controls.Add(btnOk);
+                dialog.Controls.Add(btnCancel);
+                dialog.AcceptButton = btnOk;
+                dialog.CancelButton = btnCancel;
+
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return false;
+                }
+
+                if (string.IsNullOrWhiteSpace(txt.Text))
+                {
+                    MessageBox.Show("Mật khẩu không được để trống.", "Thiếu thông tin", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+
+                if (!service.VerifyCurrentPassword(txt.Text))
+                {
+                    MessageBox.Show("Mật khẩu xác thực không đúng.", "Xác thực thất bại", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+
+                return true;
+            }
+        }
+
         private void UpdateGrantPanels()
         {
             int mode = cmbGrantType.SelectedIndex;
@@ -825,6 +1128,13 @@ namespace PhanHe1
                 lblGrantToName.Visible = false;
                 cmbGrantToName.Visible = false;
                 LoadPrincipalCombo(cmbGrantToType, cmbGrantToName);
+
+                // Cấp role được chọn WITH ADMIN OPTION trong nhóm 3.
+                chkGrantOption.Enabled = true;
+                if (grpGrantOption != null)
+                {
+                    grpGrantOption.Enabled = true;
+                }
             }
             else
             {
@@ -833,6 +1143,18 @@ namespace PhanHe1
                 cmbGrantToType.Visible = true;
                 lblGrantToName.Visible = true;
                 cmbGrantToName.Visible = true;
+
+                // Khi cấp quyền đối tượng: nếu cấp cho ROLE thì khóa WITH GRANT OPTION, nếu cấp cho USER thì không khóa
+                bool isGrantingToRole = cmbGrantToType.SelectedItem != null && cmbGrantToType.SelectedItem.ToString() == "ROLE";
+                chkGrantOption.Enabled = !isGrantingToRole;
+                if (grpGrantOption != null)
+                {
+                    grpGrantOption.Enabled = !isGrantingToRole;
+                }
+                if (isGrantingToRole)
+                {
+                    chkGrantOption.Checked = false;
+                }
             }
         }
 
@@ -930,10 +1252,16 @@ namespace PhanHe1
 
         private void EditUserPassword(string userName)
         {
-            using (var dlg = new PrincipalEditorForm("Đổi mật khẩu user", true, userName))
+            using (var dlg = new PrincipalEditorForm("Đổi mật khẩu user", true, userName, true))
             {
                 if (dlg.ShowDialog(this) == DialogResult.OK)
                 {
+                    if (!service.VerifyCurrentPassword(dlg.AdminPasswordValue))
+                    {
+                        MessageBox.Show("Mật khẩu app_admin hiện tại không đúng.", "Xác thực thất bại", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
                     service.AlterUserPassword(userName, dlg.PasswordValue);
                     MessageBox.Show("Đã đổi mật khẩu user.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     LoadInitialData();
@@ -984,6 +1312,9 @@ namespace PhanHe1
         private void cmbObjectName_SelectedIndexChanged(object sender, EventArgs e)
         {
             clbColumns.Items.Clear();
+            string previousPrivilege = cmbObjectPrivilege.SelectedItem == null
+                ? string.Empty
+                : cmbObjectPrivilege.SelectedItem.ToString();
             cmbObjectPrivilege.Items.Clear();
             
             if (cmbObjectName.SelectedItem == null)
@@ -1003,14 +1334,21 @@ namespace PhanHe1
             // Lọc quyền dựa trên loại object
             if (objectType == "PROCEDURE" || objectType == "FUNCTION")
             {
-                // PROCEDURE/FUNCTION chỉ có quyền EXECUTE
-                cmbObjectPrivilege.Items.Add("EXECUTE");
-                cmbObjectPrivilege.SelectedIndex = 0;
+                // PROCEDURE/FUNCTION cho phép EXECUTE và DEBUG trên từng object cụ thể
+                cmbObjectPrivilege.Items.AddRange(new object[] { "EXECUTE", "DEBUG" });
             }
             else
             {
-                // TABLE/VIEW có tất cả quyền
-                cmbObjectPrivilege.Items.AddRange(new object[] { "SELECT", "INSERT", "UPDATE", "DELETE", "EXECUTE" });
+                // TABLE/VIEW chỉ có SELECT/INSERT/UPDATE/DELETE
+                cmbObjectPrivilege.Items.AddRange(new object[] { "SELECT", "INSERT", "UPDATE", "DELETE" });
+            }
+
+            if (!string.IsNullOrWhiteSpace(previousPrivilege) && cmbObjectPrivilege.Items.Contains(previousPrivilege))
+            {
+                cmbObjectPrivilege.SelectedItem = previousPrivilege;
+            }
+            else if (cmbObjectPrivilege.Items.Count > 0)
+            {
                 cmbObjectPrivilege.SelectedIndex = 0;
             }
             
@@ -1045,15 +1383,24 @@ namespace PhanHe1
 
         private void CmbObjectPrivilege_SelectedIndexChanged(object sender, EventArgs e)
         {
-            // Chỉ enable columns cho SELECT hoặc UPDATE
-            clbColumns.Enabled = cmbObjectPrivilege.Text == "SELECT" || cmbObjectPrivilege.Text == "UPDATE";
+            bool allowColumnGrant = cmbObjectPrivilege.Text == "SELECT" || cmbObjectPrivilege.Text == "UPDATE";
+            clbColumns.Enabled = allowColumnGrant;
+
+            // INSERT/DELETE (và các quyền khác) không dùng phân quyền cột => tự bỏ toàn bộ cột đã check.
+            if (!allowColumnGrant)
+            {
+                for (int i = 0; i < clbColumns.Items.Count; i++)
+                {
+                    clbColumns.SetItemChecked(i, false);
+                }
+            }
         }
 
         private void btnExecuteGrant_Click(object sender, EventArgs e)
         {
             try
             {
-                if (cmbGrantType.SelectedIndex == 1)
+                if (cmbGrantType.SelectedIndex == 0)
                 {
                     Tuple<string, string> objectInfo = ParseGrantObjectSelection();
                     if (objectInfo == null)
@@ -1094,6 +1441,39 @@ namespace PhanHe1
             catch (Exception ex)
             {
                 MessageBox.Show("Không tải được quyền.\n" + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void btnExecuteAdvancedGrant_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (cmbAdvancedPrivilege.SelectedItem == null)
+                {
+                    throw new InvalidOperationException("Vui lòng chọn system privilege cần cấp.");
+                }
+
+                if (cmbAdvancedTargetName.SelectedItem == null)
+                {
+                    throw new InvalidOperationException("Vui lòng chọn đối tượng nhận quyền.");
+                }
+
+                if (!PromptAndVerifyCurrentPassword("Xác thực cấp quyền nâng cao", "Nhập lại mật khẩu admin để xác nhận thao tác cấp quyền nâng cao:"))
+                {
+                    return;
+                }
+
+                service.GrantSystemPrivilege(
+                    cmbAdvancedPrivilege.SelectedItem.ToString(),
+                    cmbAdvancedTargetName.SelectedItem.ToString(),
+                    chkAdvancedAdminOption.Checked);
+
+                MessageBox.Show("Cấp quyền hệ thống nâng cao thành công.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                LoadInitialData();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Cấp quyền nâng cao thất bại.\n" + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
