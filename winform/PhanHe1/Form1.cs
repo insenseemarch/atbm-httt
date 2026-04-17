@@ -165,6 +165,10 @@ namespace PhanHe1
             tabGrant.BackColor = colorPageBackground;
             tabPrivileges.BackColor = colorPageBackground;
             tabAdvancedGrant.BackColor = colorPageBackground;
+            tabManage.AutoScroll = true;
+            tabGrant.AutoScroll = true;
+            tabPrivileges.AutoScroll = true;
+            tabAdvancedGrant.AutoScroll = true;
             tabMain.TabPages.Add(tabManage);
             tabMain.TabPages.Add(tabGrant);
             tabMain.TabPages.Add(tabAdvancedGrant);
@@ -268,7 +272,8 @@ namespace PhanHe1
                 ColumnCount = 1,
                 RowCount = 5,
                 BackColor = Color.FromArgb(236, 246, 250),
-                Padding = new Padding(12)
+                Padding = new Padding(12),
+                AutoScroll = true
             };
             content.RowStyles.Add(new RowStyle(SizeType.Absolute, 72F));
             content.RowStyles.Add(new RowStyle(SizeType.Absolute, 360F));
@@ -477,7 +482,8 @@ namespace PhanHe1
                 Dock = DockStyle.Fill,
                 RowCount = 2,
                 ColumnCount = 1,
-                Padding = new Padding(8, 8, 8, 8)
+                Padding = new Padding(8, 8, 8, 8),
+                AutoScroll = true
             };
             root.BackColor = colorPageBackground;
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 64));
@@ -556,7 +562,8 @@ namespace PhanHe1
                 ColumnCount = 1,
                 RowCount = 2,
                 BackColor = colorPageBackground,
-                Padding = new Padding(8)
+                Padding = new Padding(8),
+                AutoScroll = true
             };
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 76F));
