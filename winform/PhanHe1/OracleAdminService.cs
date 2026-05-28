@@ -17,10 +17,13 @@ namespace PhanHe1
         private readonly string port;
         private readonly string serviceName;
         private readonly string loginUser;
+        private readonly bool isMockAccount;
+        private readonly List<string> mockRoles;
 
         public string CurrentUser { get; private set; }
+        public bool IsAdminSession { get; private set; }
 
-        private OracleAdminService(string connectionString, string host, string port, string serviceName, string loginUser)
+        private OracleAdminService(string connectionString, string host, string port, string serviceName, string loginUser, bool isMockAccount = false, List<string> mockRoles = null)
         {
             this.connectionString = connectionString;
             factory = DbProviderFactories.GetFactory(ProviderInvariantName);
@@ -28,9 +31,12 @@ namespace PhanHe1
             this.port = port;
             this.serviceName = serviceName;
             this.loginUser = (loginUser ?? string.Empty).Trim();
+            this.isMockAccount = isMockAccount;
+            this.mockRoles = mockRoles ?? new List<string>();
+            this.CurrentUser = (loginUser ?? string.Empty).Trim().ToUpperInvariant();
         }
 
-        public static OracleAdminService LoginAsAdmin(string host, string port, string serviceName, string userName, string password)
+        public static OracleAdminService Login(string host, string port, string serviceName, string userName, string password)
         {
             if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(port) || string.IsNullOrWhiteSpace(serviceName)
                 || string.IsNullOrWhiteSpace(userName) || string.IsNullOrWhiteSpace(password))
@@ -38,10 +44,20 @@ namespace PhanHe1
                 throw new InvalidOperationException("Bạn cần nhập đầy đủ thông tin kết nối.");
             }
 
-            string connStr = BuildConnectionString(host, port, serviceName, userName, password);
 
-            var service = new OracleAdminService(connStr, host, port, serviceName, userName);
-            service.ValidateAdminSession();
+            string connStr = BuildConnectionString(host, port, serviceName, userName, password);
+            var realService = new OracleAdminService(connStr, host, port, serviceName, userName);
+            realService.ValidateAdminSession();
+            return realService;
+        }
+
+        public static OracleAdminService LoginAsAdmin(string host, string port, string serviceName, string userName, string password)
+        {
+            var service = Login(host, port, serviceName, userName, password);
+            if (!service.IsAdminSession)
+            {
+                throw new InvalidOperationException("Tài khoản đăng nhập không phải admin/DBA trên Oracle.");
+            }
             return service;
         }
 
@@ -529,30 +545,84 @@ namespace PhanHe1
 
         private void ValidateAdminSession()
         {
-            object isDba = ExecuteScalar("SELECT SYS_CONTEXT('USERENV','ISDBA') FROM DUAL");
+            if (isMockAccount)
+            {
+                IsAdminSession = false;
+                return;
+            }
+
             object sessionUser = ExecuteScalar("SELECT USER FROM DUAL");
             CurrentUser = sessionUser == null ? string.Empty : sessionUser.ToString();
 
-            bool admin = string.Equals(Convert.ToString(isDba), "TRUE", StringComparison.OrdinalIgnoreCase);
-            if (!admin)
-            {
-                object hasDbaRole = ExecuteScalar("SELECT COUNT(*) FROM SESSION_ROLES WHERE ROLE = 'DBA'");
-                int count = 0;
-                if (hasDbaRole != null)
-                {
-                    int.TryParse(hasDbaRole.ToString(), out count);
-                }
-
-                admin = count > 0;
-            }
-
-            if (!admin)
-            {
-                throw new InvalidOperationException("Tài khoản đăng nhập không phải admin/DBA trên Oracle.");
-            }
+            var roles = GetCurrentRolesInternal();
+            IsAdminSession = string.Equals(CurrentUser, "APP_ADMIN", StringComparison.OrdinalIgnoreCase)
+                             || string.Equals(CurrentUser, "ADMIN", StringComparison.OrdinalIgnoreCase)
+                             || roles.Contains("DBA")
+                             || roles.Contains("ROLE_ADMIN");
         }
 
-        private DataTable Query(string sql)
+        private List<string> GetCurrentRolesInternal()
+        {
+            if (isMockAccount)
+            {
+                return new List<string>(mockRoles);
+            }
+
+            var roles = new List<string>();
+            try
+            {
+                DataTable dt = Query("SELECT ROLE FROM SESSION_ROLES");
+                foreach (DataRow row in dt.Rows)
+                {
+                    if (row[0] != null)
+                    {
+                        roles.Add(row[0].ToString().Trim().ToUpperInvariant());
+                    }
+                }
+            }
+            catch
+            {
+                // Nếu người dùng không có quyền xem SESSION_ROLES, vẫn tiếp tục.
+            }
+
+            return roles;
+        }
+
+        public List<string> GetCurrentRoles()
+        {
+            return GetCurrentRolesInternal();
+        }
+
+        private static bool IsMockTestAccount(string userName, string password)
+        {
+            if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrWhiteSpace(password))
+                return false;
+
+            userName = userName.Trim().ToUpperInvariant();
+            password = password.Trim();
+
+            return (userName == "DPV01" && password == "DPV123")
+                   || (userName == "BACSI01" && password == "BACSI123")
+                   || (userName == "KTV01" && password == "KTV123")
+                   || (userName == "BN001" && password == "BN123");
+        }
+
+        private static List<string> GetMockRoles(string userName)
+        {
+            userName = (userName ?? string.Empty).Trim().ToUpperInvariant();
+            if (userName == "DPV01")
+                return new List<string> { "ROLE_DPV" };
+            if (userName == "BACSI01")
+                return new List<string> { "ROLE_BACSI" };
+            if (userName == "KTV01")
+                return new List<string> { "ROLE_KTV" };
+            if (userName == "BN001")
+                return new List<string> { "ROLE_BN" };
+
+            return new List<string>();
+        }
+
+        public DataTable Query(string sql)
         {
             using (DbConnection conn = factory.CreateConnection())
             {
@@ -573,7 +643,7 @@ namespace PhanHe1
             }
         }
 
-        private object ExecuteScalar(string sql)
+        public object ExecuteScalar(string sql)
         {
             using (DbConnection conn = factory.CreateConnection())
             {
@@ -588,7 +658,7 @@ namespace PhanHe1
             }
         }
 
-        private void ExecuteNonQuery(string sql)
+        public void ExecuteNonQuery(string sql)
         {
             using (DbConnection conn = factory.CreateConnection())
             {

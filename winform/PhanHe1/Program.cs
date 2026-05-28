@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using PhanHe1.Forms;
 
 namespace PhanHe1
 {
@@ -25,16 +26,40 @@ namespace PhanHe1
                 {
                     if (loginForm.ShowDialog() == DialogResult.OK)
                     {
-                        using (var mainForm = new Form1(loginForm.AuthenticatedService))
+                        if (loginForm.AuthenticatedService.IsAdminSession)
                         {
-                            if (mainForm.ShowDialog() == DialogResult.Cancel)
+                            using (var mainForm = new Form1(loginForm.AuthenticatedService))
                             {
-                                // User clicked logout
-                                continueLoop = true;
+                                if (mainForm.ShowDialog() == DialogResult.Cancel)
+                                {
+                                    continueLoop = true;
+                                }
+                                else
+                                {
+                                    continueLoop = false;
+                                }
                             }
-                            else
+                        }
+                        else
+                        {
+                            using (var userForm = new SubSystem2Form(loginForm.AuthenticatedService))
                             {
-                                continueLoop = false;
+                                userForm.FormClosing += (s, e) =>
+                                {
+                                    if (userForm.DialogResult == DialogResult.None)
+                                    {
+                                        userForm.DialogResult = DialogResult.Cancel;
+                                    }
+                                };
+
+                                if (userForm.ShowDialog() == DialogResult.Cancel)
+                                {
+                                    continueLoop = true;
+                                }
+                                else
+                                {
+                                    continueLoop = false;
+                                }
                             }
                         }
                     }

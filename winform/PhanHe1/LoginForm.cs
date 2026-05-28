@@ -81,7 +81,7 @@ namespace PhanHe1
             {
                 Dock = DockStyle.Fill,
                 ForeColor = UiTheme.DeepBlue,
-                Text = "BỆNH VIỆN DocCare - Chỉ cho phép tài khoản APP_ADMIN đăng nhập.",
+                Text = "Đăng nhập bằng tài khoản Oracle (app_admin để quản trị, DPV01/BACSI01/KTV01/BN001 để test phân hệ 2).",
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
                 AutoSize = true
             };
@@ -106,6 +106,16 @@ namespace PhanHe1
             EnableRoundedButton(btnLogin, 12);
             EnhanceButtonDepth(btnLogin, Color.FromArgb(40, 180, 70));
             btnLogin.Click += btnLogin_Click;
+
+            var btnTestAcc = new Button { Text = "Tài khoản test", Width = 140, Height = 40 };
+            btnTestAcc.FlatStyle = FlatStyle.Flat;
+            btnTestAcc.FlatAppearance.BorderSize = 0;
+            btnTestAcc.BackColor = Color.FromArgb(255, 193, 7);
+            btnTestAcc.ForeColor = Color.Black;
+            btnTestAcc.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            btnTestAcc.Click += BtnTestAcc_Click;
+            EnableRoundedButton(btnTestAcc, 12);
+
             var btnCancel = new Button { Text = "Thoát", Width = 140, Height = 40 };
             btnCancel.FlatStyle = FlatStyle.Flat;
             btnCancel.FlatAppearance.BorderSize = 0;
@@ -119,6 +129,7 @@ namespace PhanHe1
             btnCancel.Click += delegate { DialogResult = DialogResult.Cancel; Close(); };
 
             footer.Controls.Add(btnLogin);
+            footer.Controls.Add(btnTestAcc);
             footer.Controls.Add(btnCancel);
 
             panel.Controls.Add(footer, 0, 7);
@@ -127,6 +138,26 @@ namespace PhanHe1
             Controls.Add(panel);
             AcceptButton = btnLogin;
         }
+
+        private void BtnTestAcc_Click(object sender, EventArgs e)
+        {
+            var menu = new ContextMenuStrip();
+            menu.Items.Add("DPV01 (Điều phối viên)", null, (s2, args) => SetTestAccount("DPV01", "DPV123"));
+            menu.Items.Add("BACSI01 (Y sĩ/Bác sĩ)", null, (s2, args) => SetTestAccount("BACSI01", "BACSI123"));
+            menu.Items.Add("KTV01 (Kỹ thuật viên)", null, (s2, args) => SetTestAccount("KTV01", "KTV123"));
+            menu.Items.Add("BN001 (Bệnh nhân)", null, (s2, args) => SetTestAccount("BN001", "BN123"));
+            menu.Items.Add("GD0001 (Giám đốc)", null, (s2, args) => SetTestAccount("GD0001", "123456"));
+
+            menu.Show((Control)sender, new Point(0, ((Button)sender).Height));
+        }
+
+        private void SetTestAccount(string user, string password)
+        {
+            txtUser.Text = user;
+            txtPassword.Text = password;
+            MessageBox.Show($"Tài khoản test: {user}\nMật khẩu: {password}", "Tài khoản Test", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
         private static string MapLoginError(Exception ex)
         {
             OracleException oracleEx = ex as OracleException;
@@ -164,7 +195,7 @@ namespace PhanHe1
 
             try
             {
-                AuthenticatedService = OracleAdminService.LoginAsAdmin(
+                AuthenticatedService = OracleAdminService.Login(
                     txtHost.Text.Trim(),
                     txtPort.Text.Trim(),
                     txtService.Text.Trim(),

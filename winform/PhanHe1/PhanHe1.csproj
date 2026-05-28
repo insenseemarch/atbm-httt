@@ -13,6 +13,10 @@
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
   </PropertyGroup>
+  <PropertyGroup>
+    <!-- Prefer x64 MSBuild tool host to avoid x86 task host errors on modern machines -->
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugSymbols>true</DebugSymbols>
@@ -97,6 +101,9 @@
     </Compile>
     <Compile Include="OracleAdminService.cs" />
     <Compile Include="PrincipalEditorForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="SubSystem2Form.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="UiTheme.cs" />
