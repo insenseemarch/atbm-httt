@@ -429,8 +429,9 @@ namespace PhanHe1.Forms
         private void BuildBs_DT(TabPage tab)
         {
             dgvBsDT = MakeGrid(false);
-            // chỉ cho sửa TENTHUOC và LIEUDUNG (MAHSBA và NGAYDT là khóa, không sửa)
-            dgvBsDT.CellBeginEdit += AllowOnly(dgvBsDT, new[] { "TENTHUOC", "LIEUDUNG" });
+
+            // MỞ KHÓA CHO SỬA THÊM CỘT TRẠNG THÁI
+            dgvBsDT.CellBeginEdit += AllowOnly(dgvBsDT, new[] { "TENTHUOC", "LIEUDUNG", "TRANGTHAI" });
 
             var txtS = SearchBox("Tìm mã HSBA...", 200);
             var btnS = QuickBtn("Tìm", UiTheme.DeepBlue, UiTheme.WhiteText, 80);
@@ -446,11 +447,23 @@ namespace PhanHe1.Forms
             btnSave.Click += (s, e) => Bs_LuuDT();
             btnRe.Click += (s, e) => LoadGrid(dgvBsDT, "SELECT * FROM APP_ADMIN.DONTHUOC");
 
-            tab.Controls.Add(Wrap(dgvBsDT, Toolbar(txtS, btnS, btnAdd, btnDel, btnSave, btnRe, Note("* Sửa TÊNTHUỐC / LIỀUDÙNG rồi nhấn Lưu → ghi vết audit tự động qua trigger"))));
+            // ĐỔI GHI CHÚ THEO Ý ÔNG
+            tab.Controls.Add(Wrap(dgvBsDT, Toolbar(txtS, btnS, btnAdd, btnDel, btnSave, btnRe, Note("* Sửa TÊNTHUỐC / LIỀUDÙNG / TRẠNGTHÁI rồi nhấn Lưu → ghi vết audit tự động qua trigger"))));
             LoadGrid(dgvBsDT, "SELECT * FROM APP_ADMIN.DONTHUOC");
         }
 
-        private void Bs_ThemDT() { using (var f = new DonThuocAddForm()) if (f.ShowDialog(this) == DialogResult.OK) try { service.ExecuteNonQuery($"INSERT INTO APP_ADMIN.DONTHUOC(MAHSBA,NGAYDT,TENTHUOC,LIEUDUNG) VALUES('{Esc(f.MaHSBA)}',TO_DATE('{f.NgayDT:dd/MM/yyyy}','DD/MM/YYYY'),N'{Esc(f.TenThuoc)}',N'{Esc(f.LieuDung)}')"); Ok("Đã thêm đơn thuốc!"); LoadGrid(dgvBsDT, "SELECT * FROM APP_ADMIN.DONTHUOC"); } catch (Exception ex) { Err(ex.Message); } }
+        private void Bs_ThemDT()
+        {
+            using (var f = new DonThuocAddForm())
+                if (f.ShowDialog(this) == DialogResult.OK)
+                    try
+                    {
+                        // NHÉT THÊM TRẠNG THÁI VÀO CÂU LỆNH INSERT
+                        service.ExecuteNonQuery($"INSERT INTO APP_ADMIN.DONTHUOC(MAHSBA,NGAYDT,TENTHUOC,LIEUDUNG,TRANGTHAI) VALUES('{Esc(f.MaHSBA)}',TO_DATE('{f.NgayDT:dd/MM/yyyy}','DD/MM/YYYY'),N'{Esc(f.TenThuoc)}',N'{Esc(f.LieuDung)}',N'{Esc(f.TrangThai)}')");
+                        Ok("Đã thêm đơn thuốc!"); LoadGrid(dgvBsDT, "SELECT * FROM APP_ADMIN.DONTHUOC");
+                    }
+                    catch (Exception ex) { Err(ex.Message); }
+        }
 
         private void Bs_XoaDT()
         {
@@ -469,8 +482,8 @@ namespace PhanHe1.Forms
                 if (r.RowState == DataRowState.Modified)
                     try
                     {
-                        // UPDATE sẽ kích hoạt trigger ghi vết audit trên Oracle
-                        service.ExecuteNonQuery($"UPDATE APP_ADMIN.DONTHUOC SET TENTHUOC=N'{Esc(r["TENTHUOC"].ToString())}',LIEUDUNG=N'{Esc(r["LIEUDUNG"].ToString())}' WHERE MAHSBA='{Esc(r["MAHSBA"].ToString())}' AND NGAYDT=TO_DATE('{Convert.ToDateTime(r["NGAYDT"]):dd/MM/yyyy}','DD/MM/YYYY') AND TENTHUOC=N'{Esc(r["TENTHUOC", DataRowVersion.Original].ToString())}'");
+                        // NHÉT THÊM TRẠNG THÁI VÀO CÂU LỆNH UPDATE
+                        service.ExecuteNonQuery($"UPDATE APP_ADMIN.DONTHUOC SET TENTHUOC=N'{Esc(r["TENTHUOC"].ToString())}',LIEUDUNG=N'{Esc(r["LIEUDUNG"].ToString())}',TRANGTHAI=N'{Esc(r["TRANGTHAI"].ToString())}' WHERE MAHSBA='{Esc(r["MAHSBA"].ToString())}' AND NGAYDT=TO_DATE('{Convert.ToDateTime(r["NGAYDT"]):dd/MM/yyyy}','DD/MM/YYYY') AND TENTHUOC=N'{Esc(r["TENTHUOC", DataRowVersion.Original].ToString())}'");
                         n++;
                     }
                     catch (Exception ex) { Err(ex.Message); }
@@ -1201,20 +1214,35 @@ namespace PhanHe1.Forms
         public string TenThuoc { get; private set; }
         public string LieuDung { get; private set; }
 
+        public string TrangThai { get; private set; }
         public DonThuocAddForm()
         {
-            Text = "Thêm Đơn Thuốc"; StartPosition = FormStartPosition.CenterParent; FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false; ClientSize = new Size(440, 256); BackColor = UiTheme.LightCyan; Font = UiTheme.BodyFont;
+            Text = "Thêm Đơn Thuốc"; StartPosition = FormStartPosition.CenterParent; FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false;
+            ClientSize = new Size(440, 305);
+            BackColor = UiTheme.LightCyan; Font = UiTheme.BodyFont;
+
             var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(16), BackColor = UiTheme.JordyBlue };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190F)); layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            string[] lbs = { "Mã HSBA:", "Ngày (dd/mm/yyyy):", "Tên thuốc:", "Liều dùng:" };
+
+            // THÊM TRẠNG THÁI VÀO GIAO DIỆN
+            string[] lbs = { "Mã HSBA:", "Ngày (dd/mm/yyyy):", "Tên thuốc:", "Liều dùng:", "Trạng thái:" };
             var flds = new TextBox[lbs.Length];
             for (int i = 0; i < lbs.Length; i++) { layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F)); layout.Controls.Add(new Label { Text = lbs[i], AutoSize = true, Font = UiTheme.HeaderFont, ForeColor = UiTheme.DeepBlue, Anchor = AnchorStyles.Right }, 0, i); flds[i] = new TextBox { Dock = DockStyle.Fill }; layout.Controls.Add(flds[i], 1, i); }
+
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 52F));
             var ft = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
             var ok = new Button { Text = "Thêm", Width = 100, Height = 36, FlatStyle = FlatStyle.Flat, BackColor = UiTheme.PastelGreen, ForeColor = UiTheme.DeepBlue, Font = new Font("Segoe UI", 10F, FontStyle.Bold) }; ok.FlatAppearance.BorderSize = 0;
             var cn = new Button { Text = "Hủy", Width = 90, Height = 36, FlatStyle = FlatStyle.Flat, BackColor = UiTheme.BrandeisBlue, ForeColor = UiTheme.WhiteText }; cn.FlatAppearance.BorderSize = 0;
-            ok.Click += (s, e) => { if (string.IsNullOrWhiteSpace(flds[0].Text)) { MessageBox.Show("Nhập Mã HSBA."); return; } if (!DateTime.TryParseExact(flds[1].Text, "dd/MM/yyyy", null, System.Globalization.DateTimeStyles.None, out DateTime ng)) { MessageBox.Show("Ngày không hợp lệ."); return; } MaHSBA = flds[0].Text.Trim(); NgayDT = ng; TenThuoc = flds[2].Text.Trim(); LieuDung = flds[3].Text.Trim(); DialogResult = DialogResult.OK; Close(); };
+
+            ok.Click += (s, e) => {
+                if (string.IsNullOrWhiteSpace(flds[0].Text)) { MessageBox.Show("Nhập Mã HSBA."); return; }
+                if (!DateTime.TryParseExact(flds[1].Text, "dd/MM/yyyy", null, System.Globalization.DateTimeStyles.None, out DateTime ng)) { MessageBox.Show("Ngày không hợp lệ."); return; }
+                MaHSBA = flds[0].Text.Trim(); NgayDT = ng; TenThuoc = flds[2].Text.Trim(); LieuDung = flds[3].Text.Trim();
+                TrangThai = flds[4].Text.Trim();
+                DialogResult = DialogResult.OK; Close();
+            };
             cn.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
+
             ft.Controls.Add(ok); ft.Controls.Add(cn); layout.Controls.Add(ft, 0, lbs.Length); layout.SetColumnSpan(ft, 2); Controls.Add(layout); AcceptButton = ok;
         }
     }
