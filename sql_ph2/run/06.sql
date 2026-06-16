@@ -58,15 +58,6 @@ end;
 /
 
 -- Yêu cầu 3: 
--- 3.1: Kích hoạt kiểm toán hệ thống 
-begin execute immediate 'noaudit policy AuditSession'; exception when others then null; end;
-/
-begin execute immediate 'drop audit policy AuditSession'; exception when others then null; end;
-/
-create audit policy AuditSession
-actions logon;
-audit policy AuditSession whenever not successful;
-
 -- Dọn dẹp TẤT CẢ policy cũ TRƯỚC
 
 begin
@@ -83,6 +74,12 @@ begin
 exception when others then null;
 end;
 /
+
+-- 3.1: Kích hoạt kiểm toán hệ thống
+-- Theo dõi các lần đăng nhập thất bại vào CSDL
+create audit policy AuditSession
+actions logon;
+audit policy AuditSession whenever not successful;
 
 -- Dọn dẹp FGA cũ
 begin dbms_fga.drop_policy('QLBV', 'HSBA',    'AuditBSUpdateHSBA');        exception when others then null; end;
@@ -130,42 +127,110 @@ grant select on QLBV.VW_BaoCaoDieuTri to ROLE_BACSI;
 grant execute on QLBV.sp_KhoiTaoHSBAKhancap to ROLE_BACSI;
 grant execute on QLBV.fn_TinhTongChiPhiDieuTri to ROLE_DPV;
 
--- 3.2: Standard Audit — 5 ngữ cảnh
+-- 3.2: Standard Audit
+-- 6 ngữ cảnh thành công và 6 ngữ cảnh thất bại, bám theo user/role/bảng của PH2.
 
--- Ngữ cảnh 1: NV update BENHNHAN thành công
-create audit policy AuditNVUpdateBN
+-- 3.2.A: 6 ngữ cảnh audit THÀNH CÔNG
+
+-- Thành công 1: Điều phối viên cập nhật thông tin bệnh nhân
+create audit policy AuditSucDPVUpdateBN
 actions update on QLBV.BENHNHAN
 when 'sys_context(''userenv'',''session_user'') in (''NV0001'',''NV0007'')'
 evaluate per session;
-audit policy AuditNVUpdateBN whenever successful;
+audit policy AuditSucDPVUpdateBN whenever successful;
 
--- Ngữ cảnh 2: BS cố update/delete NHANVIEN thất bại
-create audit policy AuditBSUpdateNVFail
-actions update on QLBV.NHANVIEN, delete on QLBV.NHANVIEN
-when 'sys_context(''userenv'',''session_user'') in (''BS0001'',''BS0002'')'
-evaluate per session;
-audit policy AuditBSUpdateNVFail whenever not successful;
-
--- Ngữ cảnh 3: BS thực thi stored procedure sp_KhoiTaoHSBAKhancap
-create audit policy AuditBSExecCapCuu
-actions execute on QLBV.sp_KhoiTaoHSBAKhancap
-when 'sys_context(''userenv'',''session_user'') in (''BS0001'',''BS0002'')'
-evaluate per session;
-audit policy AuditBSExecCapCuu;
-
--- Ngữ cảnh 4: BS select view VW_BaoCaoDieuTri thành công
-create audit policy AuditBSSelectBaoCao
+-- Thành công 2: Bác sĩ xem view báo cáo điều trị
+create audit policy AuditSucBSSelectView
 actions select on QLBV.VW_BaoCaoDieuTri
 when 'sys_context(''userenv'',''session_user'') in (''BS0001'',''BS0002'')'
 evaluate per session;
-audit policy AuditBSSelectBaoCao whenever successful;
+audit policy AuditSucBSSelectView whenever successful;
 
--- Ngữ cảnh 5: NV thực thi function fn_TinhTongChiPhiDieuTri
-create audit policy AuditNVCalcFee
+-- Thành công 3: Bác sĩ thực thi stored procedure khởi tạo HSBA khẩn cấp
+create audit policy AuditSucBSExecProc
+actions execute on QLBV.sp_KhoiTaoHSBAKhancap
+when 'sys_context(''userenv'',''session_user'') in (''BS0001'',''BS0002'')'
+evaluate per session;
+audit policy AuditSucBSExecProc whenever successful;
+
+-- Thành công 4: Điều phối viên thực thi function tính tổng chi phí điều trị
+create audit policy AuditSucDPVExecFunc
 actions execute on QLBV.fn_TinhTongChiPhiDieuTri
 when 'sys_context(''userenv'',''session_user'') in (''NV0001'',''NV0002'')'
 evaluate per session;
-audit policy AuditNVCalcFee;
+audit policy AuditSucDPVExecFunc whenever successful;
+
+-- Thành công 5: Kỹ thuật viên cập nhật kết quả dịch vụ trong HSBA_DV
+create audit policy AuditSucKTVUpdateDV
+actions update on QLBV.HSBA_DV
+when 'sys_context(''userenv'',''session_user'') in (''KTV001'',''KTV002'')'
+evaluate per session;
+audit policy AuditSucKTVUpdateDV whenever successful;
+
+-- Thành công 6: Bác sĩ cập nhật đơn thuốc thuộc HSBA mình điều trị
+create audit policy AuditSucBSUpdateDT
+actions update on QLBV.DONTHUOC
+when 'sys_context(''userenv'',''session_user'') in (''BS0001'',''BS0002'')'
+evaluate per session;
+audit policy AuditSucBSUpdateDT whenever successful;
+
+-- Bonus thành công: Bệnh nhân xem thông tin cá nhân qua view được cấp quyền
+create audit policy AuditBonusBNSelectInfo
+actions select on QLBV.VW_BenhNhan_Xemthongtin
+when 'sys_context(''userenv'',''session_user'') in (''BN000001'',''BN000002'')'
+evaluate per session;
+audit policy AuditBonusBNSelectInfo whenever successful;
+
+-- 3.2.B: 6 ngữ cảnh audit THẤT BẠI
+
+-- Thất bại 1: Bác sĩ cố cập nhật/xóa thông tin nhân viên
+create audit policy AuditFailBSUpdateNV
+actions update on QLBV.NHANVIEN, delete on QLBV.NHANVIEN
+when 'sys_context(''userenv'',''session_user'') in (''BS0001'',''BS0002'')'
+evaluate per session;
+audit policy AuditFailBSUpdateNV whenever not successful;
+
+-- Thất bại 2: Bệnh nhân cố xóa hồ sơ bệnh án
+create audit policy AuditFailBNDeleteHSBA
+actions delete on QLBV.HSBA
+when 'sys_context(''userenv'',''session_user'') in (''BN000001'',''BN000002'')'
+evaluate per session;
+audit policy AuditFailBNDeleteHSBA whenever not successful;
+
+-- Thất bại 3: Kỹ thuật viên cố xóa đơn thuốc
+create audit policy AuditFailKTVDeleteDT
+actions delete on QLBV.DONTHUOC
+when 'sys_context(''userenv'',''session_user'') in (''KTV001'',''KTV002'')'
+evaluate per session;
+audit policy AuditFailKTVDeleteDT whenever not successful;
+
+-- Thất bại 4: Điều phối viên cố xóa hồ sơ bệnh án
+create audit policy AuditFailDPVDeleteHSBA
+actions delete on QLBV.HSBA
+when 'sys_context(''userenv'',''session_user'') in (''NV0001'',''NV0002'')'
+evaluate per session;
+audit policy AuditFailDPVDeleteHSBA whenever not successful;
+
+-- Thất bại 5: Bệnh nhân cố cập nhật kết quả dịch vụ HSBA_DV
+create audit policy AuditFailBNUpdateDV
+actions update on QLBV.HSBA_DV
+when 'sys_context(''userenv'',''session_user'') in (''BN000001'',''BN000002'')'
+evaluate per session;
+audit policy AuditFailBNUpdateDV whenever not successful;
+
+-- Thất bại 6: Kỹ thuật viên cố xem bảng BENHNHAN trực tiếp
+create audit policy AuditFailKTVSelectBN
+actions select on QLBV.BENHNHAN
+when 'sys_context(''userenv'',''session_user'') in (''KTV001'',''KTV002'')'
+evaluate per session;
+audit policy AuditFailKTVSelectBN whenever not successful;
+
+-- Bonus thất bại: Bệnh nhân cố thực thi stored procedure dành cho bác sĩ
+create audit policy AuditBonusBNExecProc
+actions execute on QLBV.sp_KhoiTaoHSBAKhancap
+when 'sys_context(''userenv'',''session_user'') in (''BN000001'',''BN000002'')'
+evaluate per session;
+audit policy AuditBonusBNExecProc whenever not successful;
 
 -- 3.3: FGA / Unified Audit cho 4 tình huống đề yêu cầu
 
@@ -224,20 +289,48 @@ end;
 
 -- 3.4: Query đọc nhật ký kiểm toán
 
--- Standard / Unified Audit
+-- 3.4.1: Xem audit hệ thống (logon thất bại)
+select event_timestamp, dbusername, return_code, object_schema, object_name
+from unified_audit_trail
+where action_name = 'LOGON'
+order by event_timestamp desc;
+
+-- 3.4.2: Xem Standard Audit theo từng ngữ cảnh
+select event_timestamp, dbusername, action_name, object_schema, object_name,
+       return_code, unified_audit_policies
+from unified_audit_trail
+where unified_audit_policies in (
+    'AUDITSUCDPVUPDATEBN',
+    'AUDITSUCBSSELECTVIEW',
+    'AUDITSUCBSEXECPROC',
+    'AUDITSUCDPVEXECFUNC',
+    'AUDITSUCKTVUPDATEDV',
+    'AUDITSUCBSUPDATEDT',
+    'AUDITBONUSBNSELECTINFO',
+    'AUDITFAILBSUPDATENV',
+    'AUDITFAILBNDELETEHSBA',
+    'AUDITFAILKTVDELETEDT',
+    'AUDITFAILDPVDELETEHSBA',
+    'AUDITFAILBNUPDATEDV',
+    'AUDITFAILKTVSELECTBN',
+    'AUDITBONUSBNEXECPROC'
+)
+order by event_timestamp desc;
+
+-- 3.4.3: Xem FGA / Unified Audit theo đối tượng
+select event_timestamp, dbusername, fga_policy_name, object_schema, object_name,
+       sql_text, return_code
+from unified_audit_trail
+where fga_policy_name in (
+    'AUDITSUADONTHUOC',
+    'AUDITBSUPDATEHSBA',
+    'AUDITKTVUPDATEKETQUA'
+)
+order by event_timestamp desc;
+
+-- 3.4.4: Xem toàn bộ bản ghi liên quan QLBV
 select unified_audit_policies, dbusername, action_name,
        object_schema, object_name, return_code, event_timestamp
 from unified_audit_trail
 where object_schema = 'QLBV'
 order by event_timestamp desc;
-
--- Test 
--- Chạy câu lệnh này dưới quyền SYS hoặc QLBV để xem log FGA:
-SELECT 
-    event_timestamp, 
-    dbusername, 
-    fga_policy_name, 
-    sql_text
-FROM unified_audit_trail
-WHERE fga_policy_name IS NOT NULL
-ORDER BY event_timestamp DESC;

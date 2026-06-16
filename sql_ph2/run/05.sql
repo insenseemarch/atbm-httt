@@ -1,4 +1,7 @@
 -- CONNECTION: QLBV - XEPDB1
+-- =================================================
+-- = NOTE: Nhớ DISCONNECT xong CONNECT lại nhé !!! =
+-- =================================================
 
 truncate table THONGBAO;
 
