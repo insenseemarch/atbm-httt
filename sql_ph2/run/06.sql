@@ -241,11 +241,20 @@ begin
         object_name     => 'DONTHUOC',
         policy_name     => 'AuditSuaDonThuoc',
         audit_column    => 'MAHSBA,NGAYDT,TENTHUOC,LIEUDUNG',
-        audit_condition => 'TRANGTHAI = ''DA_TAO_XONG''',
+        audit_condition => NULL,
         statement_types => 'UPDATE'
     );
 end;
 /
+
+-- 3.3.a+: Unified Audit ghi nhận INSERT/UPDATE ĐƠNTHUỐC, không dùng cột trạng thái
+create audit policy AuditDonThuocInsert
+actions insert on QLBV.DONTHUOC;
+audit policy AuditDonThuocInsert whenever successful;
+
+create audit policy AuditDonThuocUpdate
+actions update on QLBV.DONTHUOC;
+audit policy AuditDonThuocUpdate whenever successful;
 
 -- 3.3.b: BS update CHANDOAN/DIEUTRI/KETLUAN hợp pháp (FGA)
 begin
@@ -306,6 +315,8 @@ where unified_audit_policies in (
     'AUDITSUCDPVEXECFUNC',
     'AUDITSUCKTVUPDATEDV',
     'AUDITSUCBSUPDATEDT',
+    'AUDITDONTHUOCINSERT',
+    'AUDITDONTHUOCUPDATE',
     'AUDITBONUSBNSELECTINFO',
     'AUDITFAILBSUPDATENV',
     'AUDITFAILBNDELETEHSBA',
@@ -328,7 +339,17 @@ where fga_policy_name in (
 )
 order by event_timestamp desc;
 
--- 3.4.4: Xem toàn bộ bản ghi liên quan QLBV
+-- 3.4.4: Xem Unified Audit cho INSERT/UPDATE ĐƠNTHUỐC
+select event_timestamp, dbusername, action_name, object_schema, object_name,
+       return_code, unified_audit_policies, sql_text
+from unified_audit_trail
+where unified_audit_policies in (
+    'AUDITDONTHUOCINSERT',
+    'AUDITDONTHUOCUPDATE'
+)
+order by event_timestamp desc;
+
+-- 3.4.5: Xem toàn bộ bản ghi liên quan QLBV
 select unified_audit_policies, dbusername, action_name,
        object_schema, object_name, return_code, event_timestamp
 from unified_audit_trail
