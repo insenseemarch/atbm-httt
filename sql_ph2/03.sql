@@ -1,45 +1,4 @@
--- SCRIPT TẠO SCHEMA CSDL ORACLE - PHÂN HỆ 2 ĐỒ ÁN ATBM
--- ============================================================
--- BƯỚC 2: Chạy file ADMIN_PH2.SQL này SAU sys_PH2.sql (Phần 1)
---          và TRƯỚC khi chạy tiếp sys_PH2.sql (Phần 3 — Yêu cầu 3).
---
---   Thứ tự chạy đầy đủ:
---     [1] sys_PH2.sql   (Lines   1–220: Tạo QLBV user, cấp quyền, khởi tạo OLS)
---     [2] admin_ph2.sql (File này: Tạo bảng, data, roles, VPD, OLS apply)
---     [3] sys_PH2.sql   (Lines 221+: FGA + Unified Audit + Standard Audit)
--- ============================================================
-
--- ============================================================
--- [WINFORM-GỘPCODE-1] Schema prefix → ĐÃ GỘP VÀO SubSystem2Form.cs
---   Tất cả bảng dưới đây thuộc schema QLBV.
---   WinForms trước đây dùng APP_ADMIN.TABLE_NAME — đã sửa toàn bộ
---   107 vị trí sang QLBV.TABLE_NAME để VPD và OLS hoạt động đúng.
--- ============================================================
-
--- Xóa các bảng cũ nếu có
-
-BEGIN EXECUTE IMMEDIATE 'DROP TABLE DONTHUOC   CASCADE CONSTRAINTS'; EXCEPTION WHEN OTHERS THEN NULL; END;
-/
-BEGIN EXECUTE IMMEDIATE 'DROP TABLE HSBA_DV    CASCADE CONSTRAINTS'; EXCEPTION WHEN OTHERS THEN NULL; END;
-/
-BEGIN EXECUTE IMMEDIATE 'DROP TABLE HSBA       CASCADE CONSTRAINTS'; EXCEPTION WHEN OTHERS THEN NULL; END;
-/
-BEGIN EXECUTE IMMEDIATE 'DROP TABLE NHANVIEN   CASCADE CONSTRAINTS'; EXCEPTION WHEN OTHERS THEN NULL; END;
-/
-BEGIN EXECUTE IMMEDIATE 'DROP TABLE BENHNHAN   CASCADE CONSTRAINTS'; EXCEPTION WHEN OTHERS THEN NULL; END;
-/
-BEGIN EXECUTE IMMEDIATE 'DROP TABLE THONGBAO   CASCADE CONSTRAINTS'; EXCEPTION WHEN OTHERS THEN NULL; END;
-/
-BEGIN EXECUTE IMMEDIATE 'DROP TABLE KHOA       CASCADE CONSTRAINTS'; EXCEPTION WHEN OTHERS THEN NULL; END;
-/
-BEGIN EXECUTE IMMEDIATE 'DROP SEQUENCE SEQ_DONTHUOC_ID'; EXCEPTION WHEN OTHERS THEN NULL; END;
-/
-BEGIN EXECUTE IMMEDIATE 'DROP SEQUENCE SEQ_THONGBAO_ID'; EXCEPTION WHEN OTHERS THEN NULL; END;
-/
-BEGIN EXECUTE IMMEDIATE 'DROP TRIGGER TRG_DONTHUOC_ID'; EXCEPTION WHEN OTHERS THEN NULL; END;
-/
-BEGIN EXECUTE IMMEDIATE 'DROP TRIGGER TRG_THONGBAO_ID'; EXCEPTION WHEN OTHERS THEN NULL; END;
-/
+-- CONNECTION: QLBV - XEPDB1
 
 -- Yêu cầu 1:
 -- Câu 1:
@@ -85,15 +44,6 @@ begin
 end;
 /
 
--- ============================================================
--- [WINFORM-GỘPCODE-2] ROLE_KTV + VW_KTV_XemHSBADV → ĐÃ GỘP (một phần)
---   • Tên cột thực trong HSBA_DV là LOAIDV và NGAYDV (PK composite).
---     WinForms KTV đã sửa: MADV→LOAIDV, NGAY→NGAYDV trong double-click
---     UPDATE KETQUA và BS delete HSBA_DV đã thêm NGAYDV vào WHERE.
---   ⚠ Chưa gộp: WinForms vẫn query QLBV.HSBA_DV trực tiếp, chưa dùng
---     view VW_KTV_XemHSBADV — VPD fn_vpdHSBADV tự lọc thay thế.
--- ============================================================
-
 -- Câu 2: Chính sách bảo mật liên quan vai trò và "Kỹ thuật viên" và "Bệnh nhân"
 -- TC#4: Kỹ thuật viên
 -- Xóa role nếu đã tồn tại:
@@ -118,13 +68,6 @@ grant select on VW_KTV_Xemthongtin to ROLE_KTV;
 grant update (KETQUA) on VW_KTV_XemHSBADV to ROLE_KTV;
 grant update (QUEQUAN, SODT) ON VW_KTV_Xemthongtin TO ROLE_KTV;
 
--- ============================================================
--- [WINFORM-GỘPCODE-3] ROLE_BENHNHAN + VW_BenhNhan_Xemthongtin → ĐÃ GỘP (một phần)
---   • WinForms BN query QLBV.BENHNHAN — VPD fn_vpdBenhNhan tự lọc
---     chỉ trả về hàng của BN đang đăng nhập (không cần WHERE).
---   • UPDATE BENHNHAN không cần WHERE vì VPD tự giới hạn đúng hàng.
---   ⚠ Chưa gộp: WinForms chưa dùng trực tiếp VW_BenhNhan_Xemthongtin.
--- ============================================================
 
 -- TC#5 Bệnh nhân:
 -- Xoá role nếu tồn tại
@@ -151,17 +94,6 @@ begin
     end loop;
 end;
 /
-
--- ============================================================
--- [WINFORM-GỘPCODE-4] ROLE_DPV + ROLE_BACSI → ĐÃ GỘP
---   • Grant SELECT/INSERT/UPDATE/DELETE trên bảng QLBV.* cho phép
---     WinForms DPV/BS thực hiện đúng các thao tác trong SubSystem2Form.cs.
---   • BS chỉ UPDATE (CHANDOAN, DIEUTRI, KETLUAN) — WinForms EditRowForm
---     đã giới hạn đúng các cột này khi sửa HSBA.
---   ⚠ Chưa gộp: BS insert HSBA_DV (grant select,insert,delete on HSBA_DV)
---     thiếu MAKTV NOT NULL — WinForms insert không truyền MAKTV → ORA-01400.
---     Cần sửa schema MAKTV thành nullable hoặc thêm field MAKTV vào form BS.
--- ============================================================
 
 -- Câu 3: Chính sách bảo mật liên quan "Điều phối viên" và "Bác sĩ/ Y sĩ" dùng VPD
 -- TC#2: Điều phối viên
@@ -201,18 +133,6 @@ grant select, insert, update, delete on DonThuoc to ROLE_BACSI;
 -- TC#5: BS xem và sửa thông tin cá nhân 
 grant select on NhanVien to ROLE_BACSI;
 grant update (QUEQUAN, SODT) on NhanVien to ROLE_BACSI;
-
--- ============================================================
--- [WINFORM-GỘPCODE-5] VPD Functions → ĐÃ GỘP (tự động ở tầng DB)
---   WinForms không code VPD — các function dưới đây hoạt động ở tầng DB.
---   Khi WinForms query QLBV.TABLE_NAME, Oracle tự gọi hàm tương ứng:
---     • fn_vpdNhanVien  → NV chỉ thấy dòng của chính mình
---     • fn_vpdHSBA      → BS chỉ thấy HSBA mình phụ trách; DPV thấy tất cả
---     • fn_vpdHSBADV    → BS/KTV/DPV lọc theo vai trò
---     • fn_vpdBenhNhan  → BS chỉ thấy BN đang điều trị; BN thấy chính mình
---     • fn_vpdDonThuoc  → BS chỉ thấy đơn thuốc HSBA mình phụ trách
---   Điều kiện tiên quyết: schema QLBV đã đúng trong WinForms (đã sửa).
--- ============================================================
 
 -- Viết hàm policy cho VPD
 -- TC#5 Tất cả nhân viên chỉ thấy dòng của chính mình
@@ -382,18 +302,6 @@ begin
 end;
 /
 
-
--- ============================================================
--- [WINFORM-GỘPCODE-6] OLS — Cập nhật CAPBAC/COSO/MAKHOA (u1–u8) → CHƯA GỘP đầy đủ
---   Dữ liệu u1–u8 là nền tảng để sys_PH2.sql gán nhãn OLS cho từng user.
---   ⚠ Chưa gộp vào WinForms:
---     - WinForms detect Giám đốc qua ROLE_GIAMDOC hoặc username GD*,
---       nhưng SQL không tạo ROLE_GIAMDOC — Giám đốc được phân biệt
---       qua CAPBAC = 'Ban Giám đốc' (NV0001 ở dưới).
---     - Cần sửa WinForms: query CAPBAC từ QLBV.NHANVIEN sau login
---       thay vì detect theo tên role/username.
--- ============================================================
-
 -- Yêu cầu 2: OLS:
 -- Cập nhật dữ liệu mẫu để test 
 -- tương ứng mô tả u1-u8 trong đề
@@ -432,104 +340,3 @@ update NHANVIEN set CAPBAC = N'Nhân viên', MAKHOA = 'K001', COSO = N'Hà Nội
 where MANV = 'NV0008';
 
 commit;
-
--- ============================================================
--- [WINFORM-GỘPCODE-7] INSERT THONGBAO với OLS_COL → CHƯA GỘP vào WinForms
---   WinForms GuiThongBao() chỉ INSERT (NOIDUNG, NGAYGIO, DIADIEM),
---   không truyền OLS_COL. Oracle sẽ tự gán OLS_COL = row_label của
---   user đang kết nối NẾU OLS đã được setup đầy đủ theo sys_PH2.sql.
---   ⚠ Nếu OLS chưa setup hoặc user chưa được set_user_labels,
---     INSERT có thể thất bại hoặc bị gán nhãn sai.
---   Dữ liệu mẫu t1–t7 dưới đây minh họa đầy đủ các tổ hợp nhãn
---   Level:Compartment:Group — WinForms không tái tạo logic này.
--- ============================================================
-
--- Qua sys chạy ròi mới lại 
--- Insert dữ liệu mẫu 
-
-truncate table THONGBAO;
-
--- t1: toàn bộ nhân viên
-insert into THONGBAO (NOIDUNG, NGAYGIO, DIADIEM, OLS_COL) values (
-    N'[t1] Thông báo họp toàn thể nhân viên bệnh viện',
-    systimestamp, N'Hội trường trung tâm',
-    char_to_label('OLS_QLBV_POLICY', 'NV'));
-
--- t2: toàn bộ Ban giám đốc
-insert into THONGBAO (NOIDUNG, NGAYGIO, DIADIEM, OLS_COL) values (
-    N'[t2] Thông báo họp Ban Giám đốc',
-    systimestamp - interval '1' hour, N'Phòng họp A1',
-    char_to_label('OLS_QLBV_POLICY', 'BGD'));
-
--- t3: các lãnh đạo khoa (không giới hạn khoa, không giới hạn cơ sở)
-insert into THONGBAO (NOIDUNG, NGAYGIO, DIADIEM, OLS_COL) values (
-    N'[t3] Thông báo họp Lãnh đạo các khoa',
-    systimestamp - interval '2' hour, N'Phòng họp B2',
-    char_to_label('OLS_QLBV_POLICY', 'LDK'));
-
--- t4: lãnh đạo Khoa tiêu hóa (không giới hạn cơ sở)
-insert into THONGBAO (NOIDUNG, NGAYGIO, DIADIEM, OLS_COL) values (
-    N'[t4] Họp khẩn Lãnh đạo Khoa Tiêu hóa',
-    systimestamp - interval '3' hour, N'Khoa Tiêu hóa - Tầng 3',
-    char_to_label('OLS_QLBV_POLICY', 'LDK:TH'));
-
--- t5: nhân viên Khoa tiêu hóa tại Hồ Chí Minh
-insert into THONGBAO (NOIDUNG, NGAYGIO, DIADIEM, OLS_COL) values (
-    N'[t5] Họp nhân viên Khoa Tiêu hóa cơ sở Hồ Chí Minh',
-    systimestamp - interval '4' hour, N'CS Hồ Chí Minh - Phòng C3',
-    char_to_label('OLS_QLBV_POLICY', 'NV:TH:HCM'));
-
--- t6: nhân viên Khoa tiêu hóa tại Hà Nội
-insert into THONGBAO (NOIDUNG, NGAYGIO, DIADIEM, OLS_COL) values (
-    N'[t6] Họp nhân viên Khoa Tiêu hóa cơ sở Hà Nội',
-    systimestamp - interval '5' hour, N'CS Hà Nội - Phòng H2',
-    char_to_label('OLS_QLBV_POLICY', 'NV:TH:HN'));
-
--- t7: lãnh đạo Khoa tiêu hóa VÀ Khoa thần kinh tại Hải Phòng
-insert into THONGBAO (NOIDUNG, NGAYGIO, DIADIEM, OLS_COL) values (
-    N'[t7] Họp liên khoa Tiêu hóa - Thần kinh tại Hải Phòng',
-    systimestamp - interval '6' hour, N'CS Hải Phòng - Phòng HP1',
-    char_to_label('OLS_QLBV_POLICY', 'LDK:TH,TK:HP'));
-
-commit;
-
--- Kiểm tra
-select ID, NOIDUNG, DIADIEM, LABEL_TO_CHAR(OLS_COL) as NHAN_OLS
-from THONGBAO;
-
--- ============================================================
--- [WINFORM-GỘPCODE-8] Flashback Recovery → CHƯA GỘP vào WinForms
---   Đây là demo kỹ thuật Flashback để khôi phục dữ liệu bị sửa nhầm.
---   WinForms không có tính năng này — thực hiện thủ công qua SQL Developer
---   hoặc công cụ DBA khi cần phục hồi. Không cần port vào WinForms.
--- ============================================================
-
--- Câu 4: Phương pháp khôi phục nhật ký dựa vào audit  
--- Lệnh 1.1: Xem CCCD gốc ban đầu
-select CCCD from QLBV.BENHNHAN where MABN = 'BN000001';
--- -> Kết quả trả về: '970000000001'
-
--- Lệnh 1.2: Lấy mốc thời gian hiện tại của Database
-select to_char(sysdate, 'YYYY-MM-DD HH24:MI:SS') from dual;
--- -> Kết quả trả về ví dụ: '2026-05-28 09:15:00'
-
-update QLBV.BENHNHAN set CCCD = '999999999999' where MABN = 'BN000001';
-commit;
-
-select CCCD from QLBV.BENHNHAN where MABN = 'BN000001';
--- -> Kết quả lúc này: '999999999999' (Dữ liệu đã bị hỏng hoàn toàn)
-
--- Bước: Khôi phục trực tiếp dòng dữ liệu bị sửa nhầm từ quá khứ
-update QLBV.BENHNHAN
-set (CCCD, NGAYSINH) = (
-  select CCCD, NGAYSINH
-  from QLBV.BENHNHAN as of timestamp to_timestamp('2026-05-28 02:14:07', 'YYYY-MM-DD HH24:MI:SS')
-  where MABN = 'BN000001'
-)
-where MABN = 'BN000001';
-
-commit;
--- ktra
-select CCCD from QLBV.BENHNHAN where MABN = 'BN000001';
-
-

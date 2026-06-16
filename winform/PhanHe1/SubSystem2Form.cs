@@ -14,7 +14,7 @@ namespace PhanHe1.Forms
     //          động trên bảng QLBV — dùng sai schema là hoàn toàn mất bảo mật.
     //   ✅ [2] KTV: tên cột LOAIDV/NGAYDV đúng theo DDL (xem BuildKTV_DV)
     //   ✅ [3] BS delete HSBA_DV: WHERE đủ PK (MAHSBA, LOAIDV, NGAYDV) (xem Bs_XoaDV)
-    //   ✅ [4] DONTHUOC.TRANGTHAI: ComboBox thay TextBox (xem DonThuocAddForm)
+    //   ✅ [4] DONTHUOC: chỉ có MAHSBA, NGAYDT, TENTHUOC, LIEUDUNG (không có TRANGTHAI)
     //   ✅ [5] Audit SQL: filter OBJECT_SCHEMA='QLBV' + FGA (xem LoadAuditData)
     //   ✅ [6] Mock audit data: 10 policies từ sys_PH2.sql (xem GetMockAuditData)
     // ════════════════════════════════════════════════════════════════════════
@@ -60,7 +60,7 @@ namespace PhanHe1.Forms
             if (currentRoles.Contains("ROLE_DPV") || currentUser.StartsWith("DPV", StringComparison.OrdinalIgnoreCase)) return UserRole.DPV;
             if (currentRoles.Contains("ROLE_BACSI") || currentUser.StartsWith("BACSI", StringComparison.OrdinalIgnoreCase)) return UserRole.BACSI;
             if (currentRoles.Contains("ROLE_KTV") || currentUser.StartsWith("KTV", StringComparison.OrdinalIgnoreCase)) return UserRole.KTV;
-            if (currentRoles.Contains("ROLE_BN") || currentUser.StartsWith("BN", StringComparison.OrdinalIgnoreCase)) return UserRole.BN;
+            if (currentRoles.Contains("ROLE_BENHNHAN") || currentUser.StartsWith("BN", StringComparison.OrdinalIgnoreCase)) return UserRole.BN;
             // Detect Ban Giám đốc qua CAPBAC trong QLBV.NHANVIEN (đúng nghiệp vụ)
             try
             {
@@ -658,11 +658,9 @@ namespace PhanHe1.Forms
                     string tenThuocCu = r.Cells["TENTHUOC"].Value?.ToString();
                     string ngayDt = Convert.ToDateTime(r.Cells["NGAYDT"].Value).ToString("dd/MM/yyyy");
 
-                    // ✅ [GỘPCODE-C] Dùng EditDonThuocForm — TRANGTHAI là ComboBox đúng constraint
                     var fields = new Dictionary<string, string> {
                     { "TENTHUOC", tenThuocCu },
-                    { "LIEUDUNG", r.Cells["LIEUDUNG"].Value?.ToString() },
-                    { "TRANGTHAI", r.Cells["TRANGTHAI"].Value?.ToString() }
+                    { "LIEUDUNG", r.Cells["LIEUDUNG"].Value?.ToString() }
                 };
                     using (var f = new EditDonThuocForm($"Cập nhật Thuốc: {tenThuocCu}", fields))
                     {
@@ -670,7 +668,7 @@ namespace PhanHe1.Forms
                         {
                             try
                             {
-                                service.ExecuteNonQuery($"UPDATE QLBV.DONTHUOC SET TENTHUOC=N'{Esc(f.NewValues["TENTHUOC"])}', LIEUDUNG=N'{Esc(f.NewValues["LIEUDUNG"])}', TRANGTHAI='{Esc(f.NewValues["TRANGTHAI"])}' WHERE MAHSBA='{Esc(ma)}' AND NGAYDT=TO_DATE('{ngayDt}','DD/MM/YYYY') AND TENTHUOC=N'{Esc(tenThuocCu)}'");
+                                service.ExecuteNonQuery($"UPDATE QLBV.DONTHUOC SET TENTHUOC=N'{Esc(f.NewValues["TENTHUOC"])}', LIEUDUNG=N'{Esc(f.NewValues["LIEUDUNG"])}' WHERE MAHSBA='{Esc(ma)}' AND NGAYDT=TO_DATE('{ngayDt}','DD/MM/YYYY') AND TENTHUOC=N'{Esc(tenThuocCu)}'");
                                 Ok("Cập nhật thành công!");
                                 LoadGrid(dgvBsDT, "SELECT * FROM QLBV.DONTHUOC");
                             }
@@ -680,7 +678,7 @@ namespace PhanHe1.Forms
                 }
             };
 
-            tab.Controls.Add(Wrap(dgvBsDT, Toolbar(txtS, btnS, btnAdd, btnDel, btnRe, Note("Nhấn đúp (Double-click) vào dòng để sửa TÊNTHUỐC / LIỀUDÙNG / TRẠNGTHÁI."))));
+            tab.Controls.Add(Wrap(dgvBsDT, Toolbar(txtS, btnS, btnAdd, btnDel, btnRe, Note("Nhấn đúp (Double-click) vào dòng để sửa TÊN THUỐC / LIỀU DÙNG."))));
             LoadGrid(dgvBsDT, "SELECT * FROM QLBV.DONTHUOC");
         }
 
@@ -690,8 +688,7 @@ namespace PhanHe1.Forms
                 if (f.ShowDialog(this) == DialogResult.OK)
                     try
                     {
-                        // NHÉT THÊM TRẠNG THÁI VÀO CÂU LỆNH INSERT
-                        service.ExecuteNonQuery($"INSERT INTO QLBV.DONTHUOC(MAHSBA,NGAYDT,TENTHUOC,LIEUDUNG,TRANGTHAI) VALUES('{Esc(f.MaHSBA)}',TO_DATE('{f.NgayDT:dd/MM/yyyy}','DD/MM/YYYY'),N'{Esc(f.TenThuoc)}',N'{Esc(f.LieuDung)}',N'{Esc(f.TrangThai)}')");
+                        service.ExecuteNonQuery($"INSERT INTO QLBV.DONTHUOC(MAHSBA,NGAYDT,TENTHUOC,LIEUDUNG) VALUES('{Esc(f.MaHSBA)}',TO_DATE('{f.NgayDT:dd/MM/yyyy}','DD/MM/YYYY'),N'{Esc(f.TenThuoc)}',N'{Esc(f.LieuDung)}')");
                         Ok("Đã thêm đơn thuốc!"); LoadGrid(dgvBsDT, "SELECT * FROM QLBV.DONTHUOC");
                     }
                     catch (Exception ex) { Err(ex.Message); }
@@ -714,8 +711,7 @@ namespace PhanHe1.Forms
                 if (r.RowState == DataRowState.Modified)
                     try
                     {
-                        // NHÉT THÊM TRẠNG THÁI VÀO CÂU LỆNH UPDATE
-                        service.ExecuteNonQuery($"UPDATE QLBV.DONTHUOC SET TENTHUOC=N'{Esc(r["TENTHUOC"].ToString())}',LIEUDUNG=N'{Esc(r["LIEUDUNG"].ToString())}',TRANGTHAI=N'{Esc(r["TRANGTHAI"].ToString())}' WHERE MAHSBA='{Esc(r["MAHSBA"].ToString())}' AND NGAYDT=TO_DATE('{Convert.ToDateTime(r["NGAYDT"]):dd/MM/yyyy}','DD/MM/YYYY') AND TENTHUOC=N'{Esc(r["TENTHUOC", DataRowVersion.Original].ToString())}'");
+                        service.ExecuteNonQuery($"UPDATE QLBV.DONTHUOC SET TENTHUOC=N'{Esc(r["TENTHUOC"].ToString())}',LIEUDUNG=N'{Esc(r["LIEUDUNG"].ToString())}' WHERE MAHSBA='{Esc(r["MAHSBA"].ToString())}' AND NGAYDT=TO_DATE('{Convert.ToDateTime(r["NGAYDT"]):dd/MM/yyyy}','DD/MM/YYYY') AND TENTHUOC=N'{Esc(r["TENTHUOC", DataRowVersion.Original].ToString())}'");
                         n++;
                     }
                     catch (Exception ex) { Err(ex.Message); }
@@ -785,8 +781,8 @@ namespace PhanHe1.Forms
             var btnS = QuickBtn("Tìm", UiTheme.DeepBlue, UiTheme.WhiteText, 80);
             var btnRe = QuickBtn("Tải Lại", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 90);
 
-            btnS.Click += (s, e) => { string kw = Val(txtS, "Tìm mã HSBA..."); LoadGrid(dgvKtvDV, string.IsNullOrEmpty(kw) ? "SELECT * FROM QLBV.HSBA_DV" : $"SELECT * FROM QLBV.HSBA_DV WHERE MAHSBA LIKE '%{Esc(kw)}%'"); };
-            btnRe.Click += (s, e) => LoadGrid(dgvKtvDV, "SELECT * FROM QLBV.HSBA_DV");
+            btnS.Click += (s, e) => { string kw = Val(txtS, "Tìm mã HSBA..."); LoadGrid(dgvKtvDV, string.IsNullOrEmpty(kw) ? "SELECT * FROM QLBV.VW_KTV_XemHSBADV" : $"SELECT * FROM QLBV.VW_KTV_XemHSBADV WHERE MAHSBA LIKE '%{Esc(kw)}%'"); };
+            btnRe.Click += (s, e) => LoadGrid(dgvKtvDV, "SELECT * FROM QLBV.VW_KTV_XemHSBADV");
 
             dgvKtvDV.CellDoubleClick += (s, e) => {
                 if (e.RowIndex >= 0)
@@ -805,9 +801,9 @@ namespace PhanHe1.Forms
                         {
                             try
                             {
-                                service.ExecuteNonQuery($"UPDATE QLBV.HSBA_DV SET KETQUA=N'{Esc(f.NewValues["KETQUA"])}' WHERE MAHSBA='{Esc(ma)}' AND LOAIDV=N'{Esc(loaiDv)}' AND NGAYDV=TO_DATE('{ngayDv}','DD/MM/YYYY')");
+                                service.ExecuteNonQuery($"UPDATE QLBV.VW_KTV_XemHSBADV SET KETQUA=N'{Esc(f.NewValues["KETQUA"])}' WHERE MAHSBA='{Esc(ma)}' AND LOAIDV=N'{Esc(loaiDv)}' AND NGAYDV=TO_DATE('{ngayDv}','DD/MM/YYYY')");
                                 Ok("Cập nhật thành công!");
-                                LoadGrid(dgvKtvDV, "SELECT * FROM QLBV.HSBA_DV");
+                                LoadGrid(dgvKtvDV, "SELECT * FROM QLBV.VW_KTV_XemHSBADV");
                             }
                             catch (Exception ex) { Err(ex.Message); }
                         }
@@ -816,15 +812,15 @@ namespace PhanHe1.Forms
             };
 
             tab.Controls.Add(Wrap(dgvKtvDV, Toolbar(txtS, btnS, btnRe, Note("Nhấn đúp (Double-click) vào dòng dịch vụ để điền KẾT QUẢ."))));
-            LoadGrid(dgvKtvDV, "SELECT * FROM QLBV.HSBA_DV");
+            LoadGrid(dgvKtvDV, "SELECT * FROM QLBV.VW_KTV_XemHSBADV");
         }
 
         private void KTV_LuuKetQua()
         {
             var dt = dgvKtvDV.DataSource as DataTable; if (dt == null) return;
             int n = 0;
-            foreach (DataRow r in dt.Rows) if (r.RowState == DataRowState.Modified) try { service.ExecuteNonQuery($"UPDATE QLBV.HSBA_DV SET KETQUA=N'{Esc(r["KETQUA"].ToString())}' WHERE MAHSBA='{Esc(r["MAHSBA"].ToString())}' AND LOAIDV=N'{Esc(r["LOAIDV"].ToString())}'"); n++; } catch (Exception ex) { Err(ex.Message); }
-            if (n > 0) { Ok($"Đã lưu kết quả {n} dịch vụ (ghi vết audit)."); LoadGrid(dgvKtvDV, "SELECT * FROM QLBV.HSBA_DV"); } else Ok("Không có thay đổi nào.");
+            foreach (DataRow r in dt.Rows) if (r.RowState == DataRowState.Modified) try { service.ExecuteNonQuery($"UPDATE QLBV.VW_KTV_XemHSBADV SET KETQUA=N'{Esc(r["KETQUA"].ToString())}' WHERE MAHSBA='{Esc(r["MAHSBA"].ToString())}' AND LOAIDV=N'{Esc(r["LOAIDV"].ToString())}' AND NGAYDV=TO_DATE('{Convert.ToDateTime(r["NGAYDV"]):dd/MM/yyyy}','DD/MM/YYYY')"); n++; } catch (Exception ex) { Err(ex.Message); }
+            if (n > 0) { Ok($"Đã lưu kết quả {n} dịch vụ (ghi vết audit)."); LoadGrid(dgvKtvDV, "SELECT * FROM QLBV.VW_KTV_XemHSBADV"); } else Ok("Không có thay đổi nào.");
         }
 
         // ═══════════════════════════════════════════════════════════════════
@@ -938,7 +934,7 @@ namespace PhanHe1.Forms
         {
             try
             {
-                DataTable dt = service.Query("SELECT * FROM QLBV.BENHNHAN");
+                DataTable dt = service.Query("SELECT * FROM QLBV.VW_BenhNhan_Xemthongtin");
                 if (dt.Rows.Count == 0) { Ok("Không tìm thấy thông tin bệnh nhân."); return; }
                 DataRow r = dt.Rows[0];
                 txtBnFullName.Text = r["TENBN"]?.ToString() ?? "";
@@ -960,7 +956,7 @@ namespace PhanHe1.Forms
         {
             try
             {
-                service.ExecuteNonQuery($"UPDATE QLBV.BENHNHAN SET SONHA=N'{Esc(txtBnSonha.Text)}',TENDUONG=N'{Esc(txtBnDuong.Text)}',QUANHUYEN=N'{Esc(txtBnQuan.Text)}',TINHTP=N'{Esc(txtBnTinh.Text)}',TIENSUBENH=N'{Esc(txtBnMedicalHistory.Text)}',TIENSUBENHGD=N'{Esc(txtBnFamilyHistory.Text)}',DIUNGTHUOC=N'{Esc(txtBnDrugAllergies.Text)}'");
+                service.ExecuteNonQuery($"UPDATE QLBV.VW_BenhNhan_Xemthongtin SET SONHA=N'{Esc(txtBnSonha.Text)}',TENDUONG=N'{Esc(txtBnDuong.Text)}',QUANHUYEN=N'{Esc(txtBnQuan.Text)}',TINHTP=N'{Esc(txtBnTinh.Text)}',TIENSUBENH=N'{Esc(txtBnMedicalHistory.Text)}',TIENSUBENHGD=N'{Esc(txtBnFamilyHistory.Text)}',DIUNGTHUOC=N'{Esc(txtBnDrugAllergies.Text)}'");
                 Ok("Đã cập nhật thông tin thành công!");
             }
             catch (Exception ex) { Err("Lỗi: " + ex.Message); }
@@ -1172,9 +1168,9 @@ namespace PhanHe1.Forms
 
             // ── FGA (3 policy theo sys_PH2.sql §3.3) ─────────────────────────────
 
-            // FGA 3.3.a: AuditSuaDonThuoc — UPDATE DONTHUOC khi TRANGTHAI='DA_TAO_XONG'
-            dt.Rows.Add(DateTime.Now.AddMinutes(-2).ToString("dd/MM/yyyy HH:mm:ss"),  "BS0001", "UPDATE", "DONTHUOC", "AuditSuaDonThuoc",   "UPDATE QLBV.DONTHUOC SET TENTHUOC='Paracetamol' WHERE TRANGTHAI='DA_TAO_XONG' (FGA ghi vết)");
-            dt.Rows.Add(DateTime.Now.AddMinutes(-10).ToString("dd/MM/yyyy HH:mm:ss"), "BS0002", "UPDATE", "DONTHUOC", "AuditSuaDonThuoc",   "UPDATE QLBV.DONTHUOC SET LIEUDUNG='2 viên/ngày' WHERE TRANGTHAI='DA_TAO_XONG' (FGA ghi vết)");
+            // FGA 3.3.a: AuditSuaDonThuoc — UPDATE DONTHUOC (FGA ghi vết mọi thay đổi)
+            dt.Rows.Add(DateTime.Now.AddMinutes(-2).ToString("dd/MM/yyyy HH:mm:ss"),  "BS0001", "UPDATE", "DONTHUOC", "AuditSuaDonThuoc",   "UPDATE QLBV.DONTHUOC SET TENTHUOC='Paracetamol' WHERE MAHSBA='HS000001' (FGA ghi vết)");
+            dt.Rows.Add(DateTime.Now.AddMinutes(-10).ToString("dd/MM/yyyy HH:mm:ss"), "BS0002", "UPDATE", "DONTHUOC", "AuditSuaDonThuoc",   "UPDATE QLBV.DONTHUOC SET LIEUDUNG='2 viên/ngày' WHERE MAHSBA='HS000002' (FGA ghi vết)");
 
             // FGA 3.3.b: AuditBSUpdateHSBA — BS update CHANDOAN/DIEUTRI/KETLUAN hợp pháp
             dt.Rows.Add(DateTime.Now.AddMinutes(-5).ToString("dd/MM/yyyy HH:mm:ss"),  "BS0001", "UPDATE", "HSBA", "AuditBSUpdateHSBA",  "UPDATE QLBV.HSBA SET CHANDOAN='Viêm họng' WHERE MAHSBA='HS10001' (FGA ghi vết hợp pháp)");
@@ -1439,7 +1435,11 @@ namespace PhanHe1.Forms
         {
             try
             {
-                DataTable dt = service.Query($"SELECT * FROM QLBV.NHANVIEN WHERE MANV = '{currentUser}'");
+                // KTV chỉ có quyền trên VW_KTV_Xemthongtin (view tự filter theo session_user)
+                string sql = userRole == UserRole.KTV
+                    ? "SELECT * FROM QLBV.VW_KTV_Xemthongtin"
+                    : $"SELECT * FROM QLBV.NHANVIEN WHERE MANV = '{currentUser}'";
+                DataTable dt = service.Query(sql);
                 if (dt.Rows.Count == 0) return;
                 DataRow r = dt.Rows[0];
                 txtNvFullName.Text = r["HOTEN"]?.ToString() ?? "";
@@ -1459,7 +1459,11 @@ namespace PhanHe1.Forms
         {
             try
             {
-                service.ExecuteNonQuery($"UPDATE QLBV.NHANVIEN SET QUEQUAN=N'{Esc(txtNvAddress.Text)}', SODT='{Esc(txtNvPhone.Text)}' WHERE MANV='{currentUser}'");
+                // KTV chỉ có quyền UPDATE (QUEQUAN, SODT) trên VW_KTV_Xemthongtin
+                string sql = userRole == UserRole.KTV
+                    ? $"UPDATE QLBV.VW_KTV_Xemthongtin SET QUEQUAN=N'{Esc(txtNvAddress.Text)}', SODT='{Esc(txtNvPhone.Text)}'"
+                    : $"UPDATE QLBV.NHANVIEN SET QUEQUAN=N'{Esc(txtNvAddress.Text)}', SODT='{Esc(txtNvPhone.Text)}' WHERE MANV='{currentUser}'";
+                service.ExecuteNonQuery(sql);
                 Ok("Cập nhật thông tin cá nhân thành công!");
             }
             catch (Exception ex) { Err("Lỗi: " + ex.Message); }
@@ -1649,11 +1653,6 @@ namespace PhanHe1.Forms
     // ════════════════════════════════════════════════════════════════════════
     //  DIALOG: Thêm Đơn Thuốc
     // ════════════════════════════════════════════════════════════════════════
-    // ✅ [GỘPCODE-4] DONTHUOC.TRANGTHAI — ComboBox thay TextBox tự do
-    //    Nguồn: schema_phanhe2.sql — CHECK (TRANGTHAI IN ('CHUA_TAO_XONG','DA_TAO_XONG'))
-    //           sys_PH2.sql §3.3.a  — FGA AuditSuaDonThuoc kích hoạt khi TRANGTHAI='DA_TAO_XONG'
-    //    Trước: TextBox tự do → người dùng có thể nhập sai → ORA-02290 (CHECK constraint).
-    //    Sau:   ComboBox DropDownList chỉ cho chọn 2 giá trị hợp lệ, mặc định CHUA_TAO_XONG.
 
     public class DonThuocAddForm : Form
     {
@@ -1662,28 +1661,18 @@ namespace PhanHe1.Forms
         public string TenThuoc { get; private set; }
         public string LieuDung { get; private set; }
 
-        public string TrangThai { get; private set; }
         public DonThuocAddForm()
         {
             Text = "Thêm Đơn Thuốc"; StartPosition = FormStartPosition.CenterParent; FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false;
-            ClientSize = new Size(440, 305);
+            ClientSize = new Size(440, 260);
             BackColor = UiTheme.LightCyan; Font = UiTheme.BodyFont;
 
             var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(16), BackColor = UiTheme.JordyBlue };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190F)); layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
 
-            // Rows 0-3: TextBox fields (không có TRANGTHAI)
             string[] lbs = { "Mã HSBA:", "Ngày (dd/mm/yyyy):", "Tên thuốc:", "Liều dùng:" };
             var flds = new TextBox[lbs.Length];
             for (int i = 0; i < lbs.Length; i++) { layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F)); layout.Controls.Add(new Label { Text = lbs[i], AutoSize = true, Font = UiTheme.HeaderFont, ForeColor = UiTheme.DeepBlue, Anchor = AnchorStyles.Right }, 0, i); flds[i] = new TextBox { Dock = DockStyle.Fill }; layout.Controls.Add(flds[i], 1, i); }
-
-            // Row 4: TRANGTHAI dùng ComboBox — chỉ cho phép 2 giá trị hợp lệ theo schema Oracle
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
-            layout.Controls.Add(new Label { Text = "Trạng thái:", AutoSize = true, Font = UiTheme.HeaderFont, ForeColor = UiTheme.DeepBlue, Anchor = AnchorStyles.Right }, 0, lbs.Length);
-            var cmbTrangThai = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList, Font = UiTheme.BodyFont };
-            cmbTrangThai.Items.AddRange(new object[] { "CHUA_TAO_XONG", "DA_TAO_XONG" });
-            cmbTrangThai.SelectedIndex = 0;
-            layout.Controls.Add(cmbTrangThai, 1, lbs.Length);
 
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 52F));
             var ft = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
@@ -1694,12 +1683,11 @@ namespace PhanHe1.Forms
                 if (string.IsNullOrWhiteSpace(flds[0].Text)) { MessageBox.Show("Nhập Mã HSBA."); return; }
                 if (!DateTime.TryParseExact(flds[1].Text, "dd/MM/yyyy", null, System.Globalization.DateTimeStyles.None, out DateTime ng)) { MessageBox.Show("Ngày không hợp lệ."); return; }
                 MaHSBA = flds[0].Text.Trim(); NgayDT = ng; TenThuoc = flds[2].Text.Trim(); LieuDung = flds[3].Text.Trim();
-                TrangThai = cmbTrangThai.SelectedItem.ToString();
                 DialogResult = DialogResult.OK; Close();
             };
             cn.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
 
-            ft.Controls.Add(ok); ft.Controls.Add(cn); layout.Controls.Add(ft, 0, lbs.Length + 1); layout.SetColumnSpan(ft, 2); Controls.Add(layout); AcceptButton = ok;
+            ft.Controls.Add(ok); ft.Controls.Add(cn); layout.Controls.Add(ft, 0, lbs.Length); layout.SetColumnSpan(ft, 2); Controls.Add(layout); AcceptButton = ok;
         }
     }
 
@@ -1793,11 +1781,8 @@ namespace PhanHe1.Forms
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    //  DIALOG: Cập Nhật Đơn Thuốc — TRANGTHAI dùng ComboBox (constraint-safe)
+    //  DIALOG: Cập Nhật Đơn Thuốc
     // ════════════════════════════════════════════════════════════════════════
-    // ✅ [GỘPCODE-C] Thay thế EditRowForm generic cho DONTHUOC update.
-    //    TRANGTHAI luôn là ComboBox (CHUA_TAO_XONG / DA_TAO_XONG).
-    //    Nguồn: schema_phanhe2.sql CHECK constraint + sys_PH2.sql AuditSuaDonThuoc FGA.
     public class EditDonThuocForm : Form
     {
         public Dictionary<string, string> NewValues { get; } = new Dictionary<string, string>();
@@ -1806,7 +1791,7 @@ namespace PhanHe1.Forms
         {
             Text = title; StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false;
-            ClientSize = new Size(500, 230);
+            ClientSize = new Size(500, 185);
             BackColor = UiTheme.LightCyan; Font = UiTheme.BodyFont;
 
             var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(16), BackColor = UiTheme.JordyBlue };
@@ -1819,21 +1804,9 @@ namespace PhanHe1.Forms
             {
                 layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
                 layout.Controls.Add(new Label { Text = kv.Key + ":", AutoSize = true, Font = UiTheme.HeaderFont, ForeColor = UiTheme.DeepBlue, Anchor = AnchorStyles.Right }, 0, row);
-                if (kv.Key == "TRANGTHAI")
-                {
-                    var cmb = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList, Font = UiTheme.BodyFont };
-                    cmb.Items.AddRange(new object[] { "CHUA_TAO_XONG", "DA_TAO_XONG" });
-                    cmb.SelectedItem = kv.Value;
-                    if (cmb.SelectedIndex < 0) cmb.SelectedIndex = 0;
-                    layout.Controls.Add(cmb, 1, row);
-                    controls[kv.Key] = cmb;
-                }
-                else
-                {
-                    var txt = new TextBox { Dock = DockStyle.Fill, Text = kv.Value ?? "" };
-                    layout.Controls.Add(txt, 1, row);
-                    controls[kv.Key] = txt;
-                }
+                var txt = new TextBox { Dock = DockStyle.Fill, Text = kv.Value ?? "" };
+                layout.Controls.Add(txt, 1, row);
+                controls[kv.Key] = txt;
                 row++;
             }
 
@@ -1844,7 +1817,7 @@ namespace PhanHe1.Forms
 
             ok.Click += (s, e) => {
                 foreach (var kv in controls)
-                    NewValues[kv.Key] = kv.Value is ComboBox cmb ? cmb.SelectedItem?.ToString() ?? "" : ((TextBox)kv.Value).Text.Trim();
+                    NewValues[kv.Key] = ((TextBox)kv.Value).Text.Trim();
                 DialogResult = DialogResult.OK; Close();
             };
             cn.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };

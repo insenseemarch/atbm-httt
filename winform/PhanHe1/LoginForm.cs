@@ -66,7 +66,7 @@ namespace PhanHe1
             panel.Controls.Add(txtPort, 1, 2);
 
             panel.Controls.Add(new Label { Text = "Service Name:", AutoSize = true, ForeColor = UiTheme.DeepBlue, Font = UiTheme.HeaderFont }, 0, 3);
-            txtService = new TextBox { Dock = DockStyle.Fill, Text = "PDBQLBV" };
+            txtService = new TextBox { Dock = DockStyle.Fill, Text = "XEPDB1" };
             panel.Controls.Add(txtService, 1, 3);
 
             panel.Controls.Add(new Label { Text = "Tài khoản:", AutoSize = true, ForeColor = UiTheme.DeepBlue, Font = UiTheme.HeaderFont }, 0, 4);
