@@ -1005,12 +1005,15 @@ namespace PhanHe1.Forms
             var tBackup = MakeTab("Sao Lưu (Backup)");
             var tTK     = MakeTab("Quản Lý Tài Khoản");
 
+            var tOLS = MakeTab("OLS Bảo Mật");
+
             BuildThongBaoTab(tTB, true);
             BuildAdmin_Audit(tAudit);
             BuildAdmin_Backup(tBackup);
             BuildAdmin_QuanLyTK(tTK);
+            BuildAdmin_OLS(tOLS);
 
-            tabs.TabPages.AddRange(new[] { tTB, tAudit, tBackup, tTK });
+            tabs.TabPages.AddRange(new[] { tTB, tAudit, tBackup, tTK, tOLS });
             parent.Controls.Add(tabs);
         }
 
@@ -1504,6 +1507,162 @@ namespace PhanHe1.Forms
             }
         }
 
+        // =====================================================================
+        //  OLS BẢO MẬT — Quản lý thành phần nhãn + nhãn người dùng
+        // =====================================================================
+        private void BuildAdmin_OLS(TabPage tab)
+        {
+            var inner  = MakeTabs();
+            var tComp  = MakeTab("Thành Phần Nhãn");
+            var tUsers = MakeTab("Nhãn Người Dùng");
+
+            BuildAdmin_OLS_Components(tComp);
+            BuildAdmin_OLS_UserLabels(tUsers);
+
+            inner.TabPages.AddRange(new[] { tComp, tUsers });
+            tab.Controls.Add(inner);
+        }
+
+        // Ba grid song song: DBA_SA_LEVELS | DBA_SA_COMPARTMENTS | DBA_SA_GROUPS
+        private void BuildAdmin_OLS_Components(TabPage tab)
+        {
+            var tbl = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 2,
+                BackColor = Color.White, Padding = new Padding(8)
+            };
+            tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33F));
+            tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34F));
+            tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33F));
+            tbl.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
+            tbl.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            Label MkHdr(string t) => new Label
+            {
+                Text = t, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter,
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue,
+                BackColor = Color.FromArgb(215, 235, 255)
+            };
+            tbl.Controls.Add(MkHdr("LEVELS  (Cấp độ)"), 0, 0);
+            tbl.Controls.Add(MkHdr("COMPARTMENTS  (Khoa)"), 1, 0);
+            tbl.Controls.Add(MkHdr("GROUPS  (Cơ sở)"), 2, 0);
+
+            var gridL = MakeGrid(true);
+            var gridC = MakeGrid(true);
+            var gridG = MakeGrid(true);
+
+            tbl.Controls.Add(gridL, 0, 1);
+            tbl.Controls.Add(gridC, 1, 1);
+            tbl.Controls.Add(gridG, 2, 1);
+
+            tab.Controls.Add(tbl);
+
+            void SafeOlsLoad(DataGridView g, string q)
+            {
+                try { LoadGrid(g, q); UiTheme.StyleGrid(g); }
+                catch { /* OLS view không truy cập được — grid rỗng */ }
+            }
+
+            SafeOlsLoad(gridL,
+                "SELECT * FROM DBA_SA_LEVELS WHERE POLICY_NAME='OLS_QLBV_POLICY' ORDER BY LEVEL_NUM DESC");
+            SafeOlsLoad(gridC,
+                "SELECT * FROM DBA_SA_COMPARTMENTS WHERE POLICY_NAME='OLS_QLBV_POLICY' ORDER BY COMP_NUM");
+            SafeOlsLoad(gridG,
+                "SELECT * FROM DBA_SA_GROUPS WHERE POLICY_NAME='OLS_QLBV_POLICY' ORDER BY GROUP_NUM");
+        }
+
+        // Grid DBA_SA_USER_LABELS + nút đồng bộ lại nhãn cho tất cả NV (run/06.sql)
+        private void BuildAdmin_OLS_UserLabels(TabPage tab)
+        {
+            var grid    = MakeGrid(true);
+            var btnRe   = QuickBtn("Tải Lại",          Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 90);
+            var txtS    = SearchBox("Tìm user...", 180);
+            var btnS    = QuickBtn("Tìm", UiTheme.DeepBlue, UiTheme.WhiteText, 70);
+            var btnSync = QuickBtn("Đồng Bộ Nhãn NV", UiTheme.BrandeisBlue, UiTheme.WhiteText, 175);
+
+            btnRe.Click   += (s, e) => LoadOlsUserLabels(grid, "");
+            btnS.Click    += (s, e) => LoadOlsUserLabels(grid, Val(txtS, "Tìm user..."));
+            btnSync.Click += (s, e) => SyncOlsLabels(grid);
+
+            tab.Controls.Add(Wrap(grid, Toolbar(btnRe, txtS, btnS, btnSync,
+                Note("Nhãn OLS xác định hàng nào trong THONGBAO mỗi user được đọc.  |  'Đồng Bộ' tính lại theo CAPBAC/MAKHOA/COSO từ run/06.sql."))));
+            LoadOlsUserLabels(grid, "");
+        }
+
+        private void LoadOlsUserLabels(DataGridView grid, string filter)
+        {
+            // Dùng SELECT * để không phụ thuộc tên cột — cấu trúc DBA_SA_USER_LABELS
+            // có thể khác nhau giữa các phiên bản Oracle XE
+            string sql = "SELECT * FROM DBA_SA_USER_LABELS WHERE POLICY_NAME='OLS_QLBV_POLICY'";
+            if (!string.IsNullOrEmpty(filter))
+                sql += $" AND UPPER(USER_NAME) LIKE '%{filter.ToUpper().Replace("'", "''")}%'";
+            sql += " ORDER BY USER_NAME";
+            try { LoadGrid(grid, sql); UiTheme.StyleGrid(grid); }
+            catch { grid.DataSource = null; /* view không truy cập được — grid rỗng */ }
+        }
+
+        // Đồng bộ nhãn OLS cho tất cả NV — lặp lại logic PL/SQL từ run/06.sql
+        private void SyncOlsLabels(DataGridView grid)
+        {
+            try
+            {
+                service.ExecuteNonQuery(@"
+DECLARE
+    v_label VARCHAR2(200);
+    v_level VARCHAR2(10);
+    v_comp  VARCHAR2(10);
+    v_grp   VARCHAR2(10);
+BEGIN
+    FOR nv IN (SELECT MANV, CAPBAC, MAKHOA, COSO FROM QLBV.NHANVIEN) LOOP
+        CASE nv.CAPBAC
+            WHEN N'Ban Giám đốc'   THEN v_level := 'BGD';
+            WHEN N'Lãnh đạo khoa'  THEN v_level := 'LDK';
+            WHEN N'Lãnh đạo phòng' THEN v_level := 'LDP';
+            ELSE v_level := 'NV';
+        END CASE;
+        CASE nv.MAKHOA
+            WHEN 'K001' THEN v_comp := 'TH';
+            WHEN 'K002' THEN v_comp := 'TK';
+            WHEN 'K003' THEN v_comp := 'TM';
+            ELSE v_comp := NULL;
+        END CASE;
+        CASE nv.COSO
+            WHEN N'Hồ Chí Minh' THEN v_grp := 'HCM';
+            WHEN N'Hải Phòng'   THEN v_grp := 'HP';
+            WHEN N'Hà Nội'      THEN v_grp := 'HN';
+            ELSE v_grp := NULL;
+        END CASE;
+        IF v_level = 'BGD' THEN
+            v_label := 'BGD:TH,TK,TM:HCM,HP,HN';
+        ELSIF v_level = 'LDP' AND v_comp IS NULL THEN
+            v_label := 'LDP:TH,TK,TM:HCM,HP,HN';
+        ELSIF v_comp IS NOT NULL AND v_grp IS NOT NULL THEN
+            v_label := v_level || ':' || v_comp || ':' || v_grp;
+        ELSIF v_comp IS NOT NULL THEN
+            v_label := v_level || ':' || v_comp;
+        ELSIF v_grp IS NOT NULL THEN
+            v_label := v_level || '::' || v_grp;
+        ELSE
+            v_label := v_level;
+        END IF;
+        BEGIN
+            LBACSYS.SA_USER_ADMIN.SET_USER_LABELS(
+                policy_name    => 'OLS_QLBV_POLICY',
+                user_name      => nv.MANV,
+                max_read_label => v_label,
+                def_label      => v_label,
+                row_label      => v_label
+            );
+        EXCEPTION WHEN OTHERS THEN NULL;
+        END;
+    END LOOP;
+END;");
+                Ok("Đã đồng bộ nhãn OLS cho tất cả nhân viên theo CAPBAC/MAKHOA/COSO.");
+                LoadOlsUserLabels(grid, "");
+            }
+            catch (Exception ex) { Err(ex.Message); }
+        }
+
         private void BuildAdmin_BN(TabPage tab)
         {
             var grid = MakeGrid(true);
@@ -1581,8 +1740,23 @@ namespace PhanHe1.Forms
             var grid = MakeGrid(true); // Chỉ đọc
             var btnRe = QuickBtn("Tải Lại", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 90);
 
-            string sqlLoad = "SELECT NOIDUNG, NGAYGIO, DIADIEM FROM QLBV.THONGBAO ORDER BY NGAYGIO DESC";
-            btnRe.Click += (s, e) => LoadGrid(grid, sqlLoad);
+            // ADMIN hiển thị thêm cột NHÃN OLS (LABEL_TO_CHAR) để demo OLS filtering
+            string sqlWithLabel  = "SELECT NOIDUNG, NGAYGIO, DIADIEM, LABEL_TO_CHAR(OLS_COL) AS \"NHÃN OLS\" FROM QLBV.THONGBAO ORDER BY NGAYGIO DESC";
+            string sqlNoLabel    = "SELECT NOIDUNG, NGAYGIO, DIADIEM FROM QLBV.THONGBAO ORDER BY NGAYGIO DESC";
+            string sqlLoad = canSend ? sqlWithLabel : sqlNoLabel;
+
+            void LoadThongBao()
+            {
+                try { LoadGrid(grid, sqlLoad); UiTheme.StyleGrid(grid); }
+                catch
+                {
+                    // LABEL_TO_CHAR không khả dụng → fallback không có cột nhãn
+                    try { LoadGrid(grid, sqlNoLabel); UiTheme.StyleGrid(grid); }
+                    catch { /* grid rỗng */ }
+                }
+            }
+
+            btnRe.Click += (s, e) => LoadThongBao();
 
             grid.CellDoubleClick += (s, e) => {
                 if (e.RowIndex >= 0)
@@ -1610,7 +1784,7 @@ namespace PhanHe1.Forms
             }
 
             parent.Controls.Add(Wrap(grid, toolbar));
-            LoadGrid(grid, sqlLoad);
+            LoadThongBao();
         }
 
         private void GuiThongBao()
@@ -1619,8 +1793,16 @@ namespace PhanHe1.Forms
                 if (f.ShowDialog(this) == DialogResult.OK)
                     try
                     {
-                        service.ExecuteNonQuery($"INSERT INTO QLBV.THONGBAO(NOIDUNG,NGAYGIO,DIADIEM) VALUES(N'{Esc(f.NoiDung)}',TO_TIMESTAMP('{f.NgayGio:dd/MM/yyyy HH:mm}','DD/MM/YYYY HH24:MI'),N'{Esc(f.DiaDiem)}')");
-                        Ok("Đã gửi thông báo khẩn!");
+                        // Nếu QLBV chọn nhãn OLS → INSERT với CHAR_TO_LABEL để đích thị đúng đối tượng
+                        // Nếu không chọn (rỗng) → Oracle tự dùng row_label mặc định của QLBV (BGD:...)
+                        string olsSql = string.IsNullOrEmpty(f.OlsLabel)
+                            ? $"INSERT INTO QLBV.THONGBAO(NOIDUNG,NGAYGIO,DIADIEM) " +
+                              $"VALUES(N'{Esc(f.NoiDung)}',TO_TIMESTAMP('{f.NgayGio:dd/MM/yyyy HH:mm}','DD/MM/YYYY HH24:MI'),N'{Esc(f.DiaDiem)}')"
+                            : $"INSERT INTO QLBV.THONGBAO(NOIDUNG,NGAYGIO,DIADIEM,OLS_COL) " +
+                              $"VALUES(N'{Esc(f.NoiDung)}',TO_TIMESTAMP('{f.NgayGio:dd/MM/yyyy HH:mm}','DD/MM/YYYY HH24:MI'),N'{Esc(f.DiaDiem)}'," +
+                              $"CHAR_TO_LABEL('OLS_QLBV_POLICY','{f.OlsLabel}'))";
+                        service.ExecuteNonQuery(olsSql);
+                        Ok($"Đã gửi thông báo khẩn!\nNhãn OLS: {(string.IsNullOrEmpty(f.OlsLabel) ? "(mặc định QLBV)" : f.OlsLabel)}");
                     }
                     catch (Exception ex) { Err(ex.Message); }
         }
@@ -1949,45 +2131,332 @@ namespace PhanHe1.Forms
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    //  DIALOG: Gửi Thông Báo Khẩn (OLS)
+    //  DIALOG: Gửi Thông Báo Khẩn — Chọn Nhãn OLS (run/01.sql components)
+    //  Level:       RadioButton (BGD / LDK / LDP / NV)
+    //  Compartment: CheckBox    (TH / TK / TM / Tất cả khoa)
+    //  Group:       CheckBox    (HCM / HP / HN / Tất cả cơ sở)
+    //  Preview:     Label hiển thị nhãn kết quả real-time
     // ════════════════════════════════════════════════════════════════════════
-
     public class ThongBaoForm : Form
     {
-        public string NoiDung { get; private set; }
-        public DateTime NgayGio { get; private set; }
-        public string DiaDiem { get; private set; }
+        public string   NoiDung  { get; private set; }
+        public DateTime NgayGio  { get; private set; }
+        public string   DiaDiem  { get; private set; }
+        public string   OlsLabel { get; private set; }   // "BGD:TH,TK,TM:HCM,HP,HN" etc.
 
         public ThongBaoForm()
         {
-            Text = "Gửi Thông Báo Khẩn - OLS"; StartPosition = FormStartPosition.CenterParent; FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false; ClientSize = new Size(500, 390); BackColor = UiTheme.LightCyan; Font = UiTheme.BodyFont;
-            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(16), BackColor = UiTheme.JordyBlue };
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 205F)); layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            Text = "Gửi Thông Báo Khẩn — Chọn Nhãn OLS";
+            StartPosition = FormStartPosition.CenterParent;
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            ClientSize = new Size(640, 560);
+            BackColor = UiTheme.LightCyan;
+            Font = UiTheme.BodyFont;
 
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 110F));
-            layout.Controls.Add(new Label { Text = "Nội dung thông báo:", AutoSize = true, Font = UiTheme.HeaderFont, ForeColor = UiTheme.DeepBlue, Anchor = AnchorStyles.Right, Margin = new Padding(0, 6, 6, 0) }, 0, 0);
-            var txN = new TextBox { Dock = DockStyle.Fill, Multiline = true }; layout.Controls.Add(txN, 1, 0);
+            // ── Outer layout: left (fields) | right (OLS picker) ──────────
+            var outer = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1,
+                Padding = new Padding(14), BackColor = UiTheme.JordyBlue
+            };
+            outer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 48F));
+            outer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 52F));
+            outer.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48F));
-            layout.Controls.Add(new Label { Text = "Ngày giờ (dd/mm/yyyy HH:MM):", AutoSize = true, Font = UiTheme.HeaderFont, ForeColor = UiTheme.DeepBlue, Anchor = AnchorStyles.Right }, 0, 1);
-            var txD = new TextBox { Dock = DockStyle.Fill, Text = DateTime.Now.ToString("dd/MM/yyyy HH:mm") }; layout.Controls.Add(txD, 1, 1);
+            // ── LEFT: nội dung / ngày giờ / địa điểm ─────────────────────
+            var leftPanel = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill, ColumnCount = 1, BackColor = Color.Transparent,
+                Padding = new Padding(0, 0, 10, 0)
+            };
 
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48F));
-            layout.Controls.Add(new Label { Text = "Địa điểm:", AutoSize = true, Font = UiTheme.HeaderFont, ForeColor = UiTheme.DeepBlue, Anchor = AnchorStyles.Right }, 0, 2);
-            var txL = new TextBox { Dock = DockStyle.Fill }; layout.Controls.Add(txL, 1, 2);
+            Label MkLbl(string t) => new Label
+            {
+                Text = t, AutoSize = true, Font = UiTheme.HeaderFont,
+                ForeColor = UiTheme.DeepBlue, Margin = new Padding(0, 6, 0, 2)
+            };
 
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 88F));
-            var nb = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(255, 244, 200), Padding = new Padding(10) };
-            nb.Controls.Add(new Label { Text = "Thông báo được gán nhãn OLS tự động theo vai trò người gửi.\nNgười nhận chỉ đọc được khi nhãn phù hợp cấp bậc và khoa.", Dock = DockStyle.Fill, AutoSize = false, ForeColor = Color.FromArgb(120, 80, 0), Font = new Font("Segoe UI", 9F) });
-            layout.Controls.Add(nb, 0, 3); layout.SetColumnSpan(nb, 2);
+            leftPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 22F));
+            leftPanel.Controls.Add(MkLbl("Nội dung thông báo *:"));
 
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 56F));
-            var ft = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, Margin = new Padding(0, 8, 0, 0) };
-            var ok = new Button { Text = "Gửi Thông Báo", Width = 150, Height = 36, FlatStyle = FlatStyle.Flat, BackColor = UiTheme.PastelGreen, ForeColor = UiTheme.DeepBlue, Font = new Font("Segoe UI", 10F, FontStyle.Bold) }; ok.FlatAppearance.BorderSize = 0;
-            var cn = new Button { Text = "Hủy", Width = 90, Height = 36, FlatStyle = FlatStyle.Flat, BackColor = UiTheme.BrandeisBlue, ForeColor = UiTheme.WhiteText }; cn.FlatAppearance.BorderSize = 0;
-            ok.Click += (s, e) => { if (string.IsNullOrWhiteSpace(txN.Text)) { MessageBox.Show("Nhập nội dung."); return; } if (!DateTime.TryParseExact(txD.Text, "dd/MM/yyyy HH:mm", null, System.Globalization.DateTimeStyles.None, out DateTime ng)) { MessageBox.Show("Ngày giờ không hợp lệ."); return; } NoiDung = txN.Text.Trim(); NgayGio = ng; DiaDiem = txL.Text.Trim(); DialogResult = DialogResult.OK; Close(); };
+            leftPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            var txN = new TextBox { Dock = DockStyle.Fill, Multiline = true, ScrollBars = ScrollBars.Vertical };
+            leftPanel.Controls.Add(txN);
+
+            leftPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 22F));
+            leftPanel.Controls.Add(MkLbl("Ngày giờ:"));
+
+            leftPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
+            var dtpNgayGio = new DateTimePicker
+            {
+                Dock = DockStyle.Fill,
+                Format = DateTimePickerFormat.Custom,
+                CustomFormat = "dd/MM/yyyy HH:mm",
+                ShowUpDown = true,
+                Value = DateTime.Now
+            };
+            leftPanel.Controls.Add(dtpNgayGio);
+
+            leftPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 22F));
+            leftPanel.Controls.Add(MkLbl("Địa điểm:"));
+
+            leftPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
+            var txL = new TextBox { Dock = DockStyle.Fill };
+            leftPanel.Controls.Add(txL);
+
+            outer.Controls.Add(leftPanel, 0, 0);
+
+            // ── RIGHT: OLS Label Picker ───────────────────────────────────
+            var rightPanel = new Panel
+            {
+                Dock = DockStyle.Fill, BackColor = Color.FromArgb(230, 242, 255),
+                Padding = new Padding(10)
+            };
+
+            var rightLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill, ColumnCount = 1, BackColor = Color.Transparent
+            };
+
+            // Title
+            rightLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
+            rightLayout.Controls.Add(new Label
+            {
+                Text = "Nhãn OLS (Đối tượng nhận)",
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Fill
+            });
+
+            // ── LEVEL GroupBox ──
+            var gbLevel = new GroupBox
+            {
+                Text = "Cấp độ (Level)", Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue,
+                Height = 100
+            };
+            var flowLevel = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = true };
+
+            var levelDefs = new (string Code, string Label)[]
+            {
+                ("BGD", "Ban Giám đốc"), ("LDK", "Lãnh đạo khoa"),
+                ("LDP", "Lãnh đạo phòng"), ("NV", "Nhân viên")
+            };
+            var rbLevels = new RadioButton[levelDefs.Length];
+            for (int i = 0; i < levelDefs.Length; i++)
+            {
+                rbLevels[i] = new RadioButton
+                {
+                    Text = $"{levelDefs[i].Label} ({levelDefs[i].Code})",
+                    Tag = levelDefs[i].Code,
+                    AutoSize = true, Margin = new Padding(4, 2, 4, 2),
+                    Font = new Font("Segoe UI", 8.5F)
+                };
+                flowLevel.Controls.Add(rbLevels[i]);
+            }
+            rbLevels[3].Checked = true; // Default: NV
+            gbLevel.Controls.Add(flowLevel);
+            rightLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 95F));
+            rightLayout.Controls.Add(gbLevel);
+
+            // ── COMPARTMENT GroupBox ──
+            var gbComp = new GroupBox
+            {
+                Text = "Khoa (Compartment)", Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue,
+                Height = 90
+            };
+            var flowComp = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight };
+
+            var compDefs = new (string Code, string Label)[]
+            {
+                ("TH", "Tiêu hóa (TH)"), ("TK", "Thần kinh (TK)"),
+                ("TM", "Tim mạch (TM)"), ("ALL", "Tất cả khoa")
+            };
+            var cbComps = new CheckBox[compDefs.Length];
+            for (int i = 0; i < compDefs.Length; i++)
+            {
+                cbComps[i] = new CheckBox
+                {
+                    Text = compDefs[i].Label, Tag = compDefs[i].Code,
+                    AutoSize = true, Margin = new Padding(4, 2, 4, 2),
+                    Font = new Font("Segoe UI", 8.5F)
+                };
+                flowComp.Controls.Add(cbComps[i]);
+            }
+            gbComp.Controls.Add(flowComp);
+            rightLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 88F));
+            rightLayout.Controls.Add(gbComp);
+
+            // ── GROUP GroupBox ──
+            var gbGrp = new GroupBox
+            {
+                Text = "Cơ sở (Group)", Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue,
+                Height = 90
+            };
+            var flowGrp = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight };
+
+            var grpDefs = new (string Code, string Label)[]
+            {
+                ("HCM", "Hồ Chí Minh (HCM)"), ("HP", "Hải Phòng (HP)"),
+                ("HN", "Hà Nội (HN)"),         ("ALL", "Tất cả cơ sở")
+            };
+            var cbGrps = new CheckBox[grpDefs.Length];
+            for (int i = 0; i < grpDefs.Length; i++)
+            {
+                cbGrps[i] = new CheckBox
+                {
+                    Text = grpDefs[i].Label, Tag = grpDefs[i].Code,
+                    AutoSize = true, Margin = new Padding(4, 2, 4, 2),
+                    Font = new Font("Segoe UI", 8.5F)
+                };
+                flowGrp.Controls.Add(cbGrps[i]);
+            }
+            gbGrp.Controls.Add(flowGrp);
+            rightLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 88F));
+            rightLayout.Controls.Add(gbGrp);
+
+            // ── Preview nhãn ──
+            rightLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
+            rightLayout.Controls.Add(new Label
+            {
+                Text = "Xem trước nhãn OLS:", Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(60, 60, 130), Dock = DockStyle.Fill
+            });
+
+            rightLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
+            var lblPreview = new Label
+            {
+                Text = "NV", Dock = DockStyle.Fill,
+                Font = new Font("Consolas", 11F, FontStyle.Bold),
+                ForeColor = Color.DarkGreen,
+                BackColor = Color.FromArgb(220, 255, 220),
+                BorderStyle = BorderStyle.FixedSingle,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(8, 0, 0, 0)
+            };
+            rightLayout.Controls.Add(lblPreview);
+
+            rightPanel.Controls.Add(rightLayout);
+            outer.Controls.Add(rightPanel, 1, 0);
+
+            // ── Hàm tính và cập nhật preview ─────────────────────────────
+            void UpdatePreview()
+            {
+                string level = "NV";
+                foreach (var rb in rbLevels)
+                    if (rb.Checked) { level = rb.Tag.ToString(); break; }
+
+                // BGD: không cần chọn comp/group — full access
+                if (level == "BGD") { lblPreview.Text = "BGD:TH,TK,TM:HCM,HP,HN"; return; }
+
+                // Compartments
+                bool allComp = false;
+                var selComps = new System.Collections.Generic.List<string>();
+                foreach (var cb in cbComps)
+                {
+                    if (!cb.Checked) continue;
+                    if (cb.Tag.ToString() == "ALL") { allComp = true; break; }
+                    selComps.Add(cb.Tag.ToString());
+                }
+                string compPart = allComp ? "TH,TK,TM" : (selComps.Count > 0 ? string.Join(",", selComps) : "");
+
+                // Groups
+                bool allGrp = false;
+                var selGrps = new System.Collections.Generic.List<string>();
+                foreach (var cb in cbGrps)
+                {
+                    if (!cb.Checked) continue;
+                    if (cb.Tag.ToString() == "ALL") { allGrp = true; break; }
+                    selGrps.Add(cb.Tag.ToString());
+                }
+                string grpPart = allGrp ? "HCM,HP,HN" : (selGrps.Count > 0 ? string.Join(",", selGrps) : "");
+
+                // Ghép nhãn
+                string lbl = level;
+                if (!string.IsNullOrEmpty(compPart) && !string.IsNullOrEmpty(grpPart))
+                    lbl = $"{level}:{compPart}:{grpPart}";
+                else if (!string.IsNullOrEmpty(compPart))
+                    lbl = $"{level}:{compPart}";
+                else if (!string.IsNullOrEmpty(grpPart))
+                    lbl = $"{level}::{grpPart}";
+
+                lblPreview.Text = lbl;
+            }
+
+            // Wire up events
+            foreach (var rb in rbLevels)
+            {
+                rb.CheckedChanged += (s, e) =>
+                {
+                    bool isBgd = rb.Tag.ToString() == "BGD" && rb.Checked;
+                    gbComp.Enabled = !isBgd;
+                    gbGrp.Enabled  = !isBgd;
+                    UpdatePreview();
+                };
+            }
+            foreach (var cb in cbComps) cb.CheckedChanged += (s, e) =>
+            {
+                // "Tất cả khoa" mutex
+                if (cb.Tag.ToString() == "ALL" && cb.Checked)
+                    foreach (var c in cbComps) if (c.Tag.ToString() != "ALL") c.Checked = false;
+                else if (cb.Tag.ToString() != "ALL" && cb.Checked)
+                    cbComps[3].Checked = false;
+                UpdatePreview();
+            };
+            foreach (var cb in cbGrps) cb.CheckedChanged += (s, e) =>
+            {
+                // "Tất cả cơ sở" mutex
+                if (cb.Tag.ToString() == "ALL" && cb.Checked)
+                    foreach (var c in cbGrps) if (c.Tag.ToString() != "ALL") c.Checked = false;
+                else if (cb.Tag.ToString() != "ALL" && cb.Checked)
+                    cbGrps[3].Checked = false;
+                UpdatePreview();
+            };
+
+            UpdatePreview();
+
+            // ── Buttons ───────────────────────────────────────────────────
+            var btmPanel = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Bottom, Height = 54,
+                FlowDirection = FlowDirection.RightToLeft,
+                BackColor = UiTheme.JordyBlue, Padding = new Padding(8)
+            };
+            var ok = new Button
+            {
+                Text = "Gửi Thông Báo", Width = 155, Height = 36, FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.PastelGreen, ForeColor = UiTheme.DeepBlue,
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold)
+            };
+            ok.FlatAppearance.BorderSize = 0;
+            var cn = new Button
+            {
+                Text = "Hủy", Width = 90, Height = 36, FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.BrandeisBlue, ForeColor = UiTheme.WhiteText
+            };
+            cn.FlatAppearance.BorderSize = 0;
+
+            ok.Click += (s, e) =>
+            {
+                if (string.IsNullOrWhiteSpace(txN.Text)) { MessageBox.Show("Nhập nội dung thông báo."); return; }
+
+                NoiDung = txN.Text.Trim();
+                NgayGio = dtpNgayGio.Value;
+                DiaDiem = txL.Text.Trim();
+                OlsLabel = lblPreview.Text.Trim();
+                DialogResult = DialogResult.OK;
+                Close();
+            };
             cn.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
-            ft.Controls.Add(ok); ft.Controls.Add(cn); layout.Controls.Add(ft, 0, 4); layout.SetColumnSpan(ft, 2); Controls.Add(layout); AcceptButton = ok;
+
+            btmPanel.Controls.Add(ok);
+            btmPanel.Controls.Add(cn);
+
+            Controls.Add(outer);
+            Controls.Add(btmPanel);
+            AcceptButton = ok;
         }
     }
     // ════════════════════════════════════════════════════════════════════════
