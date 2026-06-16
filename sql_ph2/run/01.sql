@@ -1,4 +1,12 @@
 -- CONNECTION: SYSDBA - XEPDB1
+/*
+Nếu có bị lỗi gì, hãy thử: 
+ALTER SESSION SET CONTAINER = CDB$ROOT;
+GRANT INHERIT ANY PRIVILEGES TO LBACSYS CONTAINER=ALL;
+ALTER SESSION SET CONTAINER = XEPDB1;
+GRANT INHERIT PRIVILEGES ON USER SYS TO LBACSYS;
+GRANT INHERIT PRIVILEGES ON USER QLBV TO LBACSYS;
+*/
 
 -- Tạo user admin bệnh viện
 begin execute immediate 'drop user QLBV cascade';  exception when others then null; end;
