@@ -26,42 +26,26 @@ namespace PhanHe1
                 {
                     if (loginForm.ShowDialog() == DialogResult.OK)
                     {
-                        if (loginForm.AuthenticatedService.IsAdminSession)
+                    // Routing theo lựa chọn trên LoginForm (SelectedPhase = 1 hoặc 2)
+                    if (loginForm.SelectedPhase == 1)
+                    {
+                        using (var mainForm = new Form1(loginForm.AuthenticatedService))
                         {
-                            using (var mainForm = new Form1(loginForm.AuthenticatedService))
-                            {
-                                if (mainForm.ShowDialog() == DialogResult.Cancel)
-                                {
-                                    continueLoop = true;
-                                }
-                                else
-                                {
-                                    continueLoop = false;
-                                }
-                            }
+                            continueLoop = mainForm.ShowDialog() == DialogResult.Cancel;
                         }
-                        else
+                    }
+                    else
+                    {
+                        using (var userForm = new SubSystem2Form(loginForm.AuthenticatedService))
                         {
-                            using (var userForm = new SubSystem2Form(loginForm.AuthenticatedService))
+                            userForm.FormClosing += (s, e) =>
                             {
-                                userForm.FormClosing += (s, e) =>
-                                {
-                                    if (userForm.DialogResult == DialogResult.None)
-                                    {
-                                        userForm.DialogResult = DialogResult.Cancel;
-                                    }
-                                };
-
-                                if (userForm.ShowDialog() == DialogResult.Cancel)
-                                {
-                                    continueLoop = true;
-                                }
-                                else
-                                {
-                                    continueLoop = false;
-                                }
-                            }
+                                if (userForm.DialogResult == DialogResult.None)
+                                    userForm.DialogResult = DialogResult.Cancel;
+                            };
+                            continueLoop = userForm.ShowDialog() == DialogResult.Cancel;
                         }
+                    }
                     }
                     else
                     {

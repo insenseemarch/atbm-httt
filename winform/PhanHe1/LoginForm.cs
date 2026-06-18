@@ -17,8 +17,12 @@ namespace PhanHe1
         private Button btnLogin;
         private Label lblStatus;
         private PictureBox picLogo;
+        private RadioButton rdoPh1;
+        private RadioButton rdoPh2;
 
         public OracleAdminService AuthenticatedService { get; private set; }
+        /// <summary>1 = Phân Hệ 1 (Quản Trị Oracle), 2 = Phân Hệ 2 (Hệ Thống Bệnh Viện)</summary>
+        public int SelectedPhase { get; private set; } = 2;
 
         public LoginForm()
         {
@@ -32,7 +36,7 @@ namespace PhanHe1
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
-            ClientSize = new Size(620, 460);
+            ClientSize = new Size(640, 510);
             BackColor = Color.White;
             Font = UiTheme.BodyFont;
 
@@ -40,7 +44,7 @@ namespace PhanHe1
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 2,
-                RowCount = 8,
+                RowCount = 9,
                 BackColor = Color.White,
                 Padding = new Padding(24, 18, 24, 18)
             };
@@ -77,15 +81,60 @@ namespace PhanHe1
             txtPassword = new TextBox { Dock = DockStyle.Fill, UseSystemPasswordChar = true };
             panel.Controls.Add(txtPassword, 1, 5);
 
+            // ── Lựa chọn phân hệ (row 6)
+            rdoPh1 = new RadioButton
+            {
+                Text = "Phân Hệ 1 — Quản Trị Oracle",
+                AutoSize = true, Checked = false,
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+                ForeColor = UiTheme.DeepBlue,
+                Margin = new Padding(0, 6, 20, 4)
+            };
+            rdoPh2 = new RadioButton
+            {
+                Text = "Phân Hệ 2 — Hệ Thống Bệnh Viện",
+                AutoSize = true, Checked = true,
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(20, 140, 80),
+                Margin = new Padding(0, 6, 0, 4)
+            };
+            rdoPh1.CheckedChanged += (s, e) => { if (rdoPh1.Checked) SelectedPhase = 1; };
+            rdoPh2.CheckedChanged += (s, e) => { if (rdoPh2.Checked) SelectedPhase = 2; };
+
+            var phasePanel = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                BackColor = Color.FromArgb(240, 248, 255),
+                Padding = new Padding(6, 4, 0, 4),
+                Height = 36
+            };
+            phasePanel.Controls.Add(new Label { Text = "Vào phân hệ:", AutoSize = true, Font = new Font("Segoe UI", 9.5F), ForeColor = Color.Gray, Margin = new Padding(0, 7, 10, 0) });
+            phasePanel.Controls.Add(rdoPh1);
+            phasePanel.Controls.Add(rdoPh2);
+
+            panel.Controls.Add(phasePanel, 0, 6);
+            panel.SetColumnSpan(phasePanel, 2);
+
+            // Auto-detect phase theo username
+            txtUser.TextChanged += (s, e) =>
+            {
+                string u = txtUser.Text.Trim().ToUpper();
+                bool isAdmin = u == "APP_ADMIN" || u == "ADMIN" || u == "SYS" || u == "SYSTEM";
+                rdoPh1.Checked = isAdmin;
+                rdoPh2.Checked = !isAdmin;
+            };
+
             lblStatus = new Label
             {
                 Dock = DockStyle.Fill,
                 ForeColor = UiTheme.DeepBlue,
-                Text = "Đăng nhập bằng tài khoản Oracle (app_admin để quản trị, DPV01/BACSI01/KTV01/BN001 để test phân hệ 2).",
+                Text = "app_admin → Phân Hệ 1.  QLBV / DPV01 / BACSI01 / KTV01 / BN001 → Phân Hệ 2.",
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
                 AutoSize = true
             };
-            panel.Controls.Add(lblStatus, 0, 6);
+            panel.Controls.Add(lblStatus, 0, 7);
             panel.SetColumnSpan(lblStatus, 2);
 
             var footer = new FlowLayoutPanel
@@ -132,7 +181,7 @@ namespace PhanHe1
             footer.Controls.Add(btnTestAcc);
             footer.Controls.Add(btnCancel);
 
-            panel.Controls.Add(footer, 0, 7);
+            panel.Controls.Add(footer, 0, 8);
             panel.SetColumnSpan(footer, 2);
 
             Controls.Add(panel);
@@ -155,7 +204,10 @@ namespace PhanHe1
         {
             txtUser.Text = user;
             txtPassword.Text = password;
-            MessageBox.Show($"Tài khoản test: {user}\nMật khẩu: {password}", "Tài khoản Test", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            // Các test account đều là Phase 2 (trừ app_admin)
+            bool isAdmin = user.ToUpper() == "APP_ADMIN" || user.ToUpper() == "ADMIN";
+            rdoPh1.Checked = isAdmin;
+            rdoPh2.Checked = !isAdmin;
         }
 
         private static string MapLoginError(Exception ex)

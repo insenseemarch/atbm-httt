@@ -1072,7 +1072,9 @@ namespace PhanHe1.Forms
             wrapper.Controls.Add(grid);
             wrapper.Controls.Add(bar);
             tab.Controls.Add(wrapper);
-            LoadAuditData(grid);
+            // Lazy load: chỉ query khi user mở tab lần đầu
+            bool _auditLoaded = false;
+            tab.Enter += (s, e) => { if (_auditLoaded) return; _auditLoaded = true; LoadAuditData(grid); };
         }
 
         private void LoadLoginFailures(DataGridView grid)
@@ -1597,7 +1599,9 @@ namespace PhanHe1.Forms
             pnl.Controls.Add(flowBtn);
             pnl.Controls.Add(lblTitle);
             tab.Controls.Add(pnl);
-            RefreshHist();
+            // Lazy load: chỉ query khi user mở tab lần đầu
+            bool _dpLoaded = false;
+            tab.Enter += (s, e) => { if (_dpLoaded) return; _dpLoaded = true; RefreshHist(); };
         }
 
         // ── 08.sql [07-CMD]: Tạo và chạy lệnh expdp/impdp trong CMD hoặc PowerShell
@@ -1807,8 +1811,9 @@ namespace PhanHe1.Forms
             };
 
             tab.Controls.Add(split);
-            RefreshB();
-            RefreshR();
+            // Lazy load: chỉ query khi user mở tab lần đầu
+            bool _histLoaded = false;
+            tab.Enter += (s, e) => { if (_histLoaded) return; _histLoaded = true; RefreshB(); RefreshR(); };
         }
 
         // Flashback Query — run/05.sql §Câu 4: Khôi phục dữ liệu theo thời điểm
@@ -2204,7 +2209,9 @@ namespace PhanHe1.Forms
             pnl.Controls.Add(flowBtn);
             pnl.Controls.Add(lblTitle);
             tab.Controls.Add(pnl);
-            RefreshAll();
+            // Lazy load: chỉ query khi user mở tab lần đầu
+            bool _schedLoaded = false;
+            tab.Enter += (s, e) => { if (_schedLoaded) return; _schedLoaded = true; RefreshAll(); };
         }
 
         // =====================================================================
@@ -2223,7 +2230,9 @@ namespace PhanHe1.Forms
 
             tab.Controls.Add(Wrap(grid, Toolbar(btnNV, btnBN, btnRe,
                 Note("Tạo tài khoản Oracle cho Nhân Viên (ROLE_DPV/BACSI/KTV) và Bệnh Nhân (ROLE_BENHNHAN)."))));
-            LoadDanhSachTaiKhoan(grid);
+            // Lazy load: chỉ query NHANVIEN + BENHNHAN khi user mở tab lần đầu
+            bool _tkLoaded = false;
+            tab.Enter += (s, e) => { if (_tkLoaded) return; _tkLoaded = true; LoadDanhSachTaiKhoan(grid); };
         }
 
         private void LoadDanhSachTaiKhoan(DataGridView grid)
@@ -2463,12 +2472,16 @@ namespace PhanHe1.Forms
                 catch { /* OLS view không truy cập được — grid rỗng */ }
             }
 
-            SafeOlsLoad(gridL,
-                "SELECT * FROM DBA_SA_LEVELS WHERE POLICY_NAME='OLS_QLBV_POLICY' ORDER BY LEVEL_NUM DESC");
-            SafeOlsLoad(gridC,
-                "SELECT * FROM DBA_SA_COMPARTMENTS WHERE POLICY_NAME='OLS_QLBV_POLICY' ORDER BY COMP_NUM");
-            SafeOlsLoad(gridG,
-                "SELECT * FROM DBA_SA_GROUPS WHERE POLICY_NAME='OLS_QLBV_POLICY' ORDER BY GROUP_NUM");
+            // Lazy load: chỉ query DBA_SA_* khi user mở tab lần đầu
+            bool _olsCompLoaded = false;
+            tab.Enter += (s, e) =>
+            {
+                if (_olsCompLoaded) return;
+                _olsCompLoaded = true;
+                SafeOlsLoad(gridL, "SELECT * FROM DBA_SA_LEVELS WHERE POLICY_NAME='OLS_QLBV_POLICY' ORDER BY LEVEL_NUM DESC");
+                SafeOlsLoad(gridC, "SELECT * FROM DBA_SA_COMPARTMENTS WHERE POLICY_NAME='OLS_QLBV_POLICY' ORDER BY COMP_NUM");
+                SafeOlsLoad(gridG, "SELECT * FROM DBA_SA_GROUPS WHERE POLICY_NAME='OLS_QLBV_POLICY' ORDER BY GROUP_NUM");
+            };
         }
 
         // Grid DBA_SA_USER_LABELS + nút đồng bộ lại nhãn cho tất cả NV (run/06.sql)
@@ -2486,7 +2499,9 @@ namespace PhanHe1.Forms
 
             tab.Controls.Add(Wrap(grid, Toolbar(btnRe, txtS, btnS, btnSync,
                 Note("Nhãn OLS xác định hàng nào trong THONGBAO mỗi user được đọc.  |  'Đồng Bộ' tính lại theo CAPBAC/MAKHOA/COSO từ run/06.sql."))));
-            LoadOlsUserLabels(grid, "");
+            // Lazy load: chỉ query DBA_SA_USER_LABELS khi user mở tab lần đầu
+            bool _olsULLoaded = false;
+            tab.Enter += (s, e) => { if (_olsULLoaded) return; _olsULLoaded = true; LoadOlsUserLabels(grid, ""); };
         }
 
         private void LoadOlsUserLabels(DataGridView grid, string filter)
