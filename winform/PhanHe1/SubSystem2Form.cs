@@ -1931,17 +1931,16 @@ END;");
         {
             Text = "Thêm Bệnh Nhân Mới"; StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false;
-            ClientSize = new Size(580, 560); BackColor = UiTheme.LightCyan; Font = UiTheme.BodyFont;
+            ClientSize = new Size(650, 680); BackColor = UiTheme.LightCyan; Font = UiTheme.BodyFont;
 
             var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
             var layout = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, Dock = DockStyle.Top, BackColor = UiTheme.JordyBlue, Padding = new Padding(16) };
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 195F));
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 340F));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 240F));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100F));
 
             string[] lbs = { "Mã BN:", "Họ tên:", "Phái (Nam/Nữ):", "Ngày sinh (dd/mm/yyyy):", "CCCD:", "Số nhà:", "Tên đường:", "Quận/Huyện:", "Tỉnh/TP:", "Tiền sử bệnh:", "Tiền sử bệnh GĐ:", "Dị ứng thuốc:" };
             var flds = new TextBox[lbs.Length];
             for (int i = 0; i < lbs.Length; i++) { layout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); layout.Controls.Add(new Label { Text = lbs[i], AutoSize = true, Font = UiTheme.HeaderFont, ForeColor = UiTheme.DeepBlue, Anchor = AnchorStyles.Right, Margin = new Padding(0, 6, 6, 0) }, 0, i); flds[i] = new TextBox { Dock = DockStyle.Fill, Margin = new Padding(0, 4, 0, 4) }; if (i >= 9) { flds[i].Multiline = true; flds[i].Height = 54; } layout.Controls.Add(flds[i], 1, i); }
-
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 54F));
             var ft = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, Margin = new Padding(0, 6, 0, 0) };
             var ok = new Button { Text = "Thêm", Width = 110, Height = 36, FlatStyle = FlatStyle.Flat, BackColor = UiTheme.PastelGreen, ForeColor = UiTheme.DeepBlue, Font = new Font("Segoe UI", 10F, FontStyle.Bold) }; ok.FlatAppearance.BorderSize = 0;
@@ -2147,7 +2146,7 @@ END;");
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
-            ClientSize = new Size(640, 560);
+            ClientSize = new Size(850, 600);
             BackColor = UiTheme.LightCyan;
             Font = UiTheme.BodyFont;
 
@@ -2171,17 +2170,18 @@ END;");
             Label MkLbl(string t) => new Label
             {
                 Text = t, AutoSize = true, Font = UiTheme.HeaderFont,
-                ForeColor = UiTheme.DeepBlue, Margin = new Padding(0, 6, 0, 2)
+                ForeColor = UiTheme.DeepBlue, Margin = new Padding(0, 6, 0, 2),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top
             };
 
-            leftPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 22F));
+            leftPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
             leftPanel.Controls.Add(MkLbl("Nội dung thông báo *:"));
 
             leftPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             var txN = new TextBox { Dock = DockStyle.Fill, Multiline = true, ScrollBars = ScrollBars.Vertical };
             leftPanel.Controls.Add(txN);
 
-            leftPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 22F));
+            leftPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
             leftPanel.Controls.Add(MkLbl("Ngày giờ:"));
 
             leftPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
@@ -2195,7 +2195,7 @@ END;");
             };
             leftPanel.Controls.Add(dtpNgayGio);
 
-            leftPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 22F));
+            leftPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
             leftPanel.Controls.Add(MkLbl("Địa điểm:"));
 
             leftPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
@@ -2472,7 +2472,7 @@ END;");
             Height = 110 + (rowCount * 50); // Tự động kéo dài form theo số lượng ô nhập
 
             var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(16), BackColor = UiTheme.JordyBlue };
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150F)); layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 400F)); layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
 
             var inputs = new Dictionary<string, TextBox>();
             int i = 0;
