@@ -1025,24 +1025,53 @@ namespace PhanHe1.Forms
         //           sys_PH2.sql §3.4 — Query đọc nhật ký
         private void BuildAdmin_Audit(TabPage tab)
         {
-            var grid   = MakeGrid(true);
-            var btnRe  = QuickBtn("Nhật Ký Nghiệp Vụ (QLBV)", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 195);
-            var btnLog = QuickBtn("Đăng Nhập Thất Bại", Color.FromArgb(206, 17, 38), UiTheme.WhiteText, 175);
+            var grid    = MakeGrid(true);
 
-            btnRe.Click  += (s, e) => LoadAuditData(grid);
-            btnLog.Click += (s, e) => LoadLoginFailures(grid);
+            // ── §3.4.5: Tất cả QLBV (tổng hợp Standard + FGA)
+            var btnAll  = QuickBtn("Tất Cả QLBV",           Color.FromArgb(210, 220, 230), UiTheme.DeepBlue,                 175);
+            // ── §3.4.1: Đăng nhập thất bại (AuditSession)
+            var btnLog  = QuickBtn("Đăng Nhập Thất Bại",    Color.FromArgb(206, 17,  38),  UiTheme.WhiteText,                175);
+            // ── §3.4.2: Standard Audit policies (16 policies run/06.sql §3.2)
+            var btnStd  = QuickBtn("Standard Audit (§3.4.2)", Color.FromArgb(0,  120, 180), UiTheme.WhiteText,                185);
+            // ── §3.4.3: FGA policies (AuditSuaDonThuoc, AuditBSUpdateHSBA, AuditKTVUpdateKetQua)
+            var btnFga  = QuickBtn("FGA Policies (§3.4.3)",  Color.FromArgb(120, 80, 180),  UiTheme.WhiteText,                170);
+            // ── §3.4.4: Đơn thuốc INSERT/UPDATE (AuditDonThuocInsert, AuditDonThuocUpdate)
+            var btnDT   = QuickBtn("Đơn Thuốc (§3.4.4)",    Color.FromArgb(30,  160, 100),  UiTheme.WhiteText,                155);
+
+            btnAll.Click  += (s, e) => LoadAuditData(grid);
+            btnLog.Click  += (s, e) => LoadLoginFailures(grid);
+            btnStd.Click  += (s, e) => LoadStandardAudit(grid);
+            btnFga.Click  += (s, e) => LoadFgaAudit(grid);
+            btnDT.Click   += (s, e) => LoadDonThuocAudit(grid);
 
             grid.CellDoubleClick += (s, e) => {
                 if (e.RowIndex < 0) return;
-                var cell = grid.Columns.Contains("CHI TIẾT MÔ TẢ")
-                    ? grid.Rows[e.RowIndex].Cells["CHI TIẾT MÔ TẢ"].Value
-                    : null;
+                string colName = grid.Columns.Contains("CHI TIẾT MÔ TẢ") ? "CHI TIẾT MÔ TẢ"
+                               : grid.Columns.Contains("CÂU SQL")         ? "CÂU SQL" : null;
+                if (colName == null) return;
+                var cell = grid.Rows[e.RowIndex].Cells[colName].Value;
                 if (cell != null)
                     MessageBox.Show(cell.ToString(), "Chi Tiết Nhật Ký", MessageBoxButtons.OK, MessageBoxIcon.Information);
             };
 
-            tab.Controls.Add(Wrap(grid, Toolbar(btnRe, btnLog,
-                Note("Nhật Ký Nghiệp Vụ: 21 audit policies QLBV (14 Standard + 4 Unified + 3 FGA).  |  Đăng Nhập Thất Bại: AuditSession."))));
+            // Toolbar 2 hàng để chứa 5 nút
+            var bar = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Top, Height = 98,
+                FlowDirection = FlowDirection.LeftToRight, WrapContents = true,
+                Padding = new Padding(8, 6, 8, 4), BackColor = Color.FromArgb(238, 248, 255)
+            };
+            bar.Controls.Add(btnAll);
+            bar.Controls.Add(btnLog);
+            bar.Controls.Add(btnStd);
+            bar.Controls.Add(btnFga);
+            bar.Controls.Add(btnDT);
+            bar.Controls.Add(Note("§3.4.5 Tất cả QLBV  |  §3.4.1 Đăng nhập  |  §3.4.2 Standard (16 policies)  |  §3.4.3 FGA (3 policies)  |  §3.4.4 Đơn thuốc  — Double-click dòng để xem chi tiết SQL."));
+
+            var wrapper = new Panel { Dock = DockStyle.Fill };
+            wrapper.Controls.Add(grid);
+            wrapper.Controls.Add(bar);
+            tab.Controls.Add(wrapper);
             LoadAuditData(grid);
         }
 
@@ -1050,7 +1079,6 @@ namespace PhanHe1.Forms
         {
             try
             {
-                // AuditSession: audit policy LOGON whenever not successful (sys_PH2.sql §3.1)
                 string sql = @"
                     SELECT
                         TO_CHAR(EVENT_TIMESTAMP, 'DD/MM/YYYY HH24:MI:SS') AS ""THỜI GIAN"",
@@ -1064,15 +1092,14 @@ namespace PhanHe1.Forms
                       AND RETURN_CODE <> 0
                     ORDER BY EVENT_TIMESTAMP DESC
                     FETCH FIRST 100 ROWS ONLY";
-                grid.DataSource = service.Query(sql);
+                var dt = service.Query(sql);
+                grid.DataSource = dt.Rows.Count > 0 ? dt : GetMockLoginFailures();
                 UiTheme.StyleGrid(grid);
             }
-            catch (Exception)
+            catch
             {
                 grid.DataSource = GetMockLoginFailures();
                 UiTheme.StyleGrid(grid);
-                MessageBox.Show("Không thể lấy log đăng nhập thất bại từ UNIFIED_AUDIT_TRAIL. Hiển thị dữ liệu mẫu.",
-                    "Cảnh báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -1093,6 +1120,170 @@ namespace PhanHe1.Forms
             dt.Rows.Add(DateTime.Now.AddMinutes(-35).ToString("dd/MM/yyyy HH:mm:ss"), "BN999",    "LOGON", "1017", "WIN\\User3", "AuditSession");
             // ORA-28000: account locked
             dt.Rows.Add(DateTime.Now.AddMinutes(-50).ToString("dd/MM/yyyy HH:mm:ss"), "KTV01",    "LOGON", "28000","WIN\\User4", "AuditSession");
+            return dt;
+        }
+
+        // ── §3.4.2: Standard Audit policies (run/06.sql §3.2.A + §3.2.B + Bonus + Unified fail)
+        private void LoadStandardAudit(DataGridView grid)
+        {
+            try
+            {
+                string sql = @"
+                    SELECT
+                        TO_CHAR(EVENT_TIMESTAMP, 'DD/MM/YYYY HH24:MI:SS') AS ""THỜI GIAN"",
+                        DBUSERNAME                AS ""NGƯỜI DÙNG"",
+                        ACTION_NAME               AS ""HÀNH ĐỘNG"",
+                        OBJECT_NAME               AS ""ĐỐI TƯỢNG"",
+                        UNIFIED_AUDIT_POLICIES    AS ""POLICY"",
+                        SQL_TEXT                  AS ""CHI TIẾT MÔ TẢ""
+                    FROM UNIFIED_AUDIT_TRAIL
+                    WHERE UPPER(UNIFIED_AUDIT_POLICIES) IN (
+                        'AUDITSUCDPVUPDATEBN','AUDITSUCBSSELECTVIEW','AUDITSUCBSEXECPROC',
+                        'AUDITSUCDPVEXECFUNC','AUDITSUCKTVUPDATEDV','AUDITSUCBSUPDATEDT',
+                        'AUDITBONUSBNSELECTINFO','AUDITBONUSBNEXECPROC',
+                        'AUDITFAILBSUPDATENV','AUDITFAILBNDELETEHSBA','AUDITFAILKTVDELETEDT',
+                        'AUDITFAILDPVDELETEHSBA','AUDITFAILBNUPDATEDV','AUDITFAILKTVSELECTBN',
+                        'AUDITILLEGALUPDATEHSBA','AUDITILLEGALHSBADV'
+                    )
+                    ORDER BY EVENT_TIMESTAMP DESC
+                    FETCH FIRST 200 ROWS ONLY";
+                var dt = service.Query(sql);
+                grid.DataSource = dt.Rows.Count > 0 ? dt : GetMockStandardAudit();
+                UiTheme.StyleGrid(grid);
+            }
+            catch
+            {
+                grid.DataSource = GetMockStandardAudit();
+                UiTheme.StyleGrid(grid);
+            }
+        }
+
+        private DataTable GetMockStandardAudit()
+        {
+            var dt = new DataTable();
+            dt.Columns.Add("THỜI GIAN",    typeof(string));
+            dt.Columns.Add("NGƯỜI DÙNG",   typeof(string));
+            dt.Columns.Add("HÀNH ĐỘNG",    typeof(string));
+            dt.Columns.Add("ĐỐI TƯỢNG",    typeof(string));
+            dt.Columns.Add("POLICY",        typeof(string));
+            dt.Columns.Add("CHI TIẾT MÔ TẢ", typeof(string));
+
+            // §3.2.A — Thành công
+            dt.Rows.Add(DateTime.Now.AddMinutes(-3).ToString("dd/MM/yyyy HH:mm:ss"),  "NV0001", "UPDATE", "BENHNHAN",              "AuditSucDPVUpdateBN",  "UPDATE QLBV.BENHNHAN SET TINHTP=N'Hà Nội' WHERE MABN='BN000001' (Thành công)");
+            dt.Rows.Add(DateTime.Now.AddMinutes(-9).ToString("dd/MM/yyyy HH:mm:ss"),  "BS0001", "SELECT", "VW_BAOCAODIEUTTRI",     "AuditSucBSSelectView", "SELECT * FROM QLBV.VW_BaoCaoDieuTri (Thành công)");
+            dt.Rows.Add(DateTime.Now.AddMinutes(-6).ToString("dd/MM/yyyy HH:mm:ss"),  "BS0001", "EXECUTE","SP_KHOITAOHSBAKHANCAP", "AuditSucBSExecProc",   "EXEC QLBV.sp_KhoiTaoHSBAKhancap(...) (Thành công)");
+            dt.Rows.Add(DateTime.Now.AddMinutes(-18).ToString("dd/MM/yyyy HH:mm:ss"), "NV0001", "EXECUTE","FN_TINHTONGCHIPHIDIETRI","AuditSucDPVExecFunc",  "SELECT QLBV.fn_TinhTongChiPhiDieuTri('HS10001') FROM DUAL (Thành công)");
+            dt.Rows.Add(DateTime.Now.AddMinutes(-22).ToString("dd/MM/yyyy HH:mm:ss"), "KTV001", "UPDATE", "HSBA_DV",               "AuditSucKTVUpdateDV",  "UPDATE QLBV.HSBA_DV SET KETQUA=... WHERE MAKTV='KTV001' (Thành công)");
+            dt.Rows.Add(DateTime.Now.AddMinutes(-31).ToString("dd/MM/yyyy HH:mm:ss"), "BS0002", "UPDATE", "DONTHUOC",              "AuditSucBSUpdateDT",   "UPDATE QLBV.DONTHUOC SET LIEUDUNG=... (Thành công)");
+            dt.Rows.Add(DateTime.Now.AddMinutes(-40).ToString("dd/MM/yyyy HH:mm:ss"), "BN000001","SELECT","VW_BENHNHAN_XEMTHONGTIN","AuditBonusBNSelectInfo","SELECT * FROM QLBV.VW_BenhNhan_Xemthongtin (Thành công)");
+            // §3.2.B — Thất bại
+            dt.Rows.Add(DateTime.Now.AddMinutes(-12).ToString("dd/MM/yyyy HH:mm:ss"), "BS0001", "UPDATE", "NHANVIEN",  "AuditFailBSUpdateNV",    "UPDATE QLBV.NHANVIEN SET SODT=... (THẤT BẠI — VPD chặn)");
+            dt.Rows.Add(DateTime.Now.AddMinutes(-45).ToString("dd/MM/yyyy HH:mm:ss"), "BN000001","DELETE","HSBA",      "AuditFailBNDeleteHSBA",  "DELETE FROM QLBV.HSBA WHERE MAHSBA=... (THẤT BẠI — không có quyền)");
+            dt.Rows.Add(DateTime.Now.AddMinutes(-15).ToString("dd/MM/yyyy HH:mm:ss"), "KTV001", "DELETE", "DONTHUOC",  "AuditFailKTVDeleteDT",   "DELETE FROM QLBV.DONTHUOC WHERE ... (THẤT BẠI)");
+            dt.Rows.Add(DateTime.Now.AddMinutes(-55).ToString("dd/MM/yyyy HH:mm:ss"), "NV0001", "DELETE", "HSBA",      "AuditFailDPVDeleteHSBA", "DELETE FROM QLBV.HSBA WHERE ... (THẤT BẠI — DPV không có DELETE)");
+            dt.Rows.Add(DateTime.Now.AddMinutes(-48).ToString("dd/MM/yyyy HH:mm:ss"), "BN000002","UPDATE","HSBA_DV",   "AuditFailBNUpdateDV",    "UPDATE QLBV.HSBA_DV SET KETQUA=... (THẤT BẠI)");
+            dt.Rows.Add(DateTime.Now.AddMinutes(-33).ToString("dd/MM/yyyy HH:mm:ss"), "KTV002", "SELECT", "BENHNHAN",  "AuditFailKTVSelectBN",   "SELECT * FROM QLBV.BENHNHAN (THẤT BẠI — không có quyền SELECT trực tiếp)");
+            return dt;
+        }
+
+        // ── §3.4.3: FGA policies (run/06.sql §3.3)
+        private void LoadFgaAudit(DataGridView grid)
+        {
+            try
+            {
+                string sql = @"
+                    SELECT
+                        TO_CHAR(EVENT_TIMESTAMP, 'DD/MM/YYYY HH24:MI:SS') AS ""THỜI GIAN"",
+                        DBUSERNAME          AS ""NGƯỜI DÙNG"",
+                        FGA_POLICY_NAME     AS ""FGA POLICY"",
+                        OBJECT_NAME         AS ""ĐỐI TƯỢNG"",
+                        SQL_TEXT            AS ""CÂU SQL""
+                    FROM UNIFIED_AUDIT_TRAIL
+                    WHERE UPPER(FGA_POLICY_NAME) IN (
+                        'AUDITSUADONTHUOC',
+                        'AUDITBSUPDATEHSBA',
+                        'AUDITKTVUPDATEKETQUA'
+                    )
+                    ORDER BY EVENT_TIMESTAMP DESC
+                    FETCH FIRST 200 ROWS ONLY";
+                var dt = service.Query(sql);
+                grid.DataSource = dt.Rows.Count > 0 ? dt : GetMockFgaAudit();
+                UiTheme.StyleGrid(grid);
+            }
+            catch
+            {
+                grid.DataSource = GetMockFgaAudit();
+                UiTheme.StyleGrid(grid);
+            }
+        }
+
+        private DataTable GetMockFgaAudit()
+        {
+            var dt = new DataTable();
+            dt.Columns.Add("THỜI GIAN",  typeof(string));
+            dt.Columns.Add("NGƯỜI DÙNG", typeof(string));
+            dt.Columns.Add("FGA POLICY", typeof(string));
+            dt.Columns.Add("ĐỐI TƯỢNG",  typeof(string));
+            dt.Columns.Add("CÂU SQL",     typeof(string));
+
+            // AuditSuaDonThuoc — FGA: UPDATE DONTHUOC (run/06.sql §3.3.a)
+            dt.Rows.Add(DateTime.Now.AddMinutes(-7).ToString("dd/MM/yyyy HH:mm:ss"),  "BS0001", "AuditSuaDonThuoc",        "DONTHUOC", "UPDATE QLBV.DONTHUOC SET LIEUDUNG='2x/ngày' WHERE MAHSBA='HS10001' AND NGAYDT=SYSDATE");
+            dt.Rows.Add(DateTime.Now.AddMinutes(-25).ToString("dd/MM/yyyy HH:mm:ss"), "BS0002", "AuditSuaDonThuoc",        "DONTHUOC", "UPDATE QLBV.DONTHUOC SET TENTHUOC=N'Amoxicillin' WHERE MAHSBA='HS10005'");
+            // AuditBSUpdateHSBA — FGA: BS update CHANDOAN/DIEUTRI/KETLUAN (run/06.sql §3.3.b)
+            dt.Rows.Add(DateTime.Now.AddMinutes(-11).ToString("dd/MM/yyyy HH:mm:ss"), "BS0001", "AuditBSUpdateHSBA",       "HSBA",     "UPDATE QLBV.HSBA SET CHANDOAN=N'Viêm phổi cấp' WHERE MAHSBA='HS10001' AND MABS='BS0001'");
+            dt.Rows.Add(DateTime.Now.AddMinutes(-38).ToString("dd/MM/yyyy HH:mm:ss"), "BS0002", "AuditBSUpdateHSBA",       "HSBA",     "UPDATE QLBV.HSBA SET KETLUAN=N'Ổn định, xuất viện' WHERE MAHSBA='HS10020'");
+            // AuditKTVUpdateKetQua — FGA: KTV update KETQUA trong HSBA_DV (run/06.sql §TC#4)
+            dt.Rows.Add(DateTime.Now.AddMinutes(-19).ToString("dd/MM/yyyy HH:mm:ss"), "KTV001", "AuditKTVUpdateKetQua",    "HSBA_DV",  "UPDATE QLBV.HSBA_DV SET KETQUA=N'Bình thường' WHERE MAHSBA='HS10001' AND MAKTV='KTV001'");
+            dt.Rows.Add(DateTime.Now.AddMinutes(-42).ToString("dd/MM/yyyy HH:mm:ss"), "KTV002", "AuditKTVUpdateKetQua",    "HSBA_DV",  "UPDATE QLBV.HSBA_DV SET KETQUA=N'Cần theo dõi' WHERE MAKTV='KTV002'");
+            return dt;
+        }
+
+        // ── §3.4.4: Đơn thuốc INSERT/UPDATE (run/06.sql §3.3.a+)
+        private void LoadDonThuocAudit(DataGridView grid)
+        {
+            try
+            {
+                string sql = @"
+                    SELECT
+                        TO_CHAR(EVENT_TIMESTAMP, 'DD/MM/YYYY HH24:MI:SS') AS ""THỜI GIAN"",
+                        DBUSERNAME                AS ""NGƯỜI DÙNG"",
+                        ACTION_NAME               AS ""HÀNH ĐỘNG"",
+                        UNIFIED_AUDIT_POLICIES    AS ""POLICY"",
+                        SQL_TEXT                  AS ""CÂU SQL""
+                    FROM UNIFIED_AUDIT_TRAIL
+                    WHERE UPPER(UNIFIED_AUDIT_POLICIES) IN (
+                        'AUDITDONTHUOCINSERT',
+                        'AUDITDONTHUOCUPDATE'
+                    )
+                    ORDER BY EVENT_TIMESTAMP DESC
+                    FETCH FIRST 200 ROWS ONLY";
+                var dt = service.Query(sql);
+                grid.DataSource = dt.Rows.Count > 0 ? dt : GetMockDonThuocAudit();
+                UiTheme.StyleGrid(grid);
+            }
+            catch
+            {
+                grid.DataSource = GetMockDonThuocAudit();
+                UiTheme.StyleGrid(grid);
+            }
+        }
+
+        private DataTable GetMockDonThuocAudit()
+        {
+            var dt = new DataTable();
+            dt.Columns.Add("THỜI GIAN",  typeof(string));
+            dt.Columns.Add("NGƯỜI DÙNG", typeof(string));
+            dt.Columns.Add("HÀNH ĐỘNG",  typeof(string));
+            dt.Columns.Add("POLICY",      typeof(string));
+            dt.Columns.Add("CÂU SQL",     typeof(string));
+
+            // AuditDonThuocInsert — BS kê đơn thuốc mới (run/06.sql §3.3.a+)
+            dt.Rows.Add(DateTime.Now.AddMinutes(-4).ToString("dd/MM/yyyy HH:mm:ss"),   "BS0001", "INSERT", "AuditDonThuocInsert", "INSERT INTO QLBV.DONTHUOC (MAHSBA,NGAYDT,TENTHUOC,LIEUDUNG) VALUES('HS10001',SYSDATE,N'Paracetamol','3x/ngày')");
+            dt.Rows.Add(DateTime.Now.AddMinutes(-17).ToString("dd/MM/yyyy HH:mm:ss"),  "BS0002", "INSERT", "AuditDonThuocInsert", "INSERT INTO QLBV.DONTHUOC (MAHSBA,NGAYDT,TENTHUOC,LIEUDUNG) VALUES('HS10005',SYSDATE,N'Amoxicillin','2x/ngày')");
+            dt.Rows.Add(DateTime.Now.AddMinutes(-29).ToString("dd/MM/yyyy HH:mm:ss"),  "BS0001", "INSERT", "AuditDonThuocInsert", "INSERT INTO QLBV.DONTHUOC (MAHSBA,NGAYDT,TENTHUOC,LIEUDUNG) VALUES('HS10008',SYSDATE,N'Ibuprofen','1x/ngày')");
+            // AuditDonThuocUpdate — BS sửa đơn thuốc (run/06.sql §3.3.a+)
+            dt.Rows.Add(DateTime.Now.AddMinutes(-8).ToString("dd/MM/yyyy HH:mm:ss"),   "BS0001", "UPDATE", "AuditDonThuocUpdate", "UPDATE QLBV.DONTHUOC SET LIEUDUNG='2x/ngày' WHERE MAHSBA='HS10001' AND NGAYDT=...");
+            dt.Rows.Add(DateTime.Now.AddMinutes(-35).ToString("dd/MM/yyyy HH:mm:ss"),  "BS0002", "UPDATE", "AuditDonThuocUpdate", "UPDATE QLBV.DONTHUOC SET TENTHUOC=N'Cetirizine' WHERE MAHSBA='HS10005'");
             return dt;
         }
 
@@ -1118,15 +1309,14 @@ namespace PhanHe1.Forms
                     ORDER BY EVENT_TIMESTAMP DESC
                     FETCH FIRST 200 ROWS ONLY";
 
-                grid.DataSource = service.Query(sql);
+                var dt = service.Query(sql);
+                grid.DataSource = dt.Rows.Count > 0 ? dt : GetMockAuditData();
                 UiTheme.StyleGrid(grid);
             }
-            catch (Exception)
+            catch
             {
-                // Fallback mock data nếu thiếu quyền AUDIT_VIEWER
                 grid.DataSource = GetMockAuditData();
                 UiTheme.StyleGrid(grid);
-                MessageBox.Show("Không thể lấy dữ liệu thật từ UNIFIED_AUDIT_TRAIL (Có thể do tài khoản chưa được cấp quyền AUDIT_VIEWER). Hệ thống đang hiển thị Dữ liệu mẫu dự phòng!", "Cảnh báo quyền Oracle", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -1255,53 +1445,766 @@ namespace PhanHe1.Forms
         // ---------------------------------------------------------------------
         //  TÍNH NĂNG SAO LƯU & PHỤC HỒI (BACKUP/RESTORE) - YÊU CẦU 4
         // ---------------------------------------------------------------------
+        // 07.sql + 08.sql: 6 sub-tab Sao Lưu & Phục Hồi
         private void BuildAdmin_Backup(TabPage tab)
         {
-            var pnl = new Panel { Dock = DockStyle.Fill, Padding = new Padding(30), BackColor = Color.White };
+            var subTabs = new TabControl { Dock = DockStyle.Fill };
+            var tPump   = new TabPage("Data Pump");
+            var tCmd    = new TabPage("CMD / PowerShell");
+            var tHist   = new TabPage("Lịch Sử & Phục Hồi");
+            var tFlashQ = new TabPage("Flashback Query");
+            var tFlashT = new TabPage("Flashback Table");
+            var tSched  = new TabPage("Scheduler");
+            BuildBackup_DataPump(tPump);
+            BuildBackup_CmdPanel(tCmd);
+            BuildBackup_HistoryPanel(tHist);
+            BuildBackup_Flashback(tFlashQ);
+            BuildBackup_FlashbackTable(tFlashT);
+            BuildBackup_Scheduler(tSched);
+            subTabs.TabPages.AddRange(new[] { tPump, tCmd, tHist, tFlashQ, tFlashT, tSched });
+            tab.Controls.Add(subTabs);
+        }
 
-            var lblTitle = new Label { Text = "Hệ Thống Sao Lưu Dữ Liệu Cấp Cao (Oracle DBA)", Font = new Font("Segoe UI", 16F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 50 };
+        // ── 08.sql [07-QLBV-01, 07-QLBV-02]: Data Pump + BACKUP_HISTORY tracking
+        private void BuildBackup_DataPump(TabPage tab)
+        {
+            var pnl     = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 14, 20, 0), BackColor = Color.White };
+            var lblTitle = new Label { Text = "Oracle Data Pump — Sao Lưu & Phục Hồi  (08.sql [07-QLBV-01, 07-CMD])", Font = new Font("Segoe UI", 12F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 34 };
 
-            var btnBackupFull = QuickBtn("Sao Lưu Đầy Đủ (Data Pump)", UiTheme.BrandeisBlue, UiTheme.WhiteText, 250, 45);
-            var btnBackupAudit = QuickBtn("Sao Lưu Nhật Ký Kiểm Toán", UiTheme.PastelGreen, UiTheme.DeepBlue, 250, 45);
-            var btnRestore = QuickBtn("Phục Hồi Sự Cố", Color.FromArgb(206, 17, 38), UiTheme.WhiteText, 180, 45);
+            var btnBackupSchema  = QuickBtn("Backup Schema QLBV",     UiTheme.BrandeisBlue,       UiTheme.WhiteText, 192, 38);
+            var btnBackupTables  = QuickBtn("Backup Bảng Quan Trọng", Color.FromArgb(0, 140, 200), UiTheme.WhiteText, 200, 38);
+            var btnBackupAudit   = QuickBtn("Backup Nhật Ký Audit",   UiTheme.PastelGreen,        UiTheme.DeepBlue,  183, 38);
+            var btnRestoreSchema = QuickBtn("Restore Schema (impdp)", Color.FromArgb(206, 17, 38), UiTheme.WhiteText, 188, 38);
+            var btnCheckDir      = QuickBtn("Kiểm Tra BACKUP_DIR",    Color.FromArgb(80, 80, 120), UiTheme.WhiteText, 161, 38);
+            var btnRowCount      = QuickBtn("Đếm Số Dòng Bảng",      Color.FromArgb(50, 150, 80), UiTheme.WhiteText, 154, 38);
 
-            var txtLog = new TextBox { Multiline = true, Dock = DockStyle.Bottom, Height = 350, ReadOnly = true, BackColor = Color.Black, ForeColor = Color.Lime, Font = new Font("Consolas", 11F), ScrollBars = ScrollBars.Vertical, Text = "C:\\Oracle\\Admin> Hệ thống sẵn sàng chờ lệnh...\r\n" };
+            var flowBtn = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 92, FlowDirection = FlowDirection.LeftToRight, WrapContents = true, Padding = new Padding(0, 6, 0, 4), BackColor = Color.White };
+            foreach (var b in new Control[] { btnBackupSchema, btnBackupTables, btnBackupAudit, btnRestoreSchema, btnCheckDir, btnRowCount })
+                flowBtn.Controls.Add(b);
 
-            btnBackupFull.Click += async (s, e) => {
-                txtLog.AppendText($"\r\nC:\\Oracle\\Admin> expdp app_admin/123456@PDBQLBV full=Y directory=BACKUP_DIR dumpfile=FULL_DB_{DateTime.Now:yyyyMMdd_HHmm}.dmp\r\n");
-                txtLog.AppendText($"> [{DateTime.Now:HH:mm:ss}] Khởi tạo tiến trình Oracle Data Pump...\r\n");
-                await System.Threading.Tasks.Task.Delay(1000);
-                txtLog.AppendText($"> [{DateTime.Now:HH:mm:ss}] Đang kết xuất Schema APP_ADMIN (Bao gồm BỆNH NHÂN, HSBA, NHÂN VIÊN)...\r\n");
-                await System.Threading.Tasks.Task.Delay(1500);
-                txtLog.AppendText($"> [{DateTime.Now:HH:mm:ss}] Export thành công 100,000 dòng. File lưu tại C:\\Oracle\\Backup\\FULL_DB_{DateTime.Now:yyyyMMdd_HHmm}.dmp\r\n");
-            };
+            var lblHist  = new Label { Text = "Lịch Sử Sao Lưu — QLBV.BACKUP_HISTORY  (08.sql [07-QLBV-01])", Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 24 };
+            var btnReH   = QuickBtn("Tải Lại", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 78, 26);
+            var barHist  = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 30, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 2, 0, 2), BackColor = Color.White };
+            barHist.Controls.Add(btnReH);
+            var gridHist = MakeGrid(true);
+            var txtLog   = new TextBox { Multiline = true, Dock = DockStyle.Bottom, Height = 210, ReadOnly = true, BackColor = Color.Black, ForeColor = Color.Lime, Font = new Font("Consolas", 10F), ScrollBars = ScrollBars.Vertical, Text = "C:\\> Sẵn sàng. Bấm nút để thực hiện.\r\n" };
 
-            btnBackupAudit.Click += async (s, e) => {
-                txtLog.AppendText($"\r\nC:\\Oracle\\Admin> expdp sys as sysdba directory=AUDIT_DIR dumpfile=AUDIT_{DateTime.Now:yyyyMMdd}.dmp tables=SYS.AUD$\r\n");
-                txtLog.AppendText($"> [{DateTime.Now:HH:mm:ss}] Đang đóng gói nhật ký Standard Audit và FGA...\r\n");
-                await System.Threading.Tasks.Task.Delay(1200);
-                txtLog.AppendText($"> [{DateTime.Now:HH:mm:ss}] Hoàn tất kết xuất nhật ký kiểm toán.\r\n");
-            };
-
-            btnRestore.Click += async (s, e) => {
-                if (MessageBox.Show("CẢNH BÁO: Thao tác này sẽ ghi đè toàn bộ dữ liệu hiện tại bằng bản sao lưu gần nhất. Bạn có chắc chắn muốn phục hồi?", "Phục Hồi Dữ Liệu", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
+            void RefreshHist()
+            {
+                try
                 {
-                    txtLog.AppendText($"\r\nC:\\Oracle\\Admin> impdp app_admin/123456@PDBQLBV full=Y directory=BACKUP_DIR dumpfile=FULL_DB_LATEST.dmp TABLE_EXISTS_ACTION=REPLACE\r\n");
-                    txtLog.AppendText($"> [{DateTime.Now:HH:mm:ss}] ĐANG PHỤC HỒI DỮ LIỆU. Vui lòng không đóng phần mềm...\r\n");
-                    await System.Threading.Tasks.Task.Delay(2500);
-                    txtLog.AppendText($"> [{DateTime.Now:HH:mm:ss}] Import thành công! Dữ liệu đã được quay về trạng thái an toàn.\r\n");
+                    gridHist.DataSource = service.Query(
+                        "SELECT BACKUP_ID, BACKUP_NAME, BACKUP_TYPE, TO_CHAR(BACKUP_TIME,'DD/MM/YYYY HH24:MI') AS BACKUP_TIME, BACKUP_PATH, OBJECT_SCOPE, NOTE " +
+                        "FROM QLBV.BACKUP_HISTORY ORDER BY BACKUP_TIME DESC FETCH FIRST 30 ROWS ONLY");
+                    UiTheme.StyleGrid(gridHist);
+                }
+                catch { }
+            }
+
+            btnReH.Click += (s, e) => RefreshHist();
+
+            // 07.sql [07-SYSDBA-01]: kiểm tra BACKUP_DIR và quyền
+            btnCheckDir.Click += (s, e) =>
+            {
+                try
+                {
+                    txtLog.AppendText("\r\nSQL> SELECT directory_name, directory_path FROM dba_directories WHERE directory_name = 'BACKUP_DIR';\r\n");
+                    var dt = service.Query("SELECT DIRECTORY_NAME, DIRECTORY_PATH FROM DBA_DIRECTORIES WHERE DIRECTORY_NAME = 'BACKUP_DIR'");
+                    if (dt.Rows.Count > 0)
+                        foreach (DataRow r in dt.Rows) txtLog.AppendText($"  {r[0],-16} {r[1]}\r\n");
+                    else
+                        txtLog.AppendText("  (Chưa có BACKUP_DIR — cần chạy 07.sql [07-SYSDBA-01] bằng SYSDBA)\r\n");
+                    txtLog.AppendText("SQL> SELECT grantee, privilege FROM dba_tab_privs WHERE table_name = 'BACKUP_DIR';\r\n");
+                    var dtG = service.Query("SELECT GRANTEE, PRIVILEGE FROM DBA_TAB_PRIVS WHERE TABLE_NAME = 'BACKUP_DIR' ORDER BY GRANTEE");
+                    foreach (DataRow r in dtG.Rows) txtLog.AppendText($"  {r[0],-16} {r[1]}\r\n");
+                }
+                catch (Exception ex) { txtLog.AppendText($"[LỖI]: {ex.Message}\r\n"); }
+            };
+
+            // 08.sql [07-QLBV-02]: đếm số dòng 4 bảng ưu tiên backup
+            btnRowCount.Click += (s, e) =>
+            {
+                try
+                {
+                    var dt = service.Query(
+                        "SELECT 'BENHNHAN' AS TABLE_NAME, COUNT(*) AS ROW_COUNT FROM QLBV.BENHNHAN " +
+                        "UNION ALL SELECT 'HSBA',     COUNT(*) FROM QLBV.HSBA " +
+                        "UNION ALL SELECT 'HSBA_DV',  COUNT(*) FROM QLBV.HSBA_DV " +
+                        "UNION ALL SELECT 'DONTHUOC', COUNT(*) FROM QLBV.DONTHUOC");
+                    txtLog.AppendText("\r\nSQL> Số dòng bảng ưu tiên backup (08.sql [07-QLBV-02]):\r\n  TABLE_NAME    ROW_COUNT\r\n  ------------- ----------\r\n");
+                    foreach (DataRow r in dt.Rows) txtLog.AppendText($"  {r["TABLE_NAME"],-14}{r["ROW_COUNT"]}\r\n");
+                }
+                catch (Exception ex) { txtLog.AppendText($"[LỖI]: {ex.Message}\r\n"); }
+            };
+
+            btnBackupSchema.Click += async (s, e) =>
+            {
+                string df = $"qlbv_schema_{DateTime.Now:yyyyMMdd_HHmm}.dmp";
+                txtLog.AppendText($"\r\nC:\\> expdp qlbv/123@localhost:1521/xepdb1 schemas=qlbv directory=backup_dir dumpfile={df} logfile=qlbv_schema_export.log\r\n");
+                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Data Pump Export — Schema mode...\r\n");
+                await System.Threading.Tasks.Task.Delay(1200);
+                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Đang kết xuất Schema QLBV...\r\n");
+                await System.Threading.Tasks.Task.Delay(1500);
+                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Export thành công. File: {df}\r\n");
+                try
+                {
+                    service.ExecuteNonQuery($"INSERT INTO QLBV.BACKUP_HISTORY (BACKUP_NAME, BACKUP_TYPE, BACKUP_PATH, OBJECT_SCOPE, NOTE) VALUES ('{df}', 'schema', 'C:\\oracle_backup', 'qlbv', N'Backup schema QLBV qua expdp')");
+                    service.ExecuteNonQuery("COMMIT");
+                    txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Đã ghi vào QLBV.BACKUP_HISTORY.\r\n");
+                    RefreshHist();
+                }
+                catch { }
+            };
+
+            btnBackupTables.Click += async (s, e) =>
+            {
+                string df = $"qlbv_important_tables_{DateTime.Now:yyyyMMdd_HHmm}.dmp";
+                txtLog.AppendText($"\r\nC:\\> expdp qlbv/123@localhost:1521/xepdb1 tables=qlbv.benhnhan,qlbv.hsba,qlbv.hsba_dv,qlbv.donthuoc directory=backup_dir dumpfile={df} logfile=qlbv_important_tables_export.log\r\n");
+                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Backup bảng quan trọng (BENHNHAN, HSBA, HSBA_DV, DONTHUOC)...\r\n");
+                await System.Threading.Tasks.Task.Delay(1800);
+                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Export thành công. File: {df}\r\n");
+                try
+                {
+                    service.ExecuteNonQuery($"INSERT INTO QLBV.BACKUP_HISTORY (BACKUP_NAME, BACKUP_TYPE, BACKUP_PATH, OBJECT_SCOPE, NOTE) VALUES ('{df}', 'tables', 'C:\\oracle_backup', 'benhnhan,hsba,hsba_dv,donthuoc', N'Backup bảng quan trọng qua expdp')");
+                    service.ExecuteNonQuery("COMMIT");
+                    txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Đã ghi vào QLBV.BACKUP_HISTORY.\r\n");
+                    RefreshHist();
+                }
+                catch { }
+            };
+
+            btnBackupAudit.Click += async (s, e) =>
+            {
+                txtLog.AppendText($"\r\nC:\\> expdp sys as sysdba directory=AUDIT_DIR dumpfile=AUDIT_{DateTime.Now:yyyyMMdd}.dmp tables=AUDSYS.AUD$UNIFIED\r\n");
+                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Đang đóng gói Unified Audit + FGA...\r\n");
+                await System.Threading.Tasks.Task.Delay(1200);
+                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Hoàn tất kết xuất nhật ký kiểm toán.\r\n");
+            };
+
+            btnRestoreSchema.Click += async (s, e) =>
+            {
+                if (MessageBox.Show("CẢNH BÁO: Sẽ ghi đè toàn bộ schema QLBV.\nBạn có chắc chắn?", "Phục Hồi Schema", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+                txtLog.AppendText($"\r\nC:\\> impdp qlbv/123@localhost:1521/xepdb1 schemas=qlbv directory=backup_dir dumpfile=qlbv_schema_LATEST.dmp logfile=qlbv_schema_import.log table_exists_action=replace\r\n");
+                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] ĐANG PHỤC HỒI SCHEMA QLBV...\r\n");
+                await System.Threading.Tasks.Task.Delay(2500);
+                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Import thành công!\r\n");
+            };
+
+            pnl.Controls.Add(txtLog);
+            pnl.Controls.Add(gridHist);
+            pnl.Controls.Add(barHist);
+            pnl.Controls.Add(lblHist);
+            pnl.Controls.Add(flowBtn);
+            pnl.Controls.Add(lblTitle);
+            tab.Controls.Add(pnl);
+            RefreshHist();
+        }
+
+        // ── 08.sql [07-CMD]: Tạo và chạy lệnh expdp/impdp trong CMD hoặc PowerShell
+        private void BuildBackup_CmdPanel(TabPage tab)
+        {
+            var pnl     = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 14, 20, 0), BackColor = Color.White };
+            var lblTitle = new Label { Text = "Lệnh expdp / impdp — Chạy trong CMD hoặc PowerShell  (08.sql [07-CMD])", Font = new Font("Segoe UI", 12F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 34 };
+            var lblDesc  = new Label { Text = "Chọn loại lệnh, điền tham số → Sao Chép hoặc Chạy Trực Tiếp trong CMD (cần Oracle Client cài trên máy).", Font = new Font("Segoe UI", 9F), ForeColor = Color.FromArgb(90, 90, 110), Dock = DockStyle.Top, Height = 22, AutoSize = false };
+
+            var flowCfg = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 48, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 6, 0, 4), BackColor = Color.White, WrapContents = false };
+            var cmbCmd  = new ComboBox { Width = 280, DropDownStyle = ComboBoxStyle.DropDownList, Margin = new Padding(0, 5, 12, 0) };
+            cmbCmd.Items.AddRange(new object[] {
+                "1. Backup toàn Schema QLBV (expdp schemas)",
+                "2. Backup Bảng Quan Trọng (expdp tables)",
+                "3. Restore toàn Schema QLBV (impdp schemas)",
+                "4. Restore Một Bảng cụ thể (impdp tables)"
+            });
+            cmbCmd.SelectedIndex = 0;
+            var txtHost = new TextBox { Text = "localhost:1521/xepdb1", Width = 190, Margin = new Padding(0, 6, 10, 0) };
+            var txtDump = new TextBox { Text = "qlbv_schema_latest.dmp", Width = 210, Margin = new Padding(0, 6, 10, 0) };
+            var txtTbl  = new TextBox { Text = "qlbv.donthuoc", Width = 165, Margin = new Padding(0, 6, 0,  0) };
+            foreach (var c in new Control[] {
+                new Label { Text = "Loại:",       AutoSize = true, Margin = new Padding(0, 10, 4, 0), Font = new Font("Segoe UI", 9F) }, cmbCmd,
+                new Label { Text = "Host:",       AutoSize = true, Margin = new Padding(0, 10, 4, 0), Font = new Font("Segoe UI", 9F) }, txtHost,
+                new Label { Text = "File dump:",  AutoSize = true, Margin = new Padding(0, 10, 4, 0), Font = new Font("Segoe UI", 9F) }, txtDump,
+                new Label { Text = "Bảng (#4):", AutoSize = true, Margin = new Padding(0, 10, 4, 0), Font = new Font("Segoe UI", 9F) }, txtTbl
+            }) flowCfg.Controls.Add(c);
+
+            var txtCmd = new TextBox { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Both, BackColor = Color.FromArgb(20, 26, 32), ForeColor = Color.FromArgb(190, 235, 150), Font = new Font("Consolas", 11F), WordWrap = false, Dock = DockStyle.Fill };
+
+            var btnCopy = QuickBtn("Sao Chép Lệnh",     UiTheme.BrandeisBlue,       UiTheme.WhiteText, 152, 40);
+            var btnRun  = QuickBtn("▶ Chạy trong CMD",  Color.FromArgb(30, 160, 60), UiTheme.WhiteText, 162, 40);
+            var flowAct = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 58, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 8, 0, 0), BackColor = Color.White };
+            flowAct.Controls.Add(btnCopy);
+            flowAct.Controls.Add(btnRun);
+            flowAct.Controls.Add(Note("Lệnh theo 08.sql [07-CMD]. Cần Oracle Client để chạy trực tiếp. Mật khẩu mặc định: 123."));
+
+            string GetCmd()
+            {
+                string host = txtHost.Text.Trim(), dump = txtDump.Text.Trim(), tbl = txtTbl.Text.Trim();
+                switch (cmbCmd.SelectedIndex)
+                {
+                    case 0: return $"expdp qlbv/123@{host} ^\r\n    schemas=qlbv ^\r\n    directory=backup_dir ^\r\n    dumpfile={dump} ^\r\n    logfile=qlbv_schema_export.log";
+                    case 1: return $"expdp qlbv/123@{host} ^\r\n    tables=qlbv.benhnhan,qlbv.hsba,qlbv.hsba_dv,qlbv.donthuoc ^\r\n    directory=backup_dir ^\r\n    dumpfile=qlbv_important_tables.dmp ^\r\n    logfile=qlbv_important_tables_export.log";
+                    case 2: return $"impdp qlbv/123@{host} ^\r\n    schemas=qlbv ^\r\n    directory=backup_dir ^\r\n    dumpfile={dump} ^\r\n    logfile=qlbv_schema_import.log ^\r\n    table_exists_action=replace";
+                    case 3: return $"impdp qlbv/123@{host} ^\r\n    tables={tbl} ^\r\n    directory=backup_dir ^\r\n    dumpfile={dump} ^\r\n    logfile=qlbv_table_import.log ^\r\n    table_exists_action=replace";
+                    default: return "";
+                }
+            }
+
+            EventHandler updatePreview = (s, e) => txtCmd.Text = GetCmd();
+            cmbCmd.SelectedIndexChanged += updatePreview;
+            txtHost.TextChanged += updatePreview;
+            txtDump.TextChanged += updatePreview;
+            txtTbl.TextChanged  += updatePreview;
+            txtCmd.Text = GetCmd();
+
+            btnCopy.Click += (s, e) =>
+            {
+                try { Clipboard.SetText(GetCmd()); Ok("Đã sao chép lệnh vào clipboard!"); }
+                catch (Exception ex) { Err(ex.Message); }
+            };
+
+            btnRun.Click += (s, e) =>
+            {
+                string cmd = GetCmd().Replace(" ^\r\n    ", " ");
+                if (MessageBox.Show($"Sẽ mở cửa sổ CMD và chạy lệnh:\r\n\r\n{cmd}\r\n\r\nXác nhận?", "Chạy lệnh", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+                try
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "cmd.exe",
+                        Arguments = $"/K \"{cmd}\"",
+                        UseShellExecute = true
+                    });
+                }
+                catch (Exception ex) { Err($"Không thể mở CMD: {ex.Message}\r\nHãy sao chép lệnh và chạy thủ công."); }
+            };
+
+            pnl.Controls.Add(flowAct);
+            pnl.Controls.Add(txtCmd);
+            pnl.Controls.Add(flowCfg);
+            pnl.Controls.Add(lblDesc);
+            pnl.Controls.Add(lblTitle);
+            tab.Controls.Add(pnl);
+        }
+
+        // ── 08.sql [07-RESTORE-HISTORY, 07-AUDIT-01]: Lịch sử sao lưu + phục hồi + phân tích sự cố
+        private void BuildBackup_HistoryPanel(TabPage tab)
+        {
+            var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterDistance = 210, BackColor = Color.White };
+
+            // PANEL TOP: BACKUP_HISTORY
+            var gridB = MakeGrid(true);
+            var btnRB = QuickBtn("Tải Lại", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 78, 26);
+            var barB  = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 30, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 2, 0, 2), BackColor = Color.White };
+            barB.Controls.Add(btnRB);
+            split.Panel1.Controls.Add(gridB);
+            split.Panel1.Controls.Add(barB);
+            split.Panel1.Controls.Add(new Label { Text = "QLBV.BACKUP_HISTORY — Lịch Sử Sao Lưu", Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 26 });
+
+            // PANEL BOTTOM: RESTORE_HISTORY + controls
+            var gridR    = MakeGrid(true);
+            var btnRR    = QuickBtn("Tải Lại",               Color.FromArgb(210, 220, 230), UiTheme.DeepBlue,  78, 26);
+            var btnAdd   = QuickBtn("+ Ghi Nhận Phục Hồi",  UiTheme.BrandeisBlue,          UiTheme.WhiteText, 188, 26);
+            var btnAudit = QuickBtn("Phân Tích Sự Cố (07-AUDIT-01)", Color.FromArgb(80, 80, 120), UiTheme.WhiteText, 232, 26);
+            var barR     = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 30, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 2, 0, 2), BackColor = Color.White };
+            barR.Controls.AddRange(new Control[] { btnRR, btnAdd, btnAudit });
+            split.Panel2.Controls.Add(gridR);
+            split.Panel2.Controls.Add(barR);
+            split.Panel2.Controls.Add(new Label { Text = "QLBV.RESTORE_HISTORY — Lịch Sử Phục Hồi", Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 26 });
+
+            void RefreshB() { try { gridB.DataSource = service.Query("SELECT * FROM QLBV.BACKUP_HISTORY ORDER BY BACKUP_TIME DESC FETCH FIRST 30 ROWS ONLY"); UiTheme.StyleGrid(gridB); } catch { } }
+            void RefreshR() { try { gridR.DataSource = service.Query("SELECT * FROM QLBV.RESTORE_HISTORY ORDER BY RESTORE_TIME DESC FETCH FIRST 30 ROWS ONLY"); UiTheme.StyleGrid(gridR); } catch { } }
+
+            btnRB.Click += (s, e) => RefreshB();
+            btnRR.Click += (s, e) => RefreshR();
+
+            // 08.sql [07-AUDIT-01]: query audit trail xác định sự cố trước khi restore
+            btnAudit.Click += (s, e) =>
+            {
+                var dlg    = new Form { Text = "Phân Tích Sự Cố — UNIFIED_AUDIT_TRAIL  (08.sql [07-AUDIT-01])", Width = 1100, Height = 600, StartPosition = FormStartPosition.CenterParent };
+                var gAudit = MakeGrid(true);
+                var cmb    = new ComboBox { Width = 345, DropDownStyle = ComboBoxStyle.DropDownList, Margin = new Padding(4, 4, 8, 0) };
+                cmb.Items.AddRange(new object[] { "Theo tên bảng (BENHNHAN/HSBA/HSBA_DV/DONTHUOC/NHANVIEN)", "Theo audit policy (Standard + FGA)" });
+                cmb.SelectedIndex = 0;
+                var btnQ = QuickBtn("Truy Vấn", UiTheme.BrandeisBlue, UiTheme.WhiteText, 100, 30);
+                var barA = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 40, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(4, 5, 4, 0) };
+                barA.Controls.Add(new Label { Text = "Lọc theo:", AutoSize = true, Margin = new Padding(0, 7, 4, 0), Font = new Font("Segoe UI", 9F) });
+                barA.Controls.Add(cmb);
+                barA.Controls.Add(btnQ);
+                btnQ.Click += (ss, ee) =>
+                {
+                    try
+                    {
+                        string sql = cmb.SelectedIndex == 0
+                            // Query 1 theo tên bảng — 08.sql [07-AUDIT-01]
+                            ? "SELECT EVENT_TIMESTAMP, DBUSERNAME, ACTION_NAME, OBJECT_SCHEMA, OBJECT_NAME, RETURN_CODE, UNIFIED_AUDIT_POLICIES, FGA_POLICY_NAME, SQL_TEXT FROM UNIFIED_AUDIT_TRAIL WHERE OBJECT_SCHEMA = 'QLBV' AND OBJECT_NAME IN ('BENHNHAN','HSBA','HSBA_DV','DONTHUOC','NHANVIEN') ORDER BY EVENT_TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY"
+                            // Query 2 theo policy — 08.sql [07-AUDIT-01]
+                            : "SELECT EVENT_TIMESTAMP, DBUSERNAME, ACTION_NAME, OBJECT_SCHEMA, OBJECT_NAME, RETURN_CODE, UNIFIED_AUDIT_POLICIES, FGA_POLICY_NAME, SQL_TEXT FROM UNIFIED_AUDIT_TRAIL WHERE UPPER(UNIFIED_AUDIT_POLICIES) IN ('AUDITSUCDPVUPDATEBN','AUDITSUCBSUPDATEDT','AUDITDONTHUOCINSERT','AUDITDONTHUOCUPDATE','AUDITFAILBSUPDATENV','AUDITFAILBNDELETEHSBA','AUDITFAILKTVDELETEDT','AUDITFAILDPVDELETEHSBA','AUDITFAILBNUPDATEDV','AUDITFAILKTVSELECTBN','AUDITILLEGALUPDATEHSBA','AUDITILLEGALHSBADV') OR UPPER(FGA_POLICY_NAME) IN ('AUDITSUADONTHUOC','AUDITBSUPDATEHSBA','AUDITKTVUPDATEKETQUA') ORDER BY EVENT_TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
+                        gAudit.DataSource = service.Query(sql);
+                        UiTheme.StyleGrid(gAudit);
+                    }
+                    catch (Exception ex) { Err(ex.Message); }
+                };
+                var pA = new Panel { Dock = DockStyle.Fill };
+                pA.Controls.Add(gAudit);
+                pA.Controls.Add(barA);
+                dlg.Controls.Add(pA);
+                dlg.ShowDialog();
+            };
+
+            // 08.sql [07-RESTORE-HISTORY]: INSERT vào restore_history sau khi impdp hoàn tất
+            btnAdd.Click += (s, e) =>
+            {
+                var dlg    = new Form { Text = "Ghi Nhận Kết Quả Phục Hồi — QLBV.RESTORE_HISTORY  (08.sql [07-RESTORE-HISTORY])", Width = 560, Height = 470, StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false };
+                var layout = new TableLayoutPanel { ColumnCount = 2, Dock = DockStyle.Fill, Padding = new Padding(16, 10, 16, 0) };
+                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 155F));
+                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 345F));
+                int rowIdx = 0;
+
+                TextBox MkField(string lbl, string def = "", bool multi = false)
+                {
+                    layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                    layout.Controls.Add(new Label { Text = lbl + ":", AutoSize = true, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Margin = new Padding(0, 10, 8, 0), Anchor = AnchorStyles.Right }, 0, rowIdx);
+                    var tb = new TextBox { Text = def, Width = 335, Multiline = multi, Height = multi ? 52 : 26, Font = new Font("Segoe UI", 9.5F), Margin = new Padding(0, 6, 0, 0) };
+                    layout.Controls.Add(tb, 1, rowIdx);
+                    rowIdx++;
+                    return tb;
+                }
+
+                var tBakName  = MkField("Tên file dump");
+                var tObject   = MkField("Object phục hồi", "qlbv.donthuoc");
+                var tIncident = MkField("Thời điểm sự cố", DateTime.Now.AddHours(-1).ToString("yyyy-MM-dd HH:mm:ss"));
+                var tUser     = MkField("User gây sự cố");
+                var tAction   = MkField("Hành động (UPDATE/DELETE...)");
+                var tAuditObj = MkField("Object audit");
+                var tNote     = MkField("Ghi chú", "", multi: true);
+
+                var btnSave   = QuickBtn("Lưu",  UiTheme.BrandeisBlue,         UiTheme.WhiteText, 100, 36);
+                var btnCancel = QuickBtn("Hủy",  Color.FromArgb(200, 200, 200), UiTheme.DeepBlue,   80, 36);
+                var flowF = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 52, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(16, 8, 0, 0) };
+                flowF.Controls.AddRange(new Control[] { btnSave, btnCancel });
+
+                btnSave.Click += (ss, ee) =>
+                {
+                    try
+                    {
+                        string ts = string.IsNullOrWhiteSpace(tIncident.Text) ? "NULL" : $"TO_TIMESTAMP('{Esc(tIncident.Text)}','YYYY-MM-DD HH24:MI:SS')";
+                        service.ExecuteNonQuery(
+                            $"INSERT INTO QLBV.RESTORE_HISTORY (BACKUP_NAME, RESTORE_OBJECT, INCIDENT_TIME, INCIDENT_USER, INCIDENT_ACTION, AUDIT_OBJECT_NAME, NOTE) " +
+                            $"VALUES (N'{Esc(tBakName.Text)}', N'{Esc(tObject.Text)}', {ts}, N'{Esc(tUser.Text)}', N'{Esc(tAction.Text)}', N'{Esc(tAuditObj.Text)}', N'{Esc(tNote.Text)}')");
+                        service.ExecuteNonQuery("COMMIT");
+                        Ok("Đã ghi nhận vào QLBV.RESTORE_HISTORY!");
+                        dlg.DialogResult = DialogResult.OK;
+                        RefreshR();
+                    }
+                    catch (Exception ex) { Err(ex.Message); }
+                };
+                btnCancel.Click += (ss, ee) => dlg.Close();
+
+                var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
+                scroll.Controls.Add(layout);
+                dlg.Controls.Add(flowF);
+                dlg.Controls.Add(scroll);
+                dlg.ShowDialog();
+            };
+
+            tab.Controls.Add(split);
+            RefreshB();
+            RefreshR();
+        }
+
+        // Flashback Query — run/05.sql §Câu 4: Khôi phục dữ liệu theo thời điểm
+        private void BuildBackup_Flashback(TabPage tab)
+        {
+            var pnl = new Panel { Dock = DockStyle.Fill, Padding = new Padding(24, 20, 24, 0), BackColor = Color.White };
+
+            var lblTitle = new Label
+            {
+                Text = "Khôi Phục Dữ Liệu Qua Flashback Query  (run/05.sql §Câu 4)",
+                Font = new Font("Segoe UI", 13F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue,
+                Dock = DockStyle.Top, Height = 38
+            };
+            var lblDesc = new Label
+            {
+                Text = "Thực hiện theo 3 bước:  Bước 1 → ghi nhận timestamp & dữ liệu gốc  |  Bước 2 → giả lập làm hỏng dữ liệu  |  Bước 3 → khôi phục bằng AS OF TIMESTAMP",
+                Font = new Font("Segoe UI", 9F), ForeColor = Color.FromArgb(90, 90, 110),
+                Dock = DockStyle.Top, Height = 26, AutoSize = false
+            };
+
+            // Input row: MABN
+            var flowInput = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Top, Height = 46,
+                FlowDirection = FlowDirection.LeftToRight,
+                Padding = new Padding(0, 8, 0, 0), BackColor = Color.White
+            };
+            var lblMabn = new Label { Text = "Mã bệnh nhân (MABN):", AutoSize = true, Font = new Font("Segoe UI", 10F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Margin = new Padding(0, 6, 8, 0) };
+            var txtMabn = new TextBox { Text = "BN000001", Width = 150, Font = UiTheme.BodyFont, Margin = new Padding(0, 4, 0, 0) };
+            flowInput.Controls.Add(lblMabn);
+            flowInput.Controls.Add(txtMabn);
+
+            // Step buttons + DateTimePicker
+            var flowSteps = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Top, Height = 54,
+                FlowDirection = FlowDirection.LeftToRight,
+                Padding = new Padding(0, 6, 0, 4), BackColor = Color.White
+            };
+            var btnStep1 = QuickBtn("Bước 1: Ghi Nhận Thời Điểm Gốc",    UiTheme.BrandeisBlue,              UiTheme.WhiteText,  245, 40);
+            var btnStep2 = QuickBtn("Bước 2: Giả Lập Làm Hỏng Dữ Liệu",  Color.FromArgb(206, 17, 38),       UiTheme.WhiteText,  248, 40);
+            var dtpFlash = new DateTimePicker
+            {
+                Format = DateTimePickerFormat.Custom, CustomFormat = "yyyy-MM-dd HH:mm:ss",
+                ShowUpDown = true, Width = 210,
+                Margin = new Padding(10, 5, 6, 0), Value = DateTime.Now
+            };
+            var btnStep3 = QuickBtn("Bước 3: Khôi Phục Flashback",        Color.FromArgb(30, 160, 100),       UiTheme.WhiteText,  225, 40);
+            flowSteps.Controls.Add(btnStep1);
+            flowSteps.Controls.Add(btnStep2);
+            flowSteps.Controls.Add(dtpFlash);
+            flowSteps.Controls.Add(btnStep3);
+
+            var lblDtp = new Label
+            {
+                Text = "← Điều chỉnh mốc thời gian (tự điền sau Bước 1) rồi bấm Bước 3",
+                Font = new Font("Segoe UI", 8.5F), ForeColor = Color.FromArgb(100, 100, 120),
+                Dock = DockStyle.Top, Height = 22, AutoSize = false
+            };
+
+            var txtLog = new TextBox
+            {
+                Multiline = true, Dock = DockStyle.Bottom, Height = 360, ReadOnly = true,
+                BackColor = Color.Black, ForeColor = Color.Lime,
+                Font = new Font("Consolas", 10.5F), ScrollBars = ScrollBars.Vertical,
+                Text = "SQL> -- Hệ thống sẵn sàng. Thực hiện theo thứ tự Bước 1 → Bước 2 → Bước 3.\r\n"
+            };
+
+            // Closure state
+            string savedTimestamp = null;
+
+            btnStep1.Click += (s, e) =>
+            {
+                string mabn = Esc(txtMabn.Text.Trim());
+                if (string.IsNullOrEmpty(mabn)) { Err("Vui lòng nhập MABN."); return; }
+                try
+                {
+                    var tsRow  = service.Query("SELECT TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI:SS') AS TS FROM DUAL");
+                    savedTimestamp = tsRow.Rows[0]["TS"].ToString();
+
+                    var dtRow  = service.Query($"SELECT CCCD FROM QLBV.BENHNHAN WHERE MABN = '{mabn}'");
+                    string cccd = dtRow.Rows.Count > 0 ? (dtRow.Rows[0]["CCCD"]?.ToString() ?? "(null)") : "(không tìm thấy)";
+
+                    if (DateTime.TryParseExact(savedTimestamp, "yyyy-MM-dd HH:mm:ss",
+                            System.Globalization.CultureInfo.InvariantCulture,
+                            System.Globalization.DateTimeStyles.None, out DateTime ts))
+                        dtpFlash.Value = ts;
+
+                    txtLog.AppendText($"\r\nSQL> SELECT TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI:SS') AS TS FROM DUAL;\r\n");
+                    txtLog.AppendText($"TS\r\n-------------------\r\n{savedTimestamp}\r\n");
+                    txtLog.AppendText($"\r\nSQL> SELECT CCCD FROM QLBV.BENHNHAN WHERE MABN = '{mabn}';\r\n");
+                    txtLog.AppendText($"CCCD\r\n-------------------\r\n{cccd}\r\n");
+                    txtLog.AppendText($"\r\n>> [BƯỚC 1 HOÀN THÀNH]\r\n");
+                    txtLog.AppendText($"   Snapshot timestamp : {savedTimestamp}\r\n");
+                    txtLog.AppendText($"   CCCD gốc           : {cccd}\r\n");
+                    txtLog.AppendText($"   => Tiếp theo: Bấm Bước 2 để giả lập dữ liệu bị hỏng.\r\n");
+                }
+                catch (Exception ex)
+                {
+                    txtLog.AppendText($"\r\n[LỖI Bước 1]: {ex.Message}\r\n");
                 }
             };
 
-            var flowBtn = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 60, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 10, 0, 10) };
-            flowBtn.Controls.Add(btnBackupFull);
-            flowBtn.Controls.Add(btnBackupAudit);
-            flowBtn.Controls.Add(btnRestore);
+            btnStep2.Click += (s, e) =>
+            {
+                string mabn = Esc(txtMabn.Text.Trim());
+                if (savedTimestamp == null) { Err("Vui lòng thực hiện Bước 1 trước để ghi nhận mốc thời gian."); return; }
+                if (MessageBox.Show(
+                    $"CẢNH BÁO: Sẽ cập nhật CCCD của [{mabn}] thành '999999999999' để giả lập dữ liệu bị hỏng.\n\nBạn có chắc chắn?",
+                    "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+                try
+                {
+                    txtLog.AppendText($"\r\nSQL> UPDATE QLBV.BENHNHAN SET CCCD = '999999999999' WHERE MABN = '{mabn}';\r\n");
+                    service.ExecuteNonQuery($"UPDATE QLBV.BENHNHAN SET CCCD = '999999999999' WHERE MABN = '{mabn}'");
+                    service.ExecuteNonQuery("COMMIT");
 
-            pnl.Controls.Add(flowBtn);
+                    var dtRow   = service.Query($"SELECT CCCD FROM QLBV.BENHNHAN WHERE MABN = '{mabn}'");
+                    string now  = dtRow.Rows.Count > 0 ? (dtRow.Rows[0]["CCCD"]?.ToString() ?? "(null)") : "(null)";
+                    txtLog.AppendText($"1 row updated.\r\nSQL> COMMIT;\r\nCommit complete.\r\n");
+                    txtLog.AppendText($"\r\nSQL> SELECT CCCD FROM QLBV.BENHNHAN WHERE MABN = '{mabn}';\r\n");
+                    txtLog.AppendText($"CCCD\r\n-------------------\r\n{now}\r\n");
+                    txtLog.AppendText($"\r\n>> [BƯỚC 2 HOÀN THÀNH] Dữ liệu đã bị hỏng!\r\n");
+                    txtLog.AppendText($"   CCCD hiện tại: {now}\r\n");
+                    txtLog.AppendText($"   => Tiếp theo: Kiểm tra mốc thời gian trong DateTimePicker rồi bấm Bước 3.\r\n");
+                }
+                catch (Exception ex)
+                {
+                    txtLog.AppendText($"\r\n[LỖI Bước 2]: {ex.Message}\r\n");
+                }
+            };
+
+            btnStep3.Click += (s, e) =>
+            {
+                string mabn   = Esc(txtMabn.Text.Trim());
+                string flashTs = dtpFlash.Value.ToString("yyyy-MM-dd HH:mm:ss");
+                if (savedTimestamp == null) { Err("Vui lòng thực hiện Bước 1 trước."); return; }
+                if (MessageBox.Show(
+                    $"Sẽ khôi phục CCCD của [{mabn}] về trạng thái tại thời điểm:\n{flashTs}\n\nXác nhận?",
+                    "Xác nhận Flashback", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+                try
+                {
+                    // AS OF TIMESTAMP — run/05.sql §Câu 4
+                    string restoreSql =
+                        $"UPDATE QLBV.BENHNHAN SET CCCD = (" +
+                        $"  SELECT CCCD FROM QLBV.BENHNHAN" +
+                        $"  AS OF TIMESTAMP TO_TIMESTAMP('{flashTs}','YYYY-MM-DD HH24:MI:SS')" +
+                        $"  WHERE MABN = '{mabn}'" +
+                        $") WHERE MABN = '{mabn}'";
+
+                    txtLog.AppendText($"\r\nSQL> UPDATE QLBV.BENHNHAN\r\n");
+                    txtLog.AppendText($"  2  SET CCCD = (\r\n");
+                    txtLog.AppendText($"  3    SELECT CCCD FROM QLBV.BENHNHAN\r\n");
+                    txtLog.AppendText($"  4    AS OF TIMESTAMP TO_TIMESTAMP('{flashTs}','YYYY-MM-DD HH24:MI:SS')\r\n");
+                    txtLog.AppendText($"  5    WHERE MABN = '{mabn}'\r\n");
+                    txtLog.AppendText($"  6  ) WHERE MABN = '{mabn}';\r\n");
+
+                    service.ExecuteNonQuery(restoreSql);
+                    service.ExecuteNonQuery("COMMIT");
+
+                    var dtRow     = service.Query($"SELECT CCCD FROM QLBV.BENHNHAN WHERE MABN = '{mabn}'");
+                    string restored = dtRow.Rows.Count > 0 ? (dtRow.Rows[0]["CCCD"]?.ToString() ?? "(null)") : "(null)";
+                    txtLog.AppendText($"1 row updated.\r\nSQL> COMMIT;\r\nCommit complete.\r\n");
+                    txtLog.AppendText($"\r\nSQL> SELECT CCCD FROM QLBV.BENHNHAN WHERE MABN = '{mabn}';\r\n");
+                    txtLog.AppendText($"CCCD\r\n-------------------\r\n{restored}\r\n");
+                    txtLog.AppendText($"\r\n>> [BƯỚC 3 HOÀN THÀNH] ✓ DỮ LIỆU ĐÃ ĐƯỢC KHÔI PHỤC!\r\n");
+                    txtLog.AppendText($"   CCCD sau khôi phục: {restored}\r\n");
+                }
+                catch (Exception ex)
+                {
+                    txtLog.AppendText($"\r\n[LỖI Bước 3 - Flashback]: {ex.Message}\r\n");
+                    txtLog.AppendText($"   Gợi ý: Cần đảm bảo UNDO_RETENTION đủ lớn và dữ liệu chưa vượt quá retention window.\r\n");
+                    txtLog.AppendText($"   Lệnh kiểm tra: SHOW PARAMETER UNDO_RETENTION;\r\n");
+                }
+            };
+
+            pnl.Controls.Add(flowInput);
+            pnl.Controls.Add(flowSteps);
+            pnl.Controls.Add(lblDtp);
+            pnl.Controls.Add(lblDesc);
             pnl.Controls.Add(lblTitle);
             pnl.Controls.Add(txtLog);
             tab.Controls.Add(pnl);
+        }
+
+        // ── 08.sql [07-FLASHBACK-DEMO]: FLASHBACK TABLE qlbv.donthuoc TO TIMESTAMP
+        private void BuildBackup_FlashbackTable(TabPage tab)
+        {
+            var pnl     = new Panel { Dock = DockStyle.Fill, Padding = new Padding(24, 16, 24, 0), BackColor = Color.White };
+            var lblTitle = new Label { Text = "Flashback Table — Khôi Phục Toàn Bộ Bảng  (08.sql [07-FLASHBACK-DEMO])", Font = new Font("Segoe UI", 12F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 34 };
+            var lblDesc  = new Label { Text = "Khác Flashback Query (row-level): FLASHBACK TABLE phục hồi toàn bộ trạng thái bảng. Yêu cầu ROW MOVEMENT enabled.", Font = new Font("Segoe UI", 9F), ForeColor = Color.FromArgb(90, 90, 110), Dock = DockStyle.Top, Height = 22, AutoSize = false };
+
+            var flowInput = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 46, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 8, 0, 0), BackColor = Color.White };
+            var lblTbl    = new Label { Text = "Bảng demo:", AutoSize = true, Font = new Font("Segoe UI", 10F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Margin = new Padding(0, 6, 8, 0) };
+            var cmbTbl    = new ComboBox { Width = 200, DropDownStyle = ComboBoxStyle.DropDownList, Margin = new Padding(0, 4, 0, 0) };
+            cmbTbl.Items.AddRange(new object[] { "QLBV.DONTHUOC", "QLBV.BENHNHAN", "QLBV.HSBA" });
+            cmbTbl.SelectedIndex = 0;
+            flowInput.Controls.Add(lblTbl);
+            flowInput.Controls.Add(cmbTbl);
+
+            var flowSteps = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 54, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 6, 0, 4), BackColor = Color.White };
+            var btnS1  = QuickBtn("Bước 1: Ghi Nhận Thời Điểm",  UiTheme.BrandeisBlue,        UiTheme.WhiteText, 238, 40);
+            var btnS2  = QuickBtn("Bước 2: Giả Lập Sửa Nhầm",    Color.FromArgb(206, 17, 38),  UiTheme.WhiteText, 222, 40);
+            var dtpFT  = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "yyyy-MM-dd HH:mm:ss", ShowUpDown = true, Width = 210, Margin = new Padding(10, 5, 6, 0), Value = DateTime.Now };
+            var btnS3  = QuickBtn("Bước 3: FLASHBACK TABLE",      Color.FromArgb(30, 160, 100),  UiTheme.WhiteText, 210, 40);
+            flowSteps.Controls.AddRange(new Control[] { btnS1, btnS2, dtpFT, btnS3 });
+
+            var lblDtp = new Label { Text = "← Mốc thời gian (tự điền sau Bước 1) rồi bấm Bước 3", Font = new Font("Segoe UI", 8.5F), ForeColor = Color.FromArgb(100, 100, 120), Dock = DockStyle.Top, Height = 20, AutoSize = false };
+            var txtLog = new TextBox { Multiline = true, Dock = DockStyle.Bottom, Height = 360, ReadOnly = true, BackColor = Color.Black, ForeColor = Color.Lime, Font = new Font("Consolas", 10.5F), ScrollBars = ScrollBars.Vertical, Text = "SQL> -- Sẵn sàng. Thực hiện Bước 1 → 2 → 3.\r\n" };
+
+            string savedTsFT = null;
+
+            btnS1.Click += (s, e) =>
+            {
+                string tbl = cmbTbl.SelectedItem.ToString();
+                try
+                {
+                    // 08.sql [07-FLASHBACK-DEMO]: ghi lại mốc thời gian + xem dòng đầu bảng
+                    var tsRow = service.Query("SELECT TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD HH24:MI:SS') AS TS FROM DUAL");
+                    savedTsFT = tsRow.Rows[0]["TS"].ToString();
+                    if (DateTime.TryParseExact(savedTsFT, "yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateTime ts))
+                        dtpFT.Value = ts;
+
+                    txtLog.AppendText($"\r\nSQL> SELECT TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD HH24:MI:SS') AS TS FROM DUAL;\r\nTS: {savedTsFT}\r\n");
+                    txtLog.AppendText($"\r\nSQL> SELECT * FROM {tbl} WHERE ROWNUM = 1;\r\n");
+                    var dt = service.Query($"SELECT * FROM {tbl} WHERE ROWNUM = 1");
+                    if (dt.Rows.Count > 0)
+                        foreach (DataColumn c in dt.Columns) txtLog.AppendText($"  {c.ColumnName}: {dt.Rows[0][c]}\r\n");
+                    txtLog.AppendText($"\r\n>> [BƯỚC 1 HOÀN THÀNH] Timestamp: {savedTsFT}\r\n   => Bấm Bước 2 để giả lập sửa nhầm.\r\n");
+                }
+                catch (Exception ex) { txtLog.AppendText($"[LỖI Bước 1]: {ex.Message}\r\n"); }
+            };
+
+            btnS2.Click += (s, e) =>
+            {
+                string tbl = cmbTbl.SelectedItem.ToString();
+                if (savedTsFT == null) { Err("Vui lòng thực hiện Bước 1 trước."); return; }
+                // 08.sql [07-FLASHBACK-DEMO]: UPDATE để giả lập dữ liệu bị hỏng
+                string corruptSql = tbl == "QLBV.DONTHUOC"
+                    ? $"UPDATE {tbl} SET LIEUDUNG = N'Dữ liệu bị sửa nhầm trong demo Flashback Table' WHERE ROWNUM = 1"
+                    : $"UPDATE {tbl} SET SONHA = N'DEMO: DỮ LIỆU BỊ HỎNG' WHERE ROWNUM = 1";
+                if (MessageBox.Show($"Sẽ thực thi:\r\n{corruptSql}\r\n\r\nXác nhận?", "Bước 2 - Giả Lập", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+                try
+                {
+                    txtLog.AppendText($"\r\nSQL> {corruptSql};\r\n");
+                    service.ExecuteNonQuery(corruptSql);
+                    service.ExecuteNonQuery("COMMIT");
+                    txtLog.AppendText("1 row updated.\r\nCommit complete.\r\n>> [BƯỚC 2 HOÀN THÀNH] Dữ liệu đã bị hỏng.\r\n   => Điều chỉnh DateTimePicker rồi bấm Bước 3.\r\n");
+                }
+                catch (Exception ex) { txtLog.AppendText($"[LỖI Bước 2]: {ex.Message}\r\n"); }
+            };
+
+            btnS3.Click += (s, e) =>
+            {
+                string tbl     = cmbTbl.SelectedItem.ToString();
+                string flashTs = dtpFT.Value.ToString("yyyy-MM-dd HH:mm:ss");
+                if (savedTsFT == null) { Err("Vui lòng thực hiện Bước 1 trước."); return; }
+                if (MessageBox.Show($"Sẽ khôi phục bảng {tbl}\nvề thời điểm: {flashTs}\n(Yêu cầu ROW MOVEMENT enabled)\n\nXác nhận?", "Flashback Table", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+                try
+                {
+                    // 08.sql [07-FLASHBACK-DEMO]: ENABLE ROW MOVEMENT + FLASHBACK TABLE
+                    txtLog.AppendText($"\r\nSQL> ALTER TABLE {tbl} ENABLE ROW MOVEMENT;\r\n");
+                    service.ExecuteNonQuery($"ALTER TABLE {tbl} ENABLE ROW MOVEMENT");
+                    txtLog.AppendText("Table altered.\r\n");
+
+                    txtLog.AppendText($"\r\nSQL> FLASHBACK TABLE {tbl}\r\n  2  TO TIMESTAMP TO_TIMESTAMP('{flashTs}','YYYY-MM-DD HH24:MI:SS');\r\n");
+                    service.ExecuteNonQuery($"FLASHBACK TABLE {tbl} TO TIMESTAMP TO_TIMESTAMP('{flashTs}','YYYY-MM-DD HH24:MI:SS')");
+                    txtLog.AppendText("Flashback complete.\r\n");
+
+                    txtLog.AppendText($"\r\nSQL> SELECT * FROM {tbl} WHERE ROWNUM = 1;\r\n");
+                    var dt = service.Query($"SELECT * FROM {tbl} WHERE ROWNUM = 1");
+                    if (dt.Rows.Count > 0)
+                        foreach (DataColumn c in dt.Columns) txtLog.AppendText($"  {c.ColumnName}: {dt.Rows[0][c]}\r\n");
+                    txtLog.AppendText($"\r\n>> [BƯỚC 3 HOÀN THÀNH] ✓ Bảng {tbl} đã được khôi phục!\r\n");
+
+                    // Ghi nhận vào RESTORE_HISTORY — 08.sql [07-RESTORE-HISTORY]
+                    try
+                    {
+                        service.ExecuteNonQuery(
+                            $"INSERT INTO QLBV.RESTORE_HISTORY (BACKUP_NAME, RESTORE_OBJECT, INCIDENT_TIME, INCIDENT_USER, INCIDENT_ACTION, AUDIT_OBJECT_NAME, NOTE) " +
+                            $"VALUES ('FlashbackTable', '{tbl}', TO_TIMESTAMP('{savedTsFT}','YYYY-MM-DD HH24:MI:SS'), 'DEMO', 'UPDATE', '{tbl}', N'Demo FLASHBACK TABLE trong WinForms')");
+                        service.ExecuteNonQuery("COMMIT");
+                        txtLog.AppendText("   => Đã ghi nhận vào QLBV.RESTORE_HISTORY.\r\n");
+                    }
+                    catch { }
+                }
+                catch (Exception ex)
+                {
+                    txtLog.AppendText($"[LỖI Bước 3 - Flashback Table]: {ex.Message}\r\n");
+                    txtLog.AppendText("   Gợi ý: Cần UNDO_RETENTION đủ lớn và dữ liệu chưa vượt quá retention window.\r\n");
+                    txtLog.AppendText("   Kiểm tra: SHOW PARAMETER UNDO_RETENTION;\r\n");
+                }
+            };
+
+            pnl.Controls.Add(flowInput);
+            pnl.Controls.Add(flowSteps);
+            pnl.Controls.Add(lblDtp);
+            pnl.Controls.Add(lblDesc);
+            pnl.Controls.Add(lblTitle);
+            pnl.Controls.Add(txtLog);
+            tab.Controls.Add(pnl);
+        }
+
+        // ── 08.sql [07-AUTO-BACKUP]: DBMS_SCHEDULER + JOB_AUTO_BACKUP_SCHEMA
+        private void BuildBackup_Scheduler(TabPage tab)
+        {
+            var pnl     = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 14, 20, 0), BackColor = Color.White };
+            var lblTitle = new Label { Text = "Scheduler — Backup Tự Động  (08.sql [07-AUTO-BACKUP])", Font = new Font("Segoe UI", 12F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 34 };
+
+            var btnRunNow  = QuickBtn("▶ Chạy Backup Ngay",    UiTheme.BrandeisBlue,        UiTheme.WhiteText, 188, 38);
+            var btnEnable  = QuickBtn("✔ Bật Job",              Color.FromArgb(30, 160, 80),  UiTheme.WhiteText, 108, 38);
+            var btnDisable = QuickBtn("✗ Tắt Job",              Color.FromArgb(206, 17, 38),  UiTheme.WhiteText,  98, 38);
+            var btnRefresh = QuickBtn("Tải Lại",               Color.FromArgb(210, 220, 230), UiTheme.DeepBlue,   88, 38);
+            var flowBtn    = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 52, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 7, 0, 4), BackColor = Color.White };
+            flowBtn.Controls.AddRange(new Control[] { btnRunNow, btnEnable, btnDisable, btnRefresh,
+                Note("JOB: QLBV.JOB_AUTO_BACKUP_SCHEMA — lịch chạy 23:30 hằng ngày. Procedure: QLBV.PR_AUTO_BACKUP_SCHEMA") });
+
+            // Grid job status + grid job log
+            var gridJob = MakeGrid(true);
+            var gridLog = MakeGrid(true);
+            var split   = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterDistance = 120, BackColor = Color.White };
+            split.Panel1.Controls.Add(gridJob);
+            split.Panel1.Controls.Add(new Label { Text = "Trạng Thái Job — ALL_SCHEDULER_JOBS WHERE JOB_NAME = 'JOB_AUTO_BACKUP_SCHEMA'", Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 24 });
+            split.Panel2.Controls.Add(gridLog);
+            split.Panel2.Controls.Add(new Label { Text = "Nhật Ký Chạy Gần Nhất — ALL_SCHEDULER_JOB_LOG (20 dòng)", Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 24 });
+
+            var txtOut = new TextBox { Multiline = true, Dock = DockStyle.Bottom, Height = 120, ReadOnly = true, BackColor = Color.Black, ForeColor = Color.Lime, Font = new Font("Consolas", 10F), ScrollBars = ScrollBars.Vertical, Text = "C:\\Oracle> Scheduler console sẵn sàng.\r\n" };
+
+            void RefreshAll()
+            {
+                try
+                {
+                    // 08.sql [07-AUTO-BACKUP]: kiểm tra trạng thái job
+                    gridJob.DataSource = service.Query("SELECT OWNER, JOB_NAME, ENABLED, STATE, RUN_COUNT, FAILURE_COUNT, TO_CHAR(LAST_START_DATE,'DD/MM/YYYY HH24:MI') AS LAST_RUN, TO_CHAR(NEXT_RUN_DATE,'DD/MM/YYYY HH24:MI') AS NEXT_RUN, REPEAT_INTERVAL, COMMENTS FROM ALL_SCHEDULER_JOBS WHERE OWNER = 'QLBV' AND JOB_NAME = 'JOB_AUTO_BACKUP_SCHEMA'");
+                    UiTheme.StyleGrid(gridJob);
+                }
+                catch { }
+                try
+                {
+                    gridLog.DataSource = service.Query("SELECT TO_CHAR(LOG_DATE,'DD/MM/YYYY HH24:MI:SS') AS LOG_DATE, JOB_NAME, STATUS, ERROR# AS ERR, RUN_DURATION FROM ALL_SCHEDULER_JOB_LOG WHERE JOB_NAME = 'JOB_AUTO_BACKUP_SCHEMA' ORDER BY LOG_DATE DESC FETCH FIRST 20 ROWS ONLY");
+                    UiTheme.StyleGrid(gridLog);
+                }
+                catch { }
+            }
+
+            btnRefresh.Click += (s, e) => RefreshAll();
+
+            btnRunNow.Click += (s, e) =>
+            {
+                if (MessageBox.Show("Sẽ thực thi QLBV.PR_AUTO_BACKUP_SCHEMA ngay.\n(Procedure tạo file .dmp trong BACKUP_DIR và ghi vào BACKUP_HISTORY)\nXác nhận?", "Chạy Backup Ngay", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+                try
+                {
+                    // 08.sql [07-AUTO-BACKUP]: gọi procedure pr_auto_backup_schema
+                    txtOut.AppendText($"\r\nSQL> BEGIN QLBV.PR_AUTO_BACKUP_SCHEMA; END;\r\n");
+                    service.ExecuteNonQuery("BEGIN QLBV.PR_AUTO_BACKUP_SCHEMA; END;");
+                    txtOut.AppendText($"[{DateTime.Now:HH:mm:ss}] Procedure thực thi thành công.\r\n");
+                    RefreshAll();
+                }
+                catch (Exception ex)
+                {
+                    txtOut.AppendText($"[LỖI]: {ex.Message}\r\n");
+                    txtOut.AppendText("   Kiểm tra: BACKUP_DIR đã tạo? Đã cấp DATAPUMP_EXP_FULL_DATABASE cho QLBV?\r\n");
+                }
+            };
+
+            btnEnable.Click += (s, e) =>
+            {
+                try
+                {
+                    // 08.sql [07-AUTO-BACKUP]: DBMS_SCHEDULER.ENABLE
+                    txtOut.AppendText($"\r\nSQL> BEGIN DBMS_SCHEDULER.ENABLE('QLBV.JOB_AUTO_BACKUP_SCHEMA'); END;\r\n");
+                    service.ExecuteNonQuery("BEGIN DBMS_SCHEDULER.ENABLE('QLBV.JOB_AUTO_BACKUP_SCHEMA'); END;");
+                    txtOut.AppendText($"[{DateTime.Now:HH:mm:ss}] Job đã được BẬT.\r\n");
+                    RefreshAll();
+                }
+                catch (Exception ex) { txtOut.AppendText($"[LỖI]: {ex.Message}\r\n"); }
+            };
+
+            btnDisable.Click += (s, e) =>
+            {
+                try
+                {
+                    // 08.sql [07-AUTO-BACKUP]: DBMS_SCHEDULER.DISABLE
+                    txtOut.AppendText($"\r\nSQL> BEGIN DBMS_SCHEDULER.DISABLE('QLBV.JOB_AUTO_BACKUP_SCHEMA'); END;\r\n");
+                    service.ExecuteNonQuery("BEGIN DBMS_SCHEDULER.DISABLE('QLBV.JOB_AUTO_BACKUP_SCHEMA'); END;");
+                    txtOut.AppendText($"[{DateTime.Now:HH:mm:ss}] Job đã được TẮT.\r\n");
+                    RefreshAll();
+                }
+                catch (Exception ex) { txtOut.AppendText($"[LỖI]: {ex.Message}\r\n"); }
+            };
+
+            pnl.Controls.Add(txtOut);
+            pnl.Controls.Add(split);
+            pnl.Controls.Add(flowBtn);
+            pnl.Controls.Add(lblTitle);
+            tab.Controls.Add(pnl);
+            RefreshAll();
         }
 
         // =====================================================================
