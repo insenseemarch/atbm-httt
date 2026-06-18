@@ -29,8 +29,11 @@ set pagesize 100
 -- ============================================================
 
 -- tạo directory object trỏ đến thư mục vật lý dùng để lưu file .dmp và .log.
--- nếu máy của bạn dùng đường dẫn khác, sửa 'd:\oracle_backup' cho đúng môi trường.
-create or replace directory backup_dir as 'D:\Ki_6\ATBMHTTT\PH2\oracle_backup';
+-- nếu máy của bạn dùng đường dẫn khác, sửa 'C:\oracle_backup' cho đúng môi trường.
+-- Lưu ý: 
+--      - nên ghi vào ổ đĩa C để dễ demo, bởi vì oracle được cấp quyền ghi trên ổ đĩa C.
+--      - tạo folder bên ngoài trước rồi dán PATH vào dưới đây.
+create or replace directory backup_dir as 'C:\oracle_backup';
 
 -- cấp quyền cho schema nghiệp vụ qlbv để export/import data pump.
 grant read, write on directory backup_dir to qlbv;
@@ -176,6 +179,7 @@ expdp qlbv/123@localhost:1521/xepdb1 tables=qlbv.benhnhan,qlbv.hsba,qlbv.hsba_dv
 
 rem 3. restore toàn schema qlbv.
 rem cảnh báo: table_exists_action=replace có thể ghi đè dữ liệu hiện tại.
+Note: qlbv_schema_%date:~-4%%date:~4,2%%date:~7,2%: file này được lưu theo ngày tháng hiện tại, phải để đúng tên file nhé: <ten_file_dump_can_restore>
 impdp qlbv/123@localhost:1521/xepdb1 schemas=qlbv directory=backup_dir dumpfile=<ten_file_dump_can_restore>.dmp logfile=qlbv_schema_import.log table_exists_action=replace
 
 rem 4. restore một bảng hoặc nhóm bảng sau khi xác định sự cố từ audit log.
