@@ -1097,16 +1097,13 @@ namespace PhanHe1.Forms
         }
 
         // ✅ [GỘPCODE-5] Audit SQL gộp từ sys_PH2.sql §3.4
-        //    Nguồn: sys_PH2.sql — 2 query đọc nhật ký (Standard + FGA) đã gộp thành 1:
-        //      WHERE (OBJECT_SCHEMA = 'QLBV' OR FGA_POLICY_NAME IS NOT NULL)
-        //    Thêm cột POLICY = NVL(FGA_POLICY_NAME, UNIFIED_AUDIT_POLICIES)
-        //    để phân biệt nguồn gốc Standard Audit vs FGA trên cùng 1 grid.
-        //    Tăng limit 100 → 200 dòng. Fallback sang mock data nếu thiếu quyền.
+        //    Chỉ lấy entries thuộc schema QLBV — bao gồm Standard Audit + FGA
+        //    (tất cả FGA policy trong dự án đều gắn trên QLBV objects nên OBJECT_SCHEMA='QLBV')
+        //    Bỏ "OR FGA_POLICY_NAME IS NOT NULL" vì nó kéo FGA của DB khác vào.
         private void LoadAuditData(DataGridView grid)
         {
             try
             {
-                // Query theo đúng cấu trúc sys_PH2.sql — lọc theo OBJECT_SCHEMA='QLBV' + FGA entries
                 string sql = @"
                     SELECT
                         TO_CHAR(EVENT_TIMESTAMP, 'DD/MM/YYYY HH24:MI:SS') AS ""THỜI GIAN"",
@@ -1116,7 +1113,7 @@ namespace PhanHe1.Forms
                         NVL(FGA_POLICY_NAME, UNIFIED_AUDIT_POLICIES) AS ""POLICY"",
                         SQL_TEXT AS ""CHI TIẾT MÔ TẢ""
                     FROM UNIFIED_AUDIT_TRAIL
-                    WHERE (OBJECT_SCHEMA = 'QLBV' OR FGA_POLICY_NAME IS NOT NULL)
+                    WHERE OBJECT_SCHEMA = 'QLBV'
                       AND DBUSERNAME NOT IN ('SYS', 'SYSTEM')
                     ORDER BY EVENT_TIMESTAMP DESC
                     FETCH FIRST 200 ROWS ONLY";
