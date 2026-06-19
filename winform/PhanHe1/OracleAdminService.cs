@@ -17,13 +17,12 @@ namespace PhanHe1
         private readonly string port;
         private readonly string serviceName;
         private readonly string loginUser;
-        private readonly bool isMockAccount;
-        private readonly List<string> mockRoles;
+        private readonly string loginPassword;
 
         public string CurrentUser { get; private set; }
         public bool IsAdminSession { get; private set; }
 
-        private OracleAdminService(string connectionString, string host, string port, string serviceName, string loginUser, bool isMockAccount = false, List<string> mockRoles = null)
+        private OracleAdminService(string connectionString, string host, string port, string serviceName, string loginUser, string loginPassword)
         {
             this.connectionString = connectionString;
             factory = DbProviderFactories.GetFactory(ProviderInvariantName);
@@ -31,8 +30,7 @@ namespace PhanHe1
             this.port = port;
             this.serviceName = serviceName;
             this.loginUser = (loginUser ?? string.Empty).Trim();
-            this.isMockAccount = isMockAccount;
-            this.mockRoles = mockRoles ?? new List<string>();
+            this.loginPassword = loginPassword ?? string.Empty;
             this.CurrentUser = (loginUser ?? string.Empty).Trim().ToUpperInvariant();
         }
 
@@ -46,7 +44,7 @@ namespace PhanHe1
 
 
             string connStr = BuildConnectionString(host, port, serviceName, userName, password);
-            var realService = new OracleAdminService(connStr, host, port, serviceName, userName);
+            var realService = new OracleAdminService(connStr, host, port, serviceName, userName, password);
             realService.ValidateAdminSession();
             return realService;
         }
@@ -545,12 +543,6 @@ namespace PhanHe1
 
         private void ValidateAdminSession()
         {
-            if (isMockAccount)
-            {
-                IsAdminSession = false;
-                return;
-            }
-
             object sessionUser = ExecuteScalar("SELECT USER FROM DUAL");
             CurrentUser = sessionUser == null ? string.Empty : sessionUser.ToString();
 
@@ -563,11 +555,6 @@ namespace PhanHe1
 
         private List<string> GetCurrentRolesInternal()
         {
-            if (isMockAccount)
-            {
-                return new List<string>(mockRoles);
-            }
-
             var roles = new List<string>();
             try
             {
@@ -593,33 +580,15 @@ namespace PhanHe1
             return GetCurrentRolesInternal();
         }
 
-        private static bool IsMockTestAccount(string userName, string password)
+        /// <summary>Chuỗi kết nối cho expdp/impdp CLI (dùng credential phiên đăng nhập hiện tại).</summary>
+        public string GetDataPumpConnectString()
         {
-            if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrWhiteSpace(password))
-                return false;
-
-            userName = userName.Trim().ToUpperInvariant();
-            password = password.Trim();
-
-            return (userName == "DPV01" && password == "DPV123")
-                   || (userName == "BACSI01" && password == "BACSI123")
-                   || (userName == "KTV01" && password == "KTV123")
-                   || (userName == "BN001" && password == "BN123");
+            return $"{loginUser}/{loginPassword}@{host}:{port}/{serviceName}";
         }
 
-        private static List<string> GetMockRoles(string userName)
+        public string GetDataPumpConnectStringMasked()
         {
-            userName = (userName ?? string.Empty).Trim().ToUpperInvariant();
-            if (userName == "DPV01")
-                return new List<string> { "ROLE_DPV" };
-            if (userName == "BACSI01")
-                return new List<string> { "ROLE_BACSI" };
-            if (userName == "KTV01")
-                return new List<string> { "ROLE_KTV" };
-            if (userName == "BN001")
-                return new List<string> { "ROLE_BN" };
-
-            return new List<string>();
+            return $"{loginUser}/***@{host}:{port}/{serviceName}";
         }
 
         public DataTable Query(string sql)

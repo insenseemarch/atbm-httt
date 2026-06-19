@@ -84,7 +84,6 @@ COMMIT;
 SELECT * FROM qlbv.backup_history  ORDER BY backup_time  DESC;
 SELECT * FROM qlbv.restore_history ORDER BY restore_time DESC;
 
-
 -- ============================================================
 -- [07-QLBV-02] Kết nối: QLBV @ XEPDB1
 -- Mục đích: Kiểm tra các bảng nghiệp vụ cần backup/restore.
@@ -302,6 +301,7 @@ SELECT
 FROM   unified_audit_trail
 WHERE  unified_audit_policies IN (
            'AUDITSUCDPVUPDATEBN',   'AUDITSUCBSUPDATEDT',
+           'AUDITSUCDPVEXECFUNC',
            'AUDITDONTHUOCINSERT',   'AUDITDONTHUOCUPDATE',
            'AUDITFAILBSUPDATENV',   'AUDITFAILBNDELETEHSBA',
            'AUDITFAILKTVDELETEDT',  'AUDITFAILDPVDELETEHSBA',
