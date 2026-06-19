@@ -67,7 +67,7 @@ SET PAGESIZE 100
 -- Kết quả mong đợi: THÀNH CÔNG
 -- ============================================================
 UPDATE QLBV.BENHNHAN
-SET    DIACHI = DIACHI
+SET    SONHA = SONHA
 WHERE  ROWNUM = 1;
 
 ROLLBACK;
@@ -92,12 +92,25 @@ WHERE  ROWNUM <= 5;
 -- ============================================================
 -- Đổi mã hồ sơ (p_mahsba)/bệnh nhân (p_mabn)/khoa (p_makhoa)
 -- nếu trùng dữ liệu sẵn có, để tránh lỗi PRIMARY KEY/FOREIGN KEY.
+DECLARE
+    v_mabn   QLBV.BENHNHAN.MABN%TYPE;
+    v_makhoa QLBV.NHANVIEN.MAKHOA%TYPE;
 BEGIN
+    SELECT MABN
+    INTO v_mabn
+    FROM QLBV.BENHNHAN
+    WHERE ROWNUM = 1;
+
+    SELECT MAKHOA
+    INTO v_makhoa
+    FROM QLBV.NHANVIEN
+    WHERE MANV = USER;
+
     QLBV.sp_KhoiTaoHSBAKhancap(
         p_mahsba => 'HS_DEMO09_BS',
-        p_mabn   => (SELECT MABN FROM QLBV.BENHNHAN WHERE ROWNUM = 1),
+        p_mabn   => v_mabn,
         p_mabs   => USER,
-        p_makhoa => (SELECT MAKHOA FROM QLBV.NHANVIEN WHERE MANV = USER)
+        p_makhoa => v_makhoa
     );
 END;
 /
@@ -112,11 +125,18 @@ ROLLBACK;
 -- Kết quả mong đợi: THÀNH CÔNG
 -- ============================================================
 DECLARE
-    v_total NUMBER;
+    v_total  NUMBER;
+    v_mahsba QLBV.HSBA.MAHSBA%TYPE;
 BEGIN
+    SELECT MAHSBA
+    INTO v_mahsba
+    FROM QLBV.HSBA
+    WHERE ROWNUM = 1;
+
     v_total := QLBV.fn_TinhTongChiPhiDieuTri(
-        p_mahsba => (SELECT MAHSBA FROM QLBV.HSBA WHERE ROWNUM = 1)
+        p_mahsba => v_mahsba
     );
+
     DBMS_OUTPUT.PUT_LINE('Tong dich vu: ' || v_total);
 END;
 /
@@ -397,7 +417,7 @@ FETCH FIRST 30 ROWS ONLY;
 SELECT event_timestamp, dbusername, return_code
 FROM   unified_audit_trail
 WHERE  action_name = 'LOGON'
--- AND    event_timestamp >= SYSTIMESTAMP - INTERVAL '1' HOUR
+AND    event_timestamp >= SYSTIMESTAMP - INTERVAL '1' HOUR
 ORDER  BY event_timestamp DESC;
 FETCH FIRST 30 ROWS ONLY;
 
@@ -410,6 +430,6 @@ WHERE  fga_policy_name IN (
            'AUDITBSUPDATEHSBA',
            'AUDITKTVUPDATEKETQUA'
        )
--- AND    event_timestamp >= SYSTIMESTAMP - INTERVAL '1' HOUR
+AND    event_timestamp >= SYSTIMESTAMP - INTERVAL '1' HOUR
 ORDER  BY event_timestamp DESC;
 FETCH FIRST 30 ROWS ONLY;

@@ -128,9 +128,6 @@ grant execute on QLBV.sp_KhoiTaoHSBAKhancap to ROLE_BACSI;
 grant execute on QLBV.fn_TinhTongChiPhiDieuTri to ROLE_DPV;
 
 -- 3.2: Standard Audit
--- 6 ngữ cảnh thành công và 6 ngữ cảnh thất bại, bám theo user/role/bảng của PH2.
-
--- 3.2.A: 6 ngữ cảnh audit THÀNH CÔNG
 
 -- Thành công 1: Điều phối viên cập nhật thông tin bệnh nhân
 create audit policy AuditSucDPVUpdateBN
@@ -153,7 +150,7 @@ when 'sys_context(''userenv'',''session_user'') in (''BS0001'',''BS0002'')'
 evaluate per session;
 audit policy AuditSucBSExecProc whenever successful;
 
--- Thành công 4: Bác sĩ cố tình thực thi function tính tổng chi phí điều trị nhưng thất bại (vượt quyền)
+-- Thất bại 4: Bác sĩ cố tình thực thi function tính tổng chi phí điều trị nhưng thất bại (vượt quyền)
 create audit policy AuditFailBSExecFunc
 actions execute on QLBV.fn_TinhTongChiPhiDieuTri
 when 'sys_context(''userenv'',''session_user'') in (''BS0001'',''BS0002'')'
@@ -187,8 +184,6 @@ actions select on QLBV.VW_BenhNhan_Xemthongtin
 when 'sys_context(''userenv'',''session_user'') in (''BN000001'',''BN000002'')'
 evaluate per session;
 audit policy AuditBonusBNSelectInfo whenever successful;
-
--- 3.2.B: 6 ngữ cảnh audit THẤT BẠI
 
 -- Thất bại 1: Bác sĩ cố cập nhật/xóa thông tin nhân viên
 create audit policy AuditFailBSUpdateNV

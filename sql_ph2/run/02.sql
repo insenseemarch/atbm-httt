@@ -149,95 +149,63 @@ CREATE INDEX IDX_HSBADV_MAKTV   ON HSBA_DV(MAKTV);
 
 COMMIT;
 
-INSERT INTO KHOA (MAKHOA, TENKHOA) VALUES ('K001', N'Khoa Tiêu hóa');
-INSERT INTO KHOA (MAKHOA, TENKHOA) VALUES ('K002', N'Khoa Thần kinh');
-INSERT INTO KHOA (MAKHOA, TENKHOA) VALUES ('K003', N'Khoa Tim mạch');
+-- ============================================================================
+-- RUN TAT CA FILE DATA THEO DUNG THU TU KHOA NGOAI
+-- ============================================================================
 
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('NV0001', N'Trần Văn An', N'Nữ', TO_DATE('1976-02-02', 'YYYY-MM-DD'), '880000000001', N'Hải Phòng', '0910000001', N'Điều phối viên', 'K001', N'Lãnh đạo phòng', 'Hồ Chí Minh');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('NV0002', N'Lê Văn An', N'Nam', TO_DATE('1977-03-03', 'YYYY-MM-DD'), '880000000002', N'Hà Nội', '0910000002', N'Điều phối viên', 'K002', N'Lãnh đạo phòng', 'Hải Phòng');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('NV0003', N'Phạm Thị An', N'Nữ', TO_DATE('1978-04-04', 'YYYY-MM-DD'), '880000000003', N'Hồ Chí Minh', '0910000003', N'Điều phối viên', 'K003', N'Lãnh đạo phòng', 'Hà Nội');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('NV0004', N'Hoàng Thị An', N'Nam', TO_DATE('1979-05-05', 'YYYY-MM-DD'), '880000000004', N'Hải Phòng', '0910000004', N'Điều phối viên', 'K001', N'Lãnh đạo phòng', 'Hồ Chí Minh');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('NV0005', N'Huỳnh Thị An', N'Nữ', TO_DATE('1980-06-06', 'YYYY-MM-DD'), '880000000005', N'Hà Nội', '0910000005', N'Điều phối viên', 'K002', N'Lãnh đạo phòng', 'Hải Phòng');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('NV0006', N'Phan Đức An', N'Nam', TO_DATE('1981-07-07', 'YYYY-MM-DD'), '880000000006', N'Hồ Chí Minh', '0910000006', N'Điều phối viên', 'K003', N'Lãnh đạo phòng', 'Hà Nội');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('NV0007', N'Vũ Đức Bình', N'Nữ', TO_DATE('1982-08-08', 'YYYY-MM-DD'), '880000000007', N'Hải Phòng', '0910000007', N'Điều phối viên', 'K001', N'Nhân viên', 'Hồ Chí Minh');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('NV0008', N'Võ Đức Bình', N'Nam', TO_DATE('1983-09-09', 'YYYY-MM-DD'), '880000000008', N'Hà Nội', '0910000008', N'Điều phối viên', 'K002', N'Nhân viên', 'Hải Phòng');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('NV0009', N'Đặng Minh Bình', N'Nữ', TO_DATE('1984-10-10', 'YYYY-MM-DD'), '880000000009', N'Hồ Chí Minh', '0910000009', N'Điều phối viên', 'K003', N'Nhân viên', 'Hà Nội');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('NV0010', N'Bùi Minh Bình', N'Nam', TO_DATE('1985-11-11', 'YYYY-MM-DD'), '880000000010', N'Hải Phòng', '0910000010', N'Điều phối viên', 'K001', N'Nhân viên', 'Hồ Chí Minh');
+PROMPT === Start loading KHOA/NHANVIEN/THONGBAO ===
+@../data_ph2/insert_khoa.sql
+@../data_ph2/insert_nhanvien.sql
+@../data_ph2/insert_thongbao.sql
 
+PROMPT === Start loading BENHNHAN (10 parts) ===
+@../data_ph2/insert_benhnhan_part_01.sql
+@../data_ph2/insert_benhnhan_part_02.sql
+@../data_ph2/insert_benhnhan_part_03.sql
+@../data_ph2/insert_benhnhan_part_04.sql
+@../data_ph2/insert_benhnhan_part_05.sql
+@../data_ph2/insert_benhnhan_part_06.sql
+@../data_ph2/insert_benhnhan_part_07.sql
+@../data_ph2/insert_benhnhan_part_08.sql
+@../data_ph2/insert_benhnhan_part_09.sql
+@../data_ph2/insert_benhnhan_part_10.sql
 
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('BS0001', N'Trần Anh Minh', N'Nam', TO_DATE('1971-05-07', 'YYYY-MM-DD'), '890000000001', N'Hà Nội', '0920000001', N'Bác sĩ/Y sĩ', 'K001', N'Lãnh đạo khoa', 'Hà Nội');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('BS0002', N'Lê Tấn Minh', N'Nữ', TO_DATE('1972-06-08', 'YYYY-MM-DD'), '890000000002', N'Hồ Chí Minh', '0920000002', N'Bác sĩ/Y sĩ', 'K002', N'Lãnh đạo khoa', 'Hồ Chí Minh');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('BS0003', N'Phạm Tấn Minh', N'Nam', TO_DATE('1973-07-09', 'YYYY-MM-DD'), '890000000003', N'Hải Phòng', '0920000003', N'Bác sĩ/Y sĩ', 'K003', N'Lãnh đạo khoa', 'Hải Phòng');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('BS0004', N'Hoàng Tấn Minh', N'Nữ', TO_DATE('1974-08-10', 'YYYY-MM-DD'), '890000000004', N'Hà Nội', '0920000004', N'Bác sĩ/Y sĩ', 'K001', N'Lãnh đạo khoa', 'Hà Nội');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('BS0005', N'Huỳnh Xuân My', N'Nam', TO_DATE('1975-09-11', 'YYYY-MM-DD'), '890000000005', N'Hồ Chí Minh', '0920000005', N'Bác sĩ/Y sĩ', 'K002', N'Lãnh đạo khoa', 'Hồ Chí Minh');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('BS0006', N'Phan Xuân My', N'Nữ', TO_DATE('1976-10-12', 'YYYY-MM-DD'), '890000000006', N'Hải Phòng', '0920000006', N'Bác sĩ/Y sĩ', 'K003', N'Lãnh đạo khoa', 'Hải Phòng');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('BS0007', N'Vũ Xuân My', N'Nam', TO_DATE('1977-11-13', 'YYYY-MM-DD'), '890000000007', N'Hà Nội', '0920000007', N'Bác sĩ/Y sĩ', 'K001', N'Lãnh đạo khoa', 'Hà Nội');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('BS0008', N'Võ Mạnh My', N'Nữ', TO_DATE('1978-12-14', 'YYYY-MM-DD'), '890000000008', N'Hồ Chí Minh', '0920000008', N'Bác sĩ/Y sĩ', 'K002', N'Lãnh đạo khoa', 'Hồ Chí Minh');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('BS0009', N'Đặng Mạnh My', N'Nam', TO_DATE('1979-01-15', 'YYYY-MM-DD'), '890000000009', N'Hải Phòng', '0920000009', N'Bác sĩ/Y sĩ', 'K003', N'Lãnh đạo khoa', 'Hải Phòng');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('BS0010', N'Bùi Mạnh My', N'Nữ', TO_DATE('1980-02-16', 'YYYY-MM-DD'), '890000000010', N'Hà Nội', '0920000010', N'Bác sĩ/Y sĩ', 'K001', N'Nhân viên', 'Hà Nội');
+PROMPT === Start loading HSBA (10 parts) ===
+@../data_ph2/insert_hsba_part_01.sql
+@../data_ph2/insert_hsba_part_02.sql
+@../data_ph2/insert_hsba_part_03.sql
+@../data_ph2/insert_hsba_part_04.sql
+@../data_ph2/insert_hsba_part_05.sql
+@../data_ph2/insert_hsba_part_06.sql
+@../data_ph2/insert_hsba_part_07.sql
+@../data_ph2/insert_hsba_part_08.sql
+@../data_ph2/insert_hsba_part_09.sql
+@../data_ph2/insert_hsba_part_10.sql
 
+PROMPT === Start loading HSBA_DV (10 parts) ===
+@../data_ph2/insert_hsba_dv_part_01.sql
+@../data_ph2/insert_hsba_dv_part_02.sql
+@../data_ph2/insert_hsba_dv_part_03.sql
+@../data_ph2/insert_hsba_dv_part_04.sql
+@../data_ph2/insert_hsba_dv_part_05.sql
+@../data_ph2/insert_hsba_dv_part_06.sql
+@../data_ph2/insert_hsba_dv_part_07.sql
+@../data_ph2/insert_hsba_dv_part_08.sql
+@../data_ph2/insert_hsba_dv_part_09.sql
+@../data_ph2/insert_hsba_dv_part_10.sql
 
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('KTV001', N'Trần Văn Linh', N'Nữ', TO_DATE('1981-09-13', 'YYYY-MM-DD'), '900000000001', N'Hồ Chí Minh', '0930000001', N'Kỹ thuật viên', 'K001', N'Nhân viên', 'Hồ Chí Minh');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('KTV002', N'Lê Văn Linh', N'Nam', TO_DATE('1982-10-14', 'YYYY-MM-DD'), '900000000002', N'Hải Phòng', '0930000002', N'Kỹ thuật viên', 'K002', N'Nhân viên', 'Hải Phòng');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('KTV003', N'Phạm Thị Linh', N'Nữ', TO_DATE('1983-11-15', 'YYYY-MM-DD'), '900000000003', N'Hà Nội', '0930000003', N'Kỹ thuật viên', 'K003', N'Nhân viên', 'Hà Nội');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('KTV004', N'Hoàng Thị Linh', N'Nam', TO_DATE('1984-12-16', 'YYYY-MM-DD'), '900000000004', N'Hồ Chí Minh', '0930000004', N'Kỹ thuật viên', 'K001', N'Nhân viên', 'Hồ Chí Minh');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('KTV005', N'Huỳnh Thị Linh', N'Nữ', TO_DATE('1985-01-17', 'YYYY-MM-DD'), '900000000005', N'Hải Phòng', '0930000005', N'Kỹ thuật viên', 'K002', N'Nhân viên', 'Hải Phòng');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('KTV006', N'Phan Đức Linh', N'Nam', TO_DATE('1986-02-18', 'YYYY-MM-DD'), '900000000006', N'Hà Nội', '0930000006', N'Kỹ thuật viên', 'K003', N'Nhân viên', 'Hà Nội');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('KTV007', N'Vũ Đức Linh', N'Nữ', TO_DATE('1987-03-19', 'YYYY-MM-DD'), '900000000007', N'Hồ Chí Minh', '0930000007', N'Kỹ thuật viên', 'K001', N'Nhân viên', 'Hồ Chí Minh');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('KTV008', N'Võ Đức Minh', N'Nam', TO_DATE('1988-04-20', 'YYYY-MM-DD'), '900000000008', N'Hải Phòng', '0930000008', N'Kỹ thuật viên', 'K002', N'Nhân viên', 'Hải Phòng');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('KTV009', N'Đặng Minh Minh', N'Nữ', TO_DATE('1989-05-21', 'YYYY-MM-DD'), '900000000009', N'Hà Nội', '0930000009', N'Kỹ thuật viên', 'K003', N'Nhân viên', 'Hà Nội');
-INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('KTV010', N'Bùi Minh Minh', N'Nam', TO_DATE('1990-06-22', 'YYYY-MM-DD'), '900000000010', N'Hồ Chí Minh', '0930000010', N'Kỹ thuật viên', 'K001', N'Nhân viên', 'Hồ Chí Minh');
+PROMPT === Start loading DONTHUOC (10 parts) ===
+@../data_ph2/insert_donthuoc_part_01.sql
+@../data_ph2/insert_donthuoc_part_02.sql
+@../data_ph2/insert_donthuoc_part_03.sql
+@../data_ph2/insert_donthuoc_part_04.sql
+@../data_ph2/insert_donthuoc_part_05.sql
+@../data_ph2/insert_donthuoc_part_06.sql
+@../data_ph2/insert_donthuoc_part_07.sql
+@../data_ph2/insert_donthuoc_part_08.sql
+@../data_ph2/insert_donthuoc_part_09.sql
+@../data_ph2/insert_donthuoc_part_10.sql
 
-INSERT INTO THONGBAO (NOIDUNG, NGAYGIO, DIADIEM) VALUES (N'[t1] Thông báo họp toàn thể nhân viên bệnh viện', SYSTIMESTAMP - INTERVAL '0' HOUR, N'Hội trường trung tâm');
-INSERT INTO THONGBAO (NOIDUNG, NGAYGIO, DIADIEM) VALUES (N'[t2] Thông báo họp Ban Giám đốc', SYSTIMESTAMP - INTERVAL '1' HOUR, N'Phòng họp A1');
-INSERT INTO THONGBAO (NOIDUNG, NGAYGIO, DIADIEM) VALUES (N'[t3] Thông báo họp Lãnh đạo các khoa', SYSTIMESTAMP - INTERVAL '2' HOUR, N'Phòng họp B2');
-INSERT INTO THONGBAO (NOIDUNG, NGAYGIO, DIADIEM) VALUES (N'[t4] Họp khẩn Lãnh đạo Khoa Tiêu hóa', SYSTIMESTAMP - INTERVAL '3' HOUR, N'Khoa Tiêu hóa - Tầng 3');
-INSERT INTO THONGBAO (NOIDUNG, NGAYGIO, DIADIEM) VALUES (N'[t5] Họp nhân viên Khoa Tiêu hóa cơ sở Hồ Chí Minh', SYSTIMESTAMP - INTERVAL '4' HOUR, N'CS Hồ Chí Minh - Phòng C3');
-INSERT INTO THONGBAO (NOIDUNG, NGAYGIO, DIADIEM) VALUES (N'[t6] Họp nhân viên Khoa Tiêu hóa cơ sở Hà Nội', SYSTIMESTAMP - INTERVAL '5' HOUR, N'CS Hà Nội - Phòng H2');
-INSERT INTO THONGBAO (NOIDUNG, NGAYGIO, DIADIEM) VALUES (N'[t7] Họp liên khoa Tiêu hóa - Thần kinh tại Hải Phòng', SYSTIMESTAMP - INTERVAL '6' HOUR, N'CS Hải Phòng - Phòng HP1');
-
-INSERT INTO BENHNHAN (MABN, TENBN, PHAI, NGAYSINH, CCCD, SONHA, TENDUONG, QUANHUYEN, TINHTP, TIENSUBENH, TIENSUBENHGD, DIUNGTHUOC) VALUES ('BN000001', N'Trần Thị Bình', N'Nữ', TO_DATE('1946-01-01', 'YYYY-MM-DD'), '970000000001', N'2', N'Nguyễn Huệ', N'Quận 3', N'Hà Nội', NULL, NULL, NULL);
-INSERT INTO BENHNHAN (MABN, TENBN, PHAI, NGAYSINH, CCCD, SONHA, TENDUONG, QUANHUYEN, TINHTP, TIENSUBENH, TIENSUBENHGD, DIUNGTHUOC) VALUES ('BN000002', N'Lê Đức Chi', N'Nam', TO_DATE('1947-01-01', 'YYYY-MM-DD'), '970000000002', N'3', N'Hai Bà Trưng', N'Quận 5', N'Hải Phòng', N'Hen phế quản', NULL, NULL);
-INSERT INTO BENHNHAN (MABN, TENBN, PHAI, NGAYSINH, CCCD, SONHA, TENDUONG, QUANHUYEN, TINHTP, TIENSUBENH, TIENSUBENHGD, DIUNGTHUOC) VALUES ('BN000003', N'Phạm Minh Diễm', N'Nữ', TO_DATE('1948-01-01', 'YYYY-MM-DD'), '970000000003', N'4', N'Cách Mạng Tháng Tám', N'Quận 7', N'Đà Nẵng', NULL, N'Tiền sử gia đình đái tháo đường', NULL);
-INSERT INTO BENHNHAN (MABN, TENBN, PHAI, NGAYSINH, CCCD, SONHA, TENDUONG, QUANHUYEN, TINHTP, TIENSUBENH, TIENSUBENHGD, DIUNGTHUOC) VALUES ('BN000004', N'Hoàng Ngọc Dũng', N'Nam', TO_DATE('1949-01-01', 'YYYY-MM-DD'), '970000000004', N'5', N'Võ Văn Tần', N'Quận 10', N'Cần Thơ', N'Rối loạn mỡ máu', NULL, NULL);
-INSERT INTO BENHNHAN (MABN, TENBN, PHAI, NGAYSINH, CCCD, SONHA, TENDUONG, QUANHUYEN, TINHTP, TIENSUBENH, TIENSUBENHGD, DIUNGTHUOC) VALUES ('BN000005', N'Huỳnh Thanh Giang', N'Nữ', TO_DATE('1950-01-01', 'YYYY-MM-DD'), '970000000005', N'6', N'Nguyễn Trãi', N'Quận Bình Thạnh', N'TP. Hồ Chí Minh', NULL, NULL, N'Penicillin');
-INSERT INTO BENHNHAN (MABN, TENBN, PHAI, NGAYSINH, CCCD, SONHA, TENDUONG, QUANHUYEN, TINHTP, TIENSUBENH, TIENSUBENHGD, DIUNGTHUOC) VALUES ('BN000006', N'Phan Quang Hà', N'Nam', TO_DATE('1951-01-01', 'YYYY-MM-DD'), '970000000006', N'7', N'Điện Biên Phủ', N'Quận Gò Vấp', N'Hà Nội', N'Sỏi thận', NULL, NULL);
-INSERT INTO BENHNHAN (MABN, TENBN, PHAI, NGAYSINH, CCCD, SONHA, TENDUONG, QUANHUYEN, TINHTP, TIENSUBENH, TIENSUBENHGD, DIUNGTHUOC) VALUES ('BN000007', N'Vũ Khánh Hạnh', N'Nữ', TO_DATE('1952-01-01', 'YYYY-MM-DD'), '970000000007', N'8', N'Phan Đình Phùng', N'Quận Tân Bình', N'Hải Phòng', NULL, NULL, NULL);
-INSERT INTO BENHNHAN (MABN, TENBN, PHAI, NGAYSINH, CCCD, SONHA, TENDUONG, QUANHUYEN, TINHTP, TIENSUBENH, TIENSUBENHGD, DIUNGTHUOC) VALUES ('BN000008', N'Võ Bảo Hiếu', N'Nam', TO_DATE('1953-01-01', 'YYYY-MM-DD'), '970000000008', N'9', N'Lạch Tray', N'Quận Cầu Giấy', N'Đà Nẵng', N'Cường giáp', NULL, NULL);
-INSERT INTO BENHNHAN (MABN, TENBN, PHAI, NGAYSINH, CCCD, SONHA, TENDUONG, QUANHUYEN, TINHTP, TIENSUBENH, TIENSUBENHGD, DIUNGTHUOC) VALUES ('BN000009', N'Đặng Gia Hòa', N'Nữ', TO_DATE('1954-01-01', 'YYYY-MM-DD'), '970000000009', N'10', N'Trần Phú', N'Quận Đống Đa', N'Cần Thơ', NULL, N'Tiền sử gia đình bệnh tim mạch', NULL);
-INSERT INTO BENHNHAN (MABN, TENBN, PHAI, NGAYSINH, CCCD, SONHA, TENDUONG, QUANHUYEN, TINHTP, TIENSUBENH, TIENSUBENHGD, DIUNGTHUOC) VALUES ('BN000010', N'Bùi Hoài Hưng', N'Nam', TO_DATE('1955-01-01', 'YYYY-MM-DD'), '970000000010', N'11', N'Cầu Giấy', N'Quận Hoàn Kiếm', N'TP. Hồ Chí Minh', NULL, NULL, N'Penicillin');
-
-INSERT INTO HSBA (MAHSBA, MABN, NGAY, CHANDOAN, DIEUTRI, MABS, MAKHOA, KETLUAN) VALUES ('HS000001', 'BN000001', TO_DATE('2024-01-02', 'YYYY-MM-DD'), N'Rối loạn tiền đình', N'Tư vấn thay đổi lối sống và dùng thuốc', 'BS0001', 'K001', N'Ổn định, cho xuất viện');
-INSERT INTO HSBA (MAHSBA, MABN, NGAY, CHANDOAN, DIEUTRI, MABS, MAKHOA, KETLUAN) VALUES ('HS000002', 'BN000002', TO_DATE('2024-01-03', 'YYYY-MM-DD'), N'Tăng huyết áp', N'Theo dõi huyết áp tại nhà và khám định kỳ', 'BS0002', 'K002', N'Cần tái khám đúng hẹn');
-INSERT INTO HSBA (MAHSBA, MABN, NGAY, CHANDOAN, DIEUTRI, MABS, MAKHOA, KETLUAN) VALUES ('HS000003', 'BN000003', TO_DATE('2024-01-04', 'YYYY-MM-DD'), N'Đái tháo đường type 2', N'Điều trị nội khoa và theo dõi 7 ngày', 'BS0003', 'K003', N'Đáp ứng điều trị tốt');
-INSERT INTO HSBA (MAHSBA, MABN, NGAY, CHANDOAN, DIEUTRI, MABS, MAKHOA, KETLUAN) VALUES ('HS000004', 'BN000004', TO_DATE('2024-01-05', 'YYYY-MM-DD'), N'Đau thắt ngực ổn định', N'Điều chỉnh thuốc và tái khám sau 14 ngày', 'BS0004', 'K001', N'Tiếp tục theo dõi ngoại trú');
-INSERT INTO HSBA (MAHSBA, MABN, NGAY, CHANDOAN, DIEUTRI, MABS, MAKHOA, KETLUAN) VALUES ('HS000005', 'BN000005', TO_DATE('2024-01-06', 'YYYY-MM-DD'), N'Viêm đại tràng mạn', N'Kết hợp vật lý trị liệu', 'BS0005', 'K002', N'Cần theo dõi thêm tại khoa');
-INSERT INTO HSBA (MAHSBA, MABN, NGAY, CHANDOAN, DIEUTRI, MABS, MAKHOA, KETLUAN) VALUES ('HS000006', 'BN000006', TO_DATE('2024-01-07', 'YYYY-MM-DD'), N'Thiếu máu não', N'Tư vấn thay đổi lối sống và dùng thuốc', 'BS0006', 'K003', N'Ổn định, cho xuất viện');
-INSERT INTO HSBA (MAHSBA, MABN, NGAY, CHANDOAN, DIEUTRI, MABS, MAKHOA, KETLUAN) VALUES ('HS000007', 'BN000007', TO_DATE('2024-01-08', 'YYYY-MM-DD'), N'Rối loạn nhịp tim', N'Theo dõi huyết áp tại nhà và khám định kỳ', 'BS0007', 'K001', N'Cần tái khám đúng hẹn');
-INSERT INTO HSBA (MAHSBA, MABN, NGAY, CHANDOAN, DIEUTRI, MABS, MAKHOA, KETLUAN) VALUES ('HS000008', 'BN000008', TO_DATE('2024-01-09', 'YYYY-MM-DD'), N'Trào ngược dạ dày thực quản', N'Điều trị nội khoa và theo dõi 7 ngày', 'BS0008', 'K002', N'Đáp ứng điều trị tốt');
-INSERT INTO HSBA (MAHSBA, MABN, NGAY, CHANDOAN, DIEUTRI, MABS, MAKHOA, KETLUAN) VALUES ('HS000009', 'BN000009', TO_DATE('2024-01-10', 'YYYY-MM-DD'), N'Suy nhược thần kinh', N'Điều chỉnh thuốc và tái khám sau 14 ngày', 'BS0009', 'K003', N'Tiếp tục theo dõi ngoại trú');
-INSERT INTO HSBA (MAHSBA, MABN, NGAY, CHANDOAN, DIEUTRI, MABS, MAKHOA, KETLUAN) VALUES ('HS000010', 'BN000010', TO_DATE('2024-01-11', 'YYYY-MM-DD'), N'Viêm dạ dày', N'Kết hợp vật lý trị liệu', 'BS0010', 'K001', N'Cần theo dõi thêm tại khoa');
-
-INSERT INTO HSBA_DV (MAHSBA, LOAIDV, NGAYDV, KETQUA) VALUES ('HS000001', N'Xét nghiệm nước tiểu', TO_DATE('2024-01-03', 'YYYY-MM-DD'), N'Chỉ số cần theo dõi thêm');
-INSERT INTO HSBA_DV (MAHSBA, LOAIDV, NGAYDV, KETQUA) VALUES ('HS000002', N'Chụp X-quang', TO_DATE('2024-01-04', 'YYYY-MM-DD'), N'Bất thường nhẹ, đề nghị tái kiểm tra');
-INSERT INTO HSBA_DV (MAHSBA, LOAIDV, NGAYDV, KETQUA) VALUES ('HS000003', N'Siêu âm bụng', TO_DATE('2024-01-05', 'YYYY-MM-DD'), N'Phù hợp chẩn đoán lâm sàng');
-INSERT INTO HSBA_DV (MAHSBA, LOAIDV, NGAYDV, KETQUA) VALUES ('HS000004', N'Điện tim', TO_DATE('2024-01-06', 'YYYY-MM-DD'), N'Kết quả trong giới hạn bình thường');
-INSERT INTO HSBA_DV (MAHSBA, LOAIDV, NGAYDV, KETQUA) VALUES ('HS000005', N'MRI sọ não', TO_DATE('2024-01-07', 'YYYY-MM-DD'), N'Có dấu hiệu viêm nhẹ');
-INSERT INTO HSBA_DV (MAHSBA, LOAIDV, NGAYDV, KETQUA) VALUES ('HS000006', N'Xét nghiệm máu', TO_DATE('2024-01-08', 'YYYY-MM-DD'), N'Chỉ số cần theo dõi thêm');
-INSERT INTO HSBA_DV (MAHSBA, LOAIDV, NGAYDV, KETQUA) VALUES ('HS000007', N'Xét nghiệm nước tiểu', TO_DATE('2024-01-09', 'YYYY-MM-DD'), N'Bất thường nhẹ, đề nghị tái kiểm tra');
-INSERT INTO HSBA_DV (MAHSBA, LOAIDV, NGAYDV, KETQUA) VALUES ('HS000008', N'Chụp X-quang', TO_DATE('2024-01-10', 'YYYY-MM-DD'), N'Phù hợp chẩn đoán lâm sàng');
-INSERT INTO HSBA_DV (MAHSBA, LOAIDV, NGAYDV, KETQUA) VALUES ('HS000009', N'Siêu âm bụng', TO_DATE('2024-01-11', 'YYYY-MM-DD'), N'Kết quả trong giới hạn bình thường');
-INSERT INTO HSBA_DV (MAHSBA, LOAIDV, NGAYDV, KETQUA) VALUES ('HS000010', N'Điện tim', TO_DATE('2024-01-12', 'YYYY-MM-DD'), N'Có dấu hiệu viêm nhẹ');
-
-INSERT INTO DONTHUOC (MAHSBA, NGAYDT, TENTHUOC, LIEUDUNG) VALUES ('HS000001', TO_DATE('2024-01-04', 'YYYY-MM-DD'), N'Omeprazole 20mg', N'Uống 1 viên trước ăn sáng');
-INSERT INTO DONTHUOC (MAHSBA, NGAYDT, TENTHUOC, LIEUDUNG) VALUES ('HS000002', TO_DATE('2024-01-05', 'YYYY-MM-DD'), N'Amlodipine 5mg', N'Uống 1 viên mỗi sáng');
-INSERT INTO DONTHUOC (MAHSBA, NGAYDT, TENTHUOC, LIEUDUNG) VALUES ('HS000003', TO_DATE('2024-01-06', 'YYYY-MM-DD'), N'Metformin 500mg', N'Uống 1 viên sau ăn sáng và tối');
-INSERT INTO DONTHUOC (MAHSBA, NGAYDT, TENTHUOC, LIEUDUNG) VALUES ('HS000004', TO_DATE('2024-01-07', 'YYYY-MM-DD'), N'Betahistine 16mg', N'Uống 1 viên x 2 lần/ngày');
-INSERT INTO DONTHUOC (MAHSBA, NGAYDT, TENTHUOC, LIEUDUNG) VALUES ('HS000005', TO_DATE('2024-01-08', 'YYYY-MM-DD'), N'Atorvastatin 10mg', N'Uống 1 viên buổi tối');
-INSERT INTO DONTHUOC (MAHSBA, NGAYDT, TENTHUOC, LIEUDUNG) VALUES ('HS000006', TO_DATE('2024-01-09', 'YYYY-MM-DD'), N'Paracetamol 500mg', N'Uống 1 viên khi sốt, tối đa 3 viên/ngày');
-INSERT INTO DONTHUOC (MAHSBA, NGAYDT, TENTHUOC, LIEUDUNG) VALUES ('HS000007', TO_DATE('2024-01-10', 'YYYY-MM-DD'), N'Omeprazole 20mg', N'Uống 1 viên trước ăn sáng');
-INSERT INTO DONTHUOC (MAHSBA, NGAYDT, TENTHUOC, LIEUDUNG) VALUES ('HS000008', TO_DATE('2024-01-11', 'YYYY-MM-DD'), N'Amlodipine 5mg', N'Uống 1 viên mỗi sáng');
-INSERT INTO DONTHUOC (MAHSBA, NGAYDT, TENTHUOC, LIEUDUNG) VALUES ('HS000009', TO_DATE('2024-01-12', 'YYYY-MM-DD'), N'Metformin 500mg', N'Uống 1 viên sau ăn sáng và tối');
-INSERT INTO DONTHUOC (MAHSBA, NGAYDT, TENTHUOC, LIEUDUNG) VALUES ('HS000010', TO_DATE('2024-01-13', 'YYYY-MM-DD'), N'Betahistine 16mg', N'Uống 1 viên x 2 lần/ngày');
-
+PROMPT === Done ===
 COMMIT;
+

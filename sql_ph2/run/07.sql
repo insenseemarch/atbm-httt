@@ -1,14 +1,6 @@
 -- ============================================================
 -- 07.sql - Yêu cầu 4: Sao lưu và phục hồi bằng Oracle Data Pump
 -- ============================================================
--- File này chạy sau các file trong thư mục run:
---   01.sql: chạy bằng SYSDBA để tạo QLBV và cấu hình OLS.
---   02.sql: chạy bằng QLBV để tạo bảng và dữ liệu mẫu.
---   03.sql: chạy bằng QLBV để tạo user, role và VPD.
---   04.sql: chạy bằng SYSDBA để áp dụng OLS.
---   05.sql: chạy bằng QLBV để chèn thông báo và demo Flashback cơ bản.
---   06.sql: chạy bằng SYSDBA để tạo audit policy và đọc audit log.
---
 -- Lưu ý:
 --   1. Phần tạo directory object phải chạy bằng SYSDBA.
 --   2. Phần tạo bảng lịch sử và kiểm tra dữ liệu chạy bằng QLBV.
@@ -115,7 +107,6 @@ COMMIT;
 
 SELECT * FROM qlbv.backup_history  ORDER BY backup_time  DESC;
 SELECT * FROM qlbv.restore_history ORDER BY restore_time DESC;
-
 
 -- ============================================================
 -- [07-QLBV-02] Kết nối: QLBV @ XEPDB1
