@@ -96,7 +96,6 @@ create or replace view QLBV.VW_BaoCaoDieuTri as
 select h.MAHSBA, h.MABN, b.TENBN, h.NGAY, h.CHANDOAN, h.DIEUTRI, h.KETLUAN
 from QLBV.HSBA h
 join QLBV.BENHNHAN b on h.MABN = b.MABN;
-/
 
 create or replace procedure QLBV.sp_KhoiTaoHSBAKhancap(
     p_mahsba in varchar2,
@@ -157,6 +156,12 @@ when 'sys_context(''userenv'',''session_user'') in (''BS0001'',''BS0002'')'
 evaluate per session;
 audit policy AuditFailBSExecFunc whenever not successful;
 
+create audit policy AuditSucDPVExecFunc
+actions execute on QLBV.fn_TinhTongChiPhiDieuTri
+when 'sys_context(''userenv'',''session_user'') in (''NV0001'',''NV0002'')'
+evaluate per session;
+audit policy AuditSucDPVExecFunc whenever successful;
+
 -- Thành công 4.5: Điều phối viên cập nhật phân công Khoa/Bác sĩ điều trị trên HSBA
 create audit policy AuditDPVUpdateHSBA
 actions update on QLBV.HSBA
@@ -164,9 +169,9 @@ when 'sys_context(''userenv'',''session_user'') in (''NV0001'',''NV0002'')'
 evaluate per session;
 audit policy AuditDPVUpdateHSBA whenever successful;
 
--- Thành công 5: Kỹ thuật viên cập nhật kết quả dịch vụ trong HSBA_DV
+-- Thành công 5: Kỹ thuật viên cập nhật kết quả dịch vụ trong HSBA_DV (qua View)
 create audit policy AuditSucKTVUpdateDV
-actions update on QLBV.HSBA_DV
+actions update on QLBV.HSBA_DV, update on QLBV.VW_KTV_XemHSBADV
 when 'sys_context(''userenv'',''session_user'') in (''KTV001'',''KTV002'')'
 evaluate per session;
 audit policy AuditSucKTVUpdateDV whenever successful;
@@ -315,6 +320,7 @@ where unified_audit_policies in (
     'AUDITSUCBSSELECTVIEW',
     'AUDITSUCBSEXECPROC',
     'AUDITFAILBSEXECFUNC',
+    'AUDITSUCDPVEXECFUNC',
     'AUDITDPVUPDATEHSBA',
     'AUDITSUCKTVUPDATEDV',
     'AUDITSUCBSUPDATEDT',

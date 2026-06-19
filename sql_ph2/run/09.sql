@@ -141,6 +141,18 @@ BEGIN
 END;
 /
 
+-- ============================================================
+-- [TC4.5: Điều phối viên cập nhật phân công Khoa/Bác sĩ điều trị trên HSBA]
+-- Kết nối: NV0001 (hoặc NV0002) @ XEPDB1
+-- Policy kích hoạt: AuditDPVUpdateHSBA
+-- Kết quả mong đợi: THÀNH CÔNG
+-- ============================================================
+UPDATE QLBV.HSBA
+SET    MAKHOA = MAKHOA
+WHERE  ROWNUM = 1;
+
+ROLLBACK;
+
 
 -- ============================================================
 -- [TC5: Kỹ thuật viên cập nhật kết quả dịch vụ trong HSBA_DV]
@@ -149,7 +161,7 @@ END;
 -- FGA kích hoạt thêm: AuditKTVUpdateKetQua (audit_column = KETQUA)
 -- Kết quả mong đợi: THÀNH CÔNG
 -- ============================================================
-UPDATE QLBV.HSBA_DV
+UPDATE QLBV.VW_KTV_XemHSBADV
 SET    KETQUA = KETQUA
 WHERE  ROWNUM = 1;
 
@@ -202,6 +214,23 @@ ROLLBACK;
 
 
 -- ============================================================
+-- [TBx: Bác sĩ cố tình thực thi function tính tổng chi phí điều trị]
+-- Kết nối: BS0001 (hoặc BS0002) @ XEPDB1
+-- Policy kích hoạt: AuditFailBSExecFunc
+-- Kết quả mong đợi: THẤT BẠI (không có quyền EXECUTE)
+-- ============================================================
+DECLARE
+    v_total NUMBER;
+BEGIN
+    v_total := QLBV.fn_TinhTongChiPhiDieuTri('HS_DEMO');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] EXEC fn_TinhTongChiPhiDieuTri: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
+END;
+/
+
+
+-- ============================================================
 -- [TB1: Bác sĩ cố cập nhật/xóa thông tin nhân viên]
 -- Kết nối: BS0001 AuditFailBSUpdateNV(hoặc BS0002) @ XEPDB1
 -- Policy kích hoạt: AuditFailBSUpdateNV
@@ -213,7 +242,7 @@ BEGIN
     WHERE  ROWNUM = 1;
 EXCEPTION
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] UPDATE NHANVIEN: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] UPDATE NHANVIEN: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
 END;
 /
 
@@ -221,7 +250,7 @@ BEGIN
     DELETE FROM QLBV.NHANVIEN WHERE ROWNUM = 1;
 EXCEPTION
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] DELETE NHANVIEN: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] DELETE NHANVIEN: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
 END;
 /
 
@@ -236,7 +265,7 @@ BEGIN
     DELETE FROM QLBV.HSBA WHERE ROWNUM = 1;
 EXCEPTION
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] DELETE HSBA: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] DELETE HSBA: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
 END;
 /
 
@@ -251,7 +280,7 @@ BEGIN
     DELETE FROM QLBV.DONTHUOC WHERE ROWNUM = 1;
 EXCEPTION
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] DELETE DONTHUOC: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] DELETE DONTHUOC: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
 END;
 /
 
@@ -266,7 +295,7 @@ BEGIN
     DELETE FROM QLBV.HSBA WHERE ROWNUM = 1;
 EXCEPTION
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] DELETE HSBA: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] DELETE HSBA: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
 END;
 /
 
@@ -283,7 +312,7 @@ BEGIN
     WHERE  ROWNUM = 1;
 EXCEPTION
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] UPDATE HSBA_DV: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] UPDATE HSBA_DV: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
 END;
 /
 
@@ -300,7 +329,7 @@ BEGIN
     END LOOP;
 EXCEPTION
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] SELECT BENHNHAN: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] SELECT BENHNHAN: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
 END;
 /
 
@@ -321,7 +350,7 @@ BEGIN
     );
 EXCEPTION
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] EXEC sp_KhoiTaoHSBAKhancap: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] EXEC sp_KhoiTaoHSBAKhancap: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
 END;
 /
 
@@ -360,9 +389,13 @@ BEGIN
     SET    CHANDOAN = CHANDOAN
     WHERE  MABS != USER
     AND    ROWNUM = 1;
+    
+    IF SQL%ROWCOUNT = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('[Mong doi loi - VPD chan] UPDATE HSBA: Cap nhat 0 dong do VPD an du lieu.');
+    END IF;
 EXCEPTION
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('[Mong doi loi - VPD chan] UPDATE HSBA: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('[Mong doi loi - VPD chan] UPDATE HSBA: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
 END;
 /
 
@@ -377,19 +410,23 @@ END;
 -- Kết quả mong đợi: THẤT BẠI
 -- ============================================================
 BEGIN
-    DELETE FROM QLBV.HSBA_DV WHERE ROWNUM = 1;
+    DELETE FROM QLBV.VW_KTV_XemHSBADV WHERE ROWNUM = 1;
+    
+    IF SQL%ROWCOUNT = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('[Mong doi loi - VPD chan] DELETE VW_KTV_XemHSBADV: Cap nhat 0 dong.');
+    END IF;
 EXCEPTION
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] DELETE HSBA_DV: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] DELETE VW_KTV_XemHSBADV: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
 END;
 /
 
 BEGIN
-    INSERT INTO QLBV.HSBA_DV (MAHSBA, KETQUA)
+    INSERT INTO QLBV.VW_KTV_XemHSBADV (MAHSBA, KETQUA)
     VALUES ('HS_KHONG_TON_TAI_HOAC_NGOAI_PHAM_VI', N'Demo loi VPD');
 EXCEPTION
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] INSERT HSBA_DV: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] INSERT VW_KTV_XemHSBADV: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
 END;
 /
 
@@ -409,7 +446,7 @@ SELECT event_timestamp, dbusername, action_name,
 FROM   unified_audit_trail
 WHERE  object_schema = 'QLBV'
 --AND    event_timestamp >= SYSTIMESTAMP - INTERVAL '1' HOUR
-ORDER  BY event_timestamp DESC;
+ORDER  BY event_timestamp DESC
 FETCH FIRST 30 ROWS ONLY;
 
 -- Riêng các lần đăng nhập thất bại vừa thực hiện ở [09-LOGON-01] (nếu ae chạy nhiều lần trong khoảng thời gian 
@@ -418,7 +455,7 @@ SELECT event_timestamp, dbusername, return_code
 FROM   unified_audit_trail
 WHERE  action_name = 'LOGON'
 AND    event_timestamp >= SYSTIMESTAMP - INTERVAL '1' HOUR
-ORDER  BY event_timestamp DESC;
+ORDER  BY event_timestamp DESC
 FETCH FIRST 30 ROWS ONLY;
 
 -- Riêng FGA (đơn thuốc, hồ sơ bệnh án hợp pháp, kết quả KTV).
@@ -431,5 +468,5 @@ WHERE  fga_policy_name IN (
            'AUDITKTVUPDATEKETQUA'
        )
 AND    event_timestamp >= SYSTIMESTAMP - INTERVAL '1' HOUR
-ORDER  BY event_timestamp DESC;
+ORDER  BY event_timestamp DESC
 FETCH FIRST 30 ROWS ONLY;
