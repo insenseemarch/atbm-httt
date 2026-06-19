@@ -153,12 +153,19 @@ when 'sys_context(''userenv'',''session_user'') in (''BS0001'',''BS0002'')'
 evaluate per session;
 audit policy AuditSucBSExecProc whenever successful;
 
--- Thành công 4: Điều phối viên thực thi function tính tổng chi phí điều trị
-create audit policy AuditSucDPVExecFunc
+-- Thành công 4: Bác sĩ cố tình thực thi function tính tổng chi phí điều trị nhưng thất bại (vượt quyền)
+create audit policy AuditFailBSExecFunc
 actions execute on QLBV.fn_TinhTongChiPhiDieuTri
+when 'sys_context(''userenv'',''session_user'') in (''BS0001'',''BS0002'')'
+evaluate per session;
+audit policy AuditFailBSExecFunc whenever not successful;
+
+-- Thành công 4.5: Điều phối viên cập nhật phân công Khoa/Bác sĩ điều trị trên HSBA
+create audit policy AuditDPVUpdateHSBA
+actions update on QLBV.HSBA
 when 'sys_context(''userenv'',''session_user'') in (''NV0001'',''NV0002'')'
 evaluate per session;
-audit policy AuditSucDPVExecFunc whenever successful;
+audit policy AuditDPVUpdateHSBA whenever successful;
 
 -- Thành công 5: Kỹ thuật viên cập nhật kết quả dịch vụ trong HSBA_DV
 create audit policy AuditSucKTVUpdateDV
@@ -312,7 +319,8 @@ where unified_audit_policies in (
     'AUDITSUCDPVUPDATEBN',
     'AUDITSUCBSSELECTVIEW',
     'AUDITSUCBSEXECPROC',
-    'AUDITSUCDPVEXECFUNC',
+    'AUDITFAILBSEXECFUNC',
+    'AUDITDPVUPDATEHSBA',
     'AUDITSUCKTVUPDATEDV',
     'AUDITSUCBSUPDATEDT',
     'AUDITDONTHUOCINSERT',
