@@ -191,16 +191,24 @@ namespace PhanHe1
         private void BtnTestAcc_Click(object sender, EventArgs e)
         {
             var menu = new ContextMenuStrip();
-            menu.Items.Add("── Điều phối viên (09.sql) ──", null, null).Enabled = false;
+
+            menu.Items.Add("── Ban Giám Đốc ──", null, null).Enabled = false;
+            menu.Items.Add("GD0001 / nv123", null, (s2, args) => SetTestAccount("GD0001", "nv123"));
+            menu.Items.Add("GD0002 / nv123", null, (s2, args) => SetTestAccount("GD0002", "nv123"));
+
+            menu.Items.Add("── Điều phối viên ──", null, null).Enabled = false;
             menu.Items.Add("NV0002 / nv123", null, (s2, args) => SetTestAccount("NV0002", "nv123"));
-            menu.Items.Add("NV0001 / nv123 (Giám đốc nếu CAPBAC)", null, (s2, args) => SetTestAccount("NV0001", "nv123"));
+
             menu.Items.Add("── Bác sĩ ──", null, null).Enabled = false;
             menu.Items.Add("BS0001 / nv123", null, (s2, args) => SetTestAccount("BS0001", "nv123"));
             menu.Items.Add("BS0002 / nv123", null, (s2, args) => SetTestAccount("BS0002", "nv123"));
+
             menu.Items.Add("── Kỹ thuật viên ──", null, null).Enabled = false;
             menu.Items.Add("KTV001 / nv123", null, (s2, args) => SetTestAccount("KTV001", "nv123"));
+
             menu.Items.Add("── Bệnh nhân ──", null, null).Enabled = false;
             menu.Items.Add("BN000001 / bn123", null, (s2, args) => SetTestAccount("BN000001", "bn123"));
+
             menu.Items.Add("── Quản trị audit ──", null, null).Enabled = false;
             menu.Items.Add("QLBV / 123", null, (s2, args) => SetTestAccount("QLBV", "123"));
 

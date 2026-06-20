@@ -146,9 +146,6 @@ namespace PhanHe1
             StylePrimaryButton(btnCreateRole);
             btnCreateRole.Click += btnCreateRole_Click;
 
-            btnSubsystem2 = new Button { Text = "Phân hệ 2", Width = 110, Height = 40, Margin = new Padding(0, 0, 8, 0) };
-            StylePrimaryButton(btnSubsystem2);
-            btnSubsystem2.Click += BtnSubsystem2_Click;
 
             var btnLogout = new Button { Text = "Đăng xuất", Width = 110, Height = 40, Margin = new Padding(0, 0, 0, 0) };
             StylePrimaryButton(btnLogout);

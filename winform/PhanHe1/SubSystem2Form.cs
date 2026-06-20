@@ -3869,13 +3869,13 @@ END;");
         public EditRowForm(string title, Dictionary<string, string> fields)
         {
             Text = title; StartPosition = FormStartPosition.CenterParent; FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false;
-            Width = 480; BackColor = UiTheme.LightCyan; Font = UiTheme.BodyFont;
+            Width = 520; BackColor = UiTheme.LightCyan; Font = UiTheme.BodyFont;
 
             int rowCount = fields.Count;
             Height = 110 + (rowCount * 50); // Tự động kéo dài form theo số lượng ô nhập
 
             var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(16), BackColor = UiTheme.JordyBlue };
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 400F)); layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170F)); layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
 
             var inputs = new Dictionary<string, TextBox>();
             int i = 0;
