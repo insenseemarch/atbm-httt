@@ -2756,9 +2756,8 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
             catch { return prefix + "0001"; }
         }
 
-        private string NextAvailableNvId(string vaitro, string capBac = null)
+        private string NextAvailableNvId(string vaitro)
         {
-            if (capBac == "Ban Giám đốc")        return FindNextId("GD",  4, "QLBV.NHANVIEN", "MANV");
             if (vaitro == "Bác sĩ/Y sĩ")       return FindNextId("BS",  4, "QLBV.NHANVIEN", "MANV");
             if (vaitro == "Kỹ thuật viên")       return FindNextId("KTV", 3, "QLBV.NHANVIEN", "MANV");
             return FindNextId("NV", 4, "QLBV.NHANVIEN", "MANV");
@@ -2813,7 +2812,7 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
 
             string suggestedId = NextAvailableNvId("Điều phối viên");
 
-            using (var f = new TaoNhanVienForm(suggestedId, danhSachKhoa, (vt, cb) => NextAvailableNvId(vt, cb)))
+            using (var f = new TaoNhanVienForm(suggestedId, danhSachKhoa, vt => NextAvailableNvId(vt)))
             {
                 if (f.ShowDialog(this) != DialogResult.OK) return;
                 try
@@ -3975,7 +3974,7 @@ END;");
         public string   CoSo     { get; private set; }
         public string   MatKhau  { get; private set; }
 
-        public TaoNhanVienForm(string suggestedId, string[] danhSachKhoa, Func<string, string, string> getNextId)
+        public TaoNhanVienForm(string suggestedId, string[] danhSachKhoa, Func<string, string> getNextId)
         {
             Text = "Tạo Tài Khoản Nhân Viên";
             StartPosition = FormStartPosition.CenterParent;
@@ -4039,20 +4038,17 @@ END;");
             var cmbVaiTro = MakeCmb(new[] { "Điều phối viên", "Bác sĩ/Y sĩ", "Kỹ thuật viên" });
             layout.Controls.Add(cmbVaiTro, 1, row++);
 
-            void RefreshSuggestedId()
+            // Khi VAITRO thay đổi → tính lại mã đề xuất (chỉ thay nếu QLBV chưa sửa)
+            cmbVaiTro.SelectedIndexChanged += (s, e) =>
             {
                 string vt = cmbVaiTro.SelectedItem?.ToString() ?? "";
-                string cb = cmbCapBac.SelectedItem?.ToString() ?? "";
                 if (string.IsNullOrEmpty(vt)) return;
                 if (string.Equals(txtMaNV.Text.Trim(), _lastSuggestedId, StringComparison.OrdinalIgnoreCase))
                 {
-                    try { _lastSuggestedId = getNextId(vt, cb); txtMaNV.Text = _lastSuggestedId; }
+                    try { _lastSuggestedId = getNextId(vt); txtMaNV.Text = _lastSuggestedId; }
                     catch { }
                 }
-            }
-
-            // Khi VAITRO / CẤP BẬC thay đổi → tính lại mã đề xuất (chỉ thay nếu QLBV chưa sửa)
-            cmbVaiTro.SelectedIndexChanged += (s, e) => RefreshSuggestedId();
+            };
 
             // ── PHÁI ──
             AddLbl("Phái:", row);
@@ -4092,12 +4088,6 @@ END;");
             var cmbCapBac = MakeCmb(
                 new[] { "Ban Giám đốc", "Lãnh đạo khoa", "Lãnh đạo phòng", "Nhân viên" },
                 blank: true);
-            cmbCapBac.SelectedIndexChanged += (s, e) =>
-            {
-                if (cmbCapBac.SelectedItem?.ToString() == "Ban Giám đốc")
-                    cmbKhoa.SelectedIndex = 0;
-                RefreshSuggestedId();
-            };
             layout.Controls.Add(cmbCapBac, 1, row++);
 
             // ── CƠ SỞ ──
@@ -4114,7 +4104,7 @@ END;");
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
             layout.Controls.Add(new Label
             {
-                Text = "* Bắt buộc. Mã NV tự động đề xuất theo tiền tố GD (Giám đốc), BS, KTV hoặc NV.",
+                Text = "* Bắt buộc. Mã NV tự động đề xuất nhỏ nhất chưa dùng theo tiền tố vai trò (BS/KTV/NV).",
                 ForeColor = Color.FromArgb(90, 70, 0), AutoSize = true,
                 Font = new Font("Segoe UI", 8.5F, FontStyle.Italic), Margin = new Padding(0, 2, 0, 2)
             }, 0, row);
