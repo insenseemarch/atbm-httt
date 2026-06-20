@@ -130,7 +130,7 @@ namespace PhanHe1
             {
                 Dock = DockStyle.Fill,
                 ForeColor = UiTheme.DeepBlue,
-                Text = "app_admin → Phân Hệ 1.  QLBV / DPV01 / BACSI01 / KTV01 / BN001 → Phân Hệ 2.",
+                Text = "app_admin → Phân Hệ 1.  NV0002/BS0001/KTV001/BN000001 → Phân Hệ 2 (09.sql).",
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
                 AutoSize = true
             };
@@ -191,11 +191,22 @@ namespace PhanHe1
         private void BtnTestAcc_Click(object sender, EventArgs e)
         {
             var menu = new ContextMenuStrip();
-            menu.Items.Add("DPV01 (Điều phối viên)", null, (s2, args) => SetTestAccount("DPV01", "DPV123"));
-            menu.Items.Add("BACSI01 (Y sĩ/Bác sĩ)", null, (s2, args) => SetTestAccount("BACSI01", "BACSI123"));
-            menu.Items.Add("KTV01 (Kỹ thuật viên)", null, (s2, args) => SetTestAccount("KTV01", "KTV123"));
-            menu.Items.Add("BN001 (Bệnh nhân)", null, (s2, args) => SetTestAccount("BN001", "BN123"));
-            menu.Items.Add("GD0001 (Giám đốc)", null, (s2, args) => SetTestAccount("GD0001", "123456"));
+            menu.Items.Add("── Điều phối viên (09.sql) ──", null, null).Enabled = false;
+            menu.Items.Add("NV0002 / nv123", null, (s2, args) => SetTestAccount("NV0002", "nv123"));
+            menu.Items.Add("NV0001 / nv123 (Giám đốc nếu CAPBAC)", null, (s2, args) => SetTestAccount("NV0001", "nv123"));
+            menu.Items.Add("── Giám đốc (Ban Giám đốc) ──", null, null).Enabled = false;
+            menu.Items.Add("GD0001 / nv123 (HCM)", null, (s2, args) => SetTestAccount("GD0001", "nv123"));
+            menu.Items.Add("GD0002 / nv123 (Hải Phòng)", null, (s2, args) => SetTestAccount("GD0002", "nv123"));
+            menu.Items.Add("GD0003 / nv123 (Hà Nội)", null, (s2, args) => SetTestAccount("GD0003", "nv123"));
+            menu.Items.Add("── Bác sĩ ──", null, null).Enabled = false;
+            menu.Items.Add("BS0001 / nv123", null, (s2, args) => SetTestAccount("BS0001", "nv123"));
+            menu.Items.Add("BS0002 / nv123", null, (s2, args) => SetTestAccount("BS0002", "nv123"));
+            menu.Items.Add("── Kỹ thuật viên ──", null, null).Enabled = false;
+            menu.Items.Add("KTV001 / nv123", null, (s2, args) => SetTestAccount("KTV001", "nv123"));
+            menu.Items.Add("── Bệnh nhân ──", null, null).Enabled = false;
+            menu.Items.Add("BN000001 / bn123", null, (s2, args) => SetTestAccount("BN000001", "bn123"));
+            menu.Items.Add("── Quản trị audit ──", null, null).Enabled = false;
+            menu.Items.Add("QLBV / 123", null, (s2, args) => SetTestAccount("QLBV", "123"));
 
             menu.Show((Control)sender, new Point(0, ((Button)sender).Height));
         }
