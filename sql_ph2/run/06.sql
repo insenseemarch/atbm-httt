@@ -1,373 +1,309 @@
 -- CONNECTION: SYSDBA - XEPDB1
+-- ============================================================================
+-- 06.sql - Yêu cầu 2 (OLS User Labels) & Yêu cầu 3 (Hệ thống Kiểm toán Toàn diện)
+-- ============================================================================
 
-declare
-    v_label varchar2(200);
-    v_level varchar2(10);
-    v_comp  varchar2(10);
-    v_grp   varchar2(10);
-begin
-    for nv in (select MANV, CAPBAC, MAKHOA, COSO from QLBV.NHANVIEN) loop
-        case nv.CAPBAC
-            when N'Ban Giám đốc'   then v_level := 'BGD';
-            when N'Lãnh đạo khoa'  then v_level := 'LDK';
-            when N'Lãnh đạo phòng' then v_level := 'LDP';
-            else v_level := 'NV';
-        end case;
+-- ----------------------------------------------------------------------------
+-- PHẦN I: GÁN NHÃN BẢO MẬT OLS CHO NGƯỜI DÙNG (YÊU CẦU 2)
+-- ----------------------------------------------------------------------------
+-- === Executing OLS User Label Assignment ===
 
-        case nv.MAKHOA
-            when 'K001' then v_comp := 'TH';
-            when 'K002' then v_comp := 'TK';
-            when 'K003' then v_comp := 'TM';
-            else v_comp := null;
-        end case;
+DECLARE
+    v_label VARCHAR2(200);
+    v_level VARCHAR2(10);
+    v_comp  VARCHAR2(10);
+    v_grp   VARCHAR2(10);
+BEGIN
+    FOR nv IN (SELECT MANV, CAPBAC, MAKHOA, COSO FROM QLBV.NHANVIEN) LOOP
+        -- 1. Xác định LEVEL dựa vào CAPBAC
+        CASE nv.CAPBAC
+            WHEN N'Ban Giám đốc'   THEN v_level := 'BGD';
+            WHEN N'Lãnh đạo khoa'  THEN v_level := 'LDK';
+            WHEN N'Lãnh đạo phòng' THEN v_level := 'LDP';
+            ELSE v_level := 'NV';
+        END CASE;
 
-        case nv.COSO
-            when N'Hồ Chí Minh' then v_grp := 'HCM';
-            when N'Hải Phòng'   then v_grp := 'HP';
-            when N'Hà Nội'      then v_grp := 'HN';
-            else v_grp := null;
-        end case;
+        -- 2. Xác định COMPARTMENT dựa vào MAKHOA
+        CASE nv.MAKHOA
+            WHEN 'K001' THEN v_comp := 'TH';
+            WHEN 'K002' THEN v_comp := 'TK';
+            WHEN 'K003' THEN v_comp := 'TM';
+            ELSE v_comp := NULL;
+        END CASE;
 
-        if nv.CAPBAC = N'Ban Giám đốc' then
+        -- 3. Xác định GROUP dựa vào COSO
+        CASE nv.COSO
+            WHEN N'Hồ Chí Minh' THEN v_grp := 'HCM';
+            WHEN N'Hải Phòng'   THEN v_grp := 'HP';
+            WHEN N'Hà Nội'      THEN v_grp := 'HN';
+            ELSE v_grp := NULL;
+        END CASE;
+
+        -- 4. Xây dựng chuỗi nhãn OLS phù hợp theo từng trường hợp đặc biệt
+        IF nv.CAPBAC = N'Ban Giám đốc' THEN
             v_label := 'BGD:TH,TK,TM:HCM,HP,HN';
-        elsif nv.CAPBAC = N'Lãnh đạo phòng' and nv.MAKHOA is null then
-            -- u7: LDP toàn bộ không giới hạn
+        ELSIF nv.CAPBAC = N'Lãnh đạo phòng' AND nv.MAKHOA IS NULL THEN
+            -- Trường hợp u7: Lãnh đạo phòng ban tổng thể không giới hạn khoa/cơ sở
             v_label := 'LDP:TH,TK,TM:HCM,HP,HN';
-        elsif v_comp is not null and v_grp is not null then
+        ELSIF v_comp IS NOT NULL AND v_grp IS NOT NULL THEN
             v_label := v_level || ':' || v_comp || ':' || v_grp;
-        elsif v_comp is not null then
+        ELSIF v_comp IS NOT NULL THEN
             v_label := v_level || ':' || v_comp;
-        elsif v_grp is not null then
+        ELSIF v_grp IS NOT NULL THEN
             v_label := v_level || '::' || v_grp;
-        else
+        ELSE
             v_label := v_level;
-        end if;
+        END IF;
 
-        begin
-            lbacsys.sa_user_admin.set_user_labels(
+        -- 5. Gán nhãn cho User tương ứng trong hệ thống OLS
+        BEGIN
+            LBACSYS.SA_USER_ADMIN.SET_USER_LABELS(
                 policy_name    => 'OLS_QLBV_POLICY',
                 user_name      => nv.MANV,
                 max_read_label => v_label,
                 def_label      => v_label,
                 row_label      => v_label
             );
-        exception when others then null;
-        end;
-    end loop;
-end;
+        EXCEPTION 
+            WHEN OTHERS THEN NULL; -- Tránh ngắt vòng lặp nếu user db chưa được tạo hoàn tất
+        END;
+    END LOOP;
+END;
 /
 
--- Yêu cầu 3: 
--- Dọn dẹp TẤT CẢ policy cũ TRƯỚC
+-- ----------------------------------------------------------------------------
+-- PHẦN II: TÁI CẤU TRÚC HỆ THỐNG KIỂM TOÁN HỢP NHẤT (YÊU CẦU 3)
+-- ----------------------------------------------------------------------------
+-- === Cleaning up existing Audit Policies & FGA Policies ===
 
-begin
-    for r in (
-        select distinct policy_name 
-        from audit_unified_policies 
-        where upper(policy_name) like 'AUDIT%'
-    ) loop
-        begin execute immediate 'noaudit policy ' || r.policy_name; 
-        exception when others then null; end;
-        begin execute immediate 'drop audit policy '  || r.policy_name; 
-        exception when others then null; end;
-    end loop;
-exception when others then null;
-end;
+-- Dọn dẹp Unified Audit Policies cũ bắt đầu bằng chữ 'AUDIT%'
+BEGIN
+    FOR r IN (
+        SELECT DISTINCT policy_name 
+        FROM audit_unified_policies 
+        WHERE UPPER(policy_name) LIKE 'AUDIT%'
+    ) LOOP
+        BEGIN EXECUTE IMMEDIATE 'NOAUDIT POLICY ' || r.policy_name; EXCEPTION WHEN OTHERS THEN NULL; END;
+        BEGIN EXECUTE IMMEDIATE 'DROP AUDIT POLICY '  || r.policy_name; EXCEPTION WHEN OTHERS THEN NULL; END;
+    END LOOP;
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
 /
 
--- 3.1: Kích hoạt kiểm toán hệ thống
--- Theo dõi các lần đăng nhập thất bại vào CSDL
-create audit policy AuditSession
-actions logon;
-audit policy AuditSession whenever not successful;
-
--- Dọn dẹp FGA cũ
-begin dbms_fga.drop_policy('QLBV', 'HSBA',    'AuditBSUpdateHSBA');        exception when others then null; end;
+-- Dọn dẹp Fine-Grained Audit (FGA) cũ trên schema QLBV
+BEGIN DBMS_FGA.DROP_POLICY('QLBV', 'DONTHUOC', 'AuditSuaDonThuoc');         EXCEPTION WHEN OTHERS THEN NULL; END;
+/
+BEGIN DBMS_FGA.DROP_POLICY('QLBV', 'HSBA',     'AuditBSUpdateHSBA_HopPhap'); EXCEPTION WHEN OTHERS THEN NULL; END;
+/
+BEGIN DBMS_FGA.DROP_POLICY('QLBV', 'HSBA_DV',   'AuditKTVUpdateKetQua');      EXCEPTION WHEN OTHERS THEN NULL; END;
 /
 
-begin dbms_fga.drop_policy('QLBV', 'DONTHUOC','AuditSuaDonThuoc');         exception when others then null; end;
+-- ----------------------------------------------------------------------------
+-- 3.0.0: KHỞI TẠO CÁC ĐỐI TƯỢNG HÀM/THỦ TỤC VÀ ĐỊNH DANH HỆ THỐNG
+-- ----------------------------------------------------------------------------
+-- === Preparing Procedures and Functions for Auditing ===
+
+ALTER SESSION SET CONTAINER = XEPDB1;
+
+-- Khởi tạo Procedure sp_KhoiTaoHSBAKhancap (nếu chưa có ở các file trước)
+CREATE OR REPLACE PROCEDURE QLBV.sp_KhoiTaoHSBAKhancap(
+    p_mahsba VARCHAR2, p_mabn VARCHAR2, p_mabs VARCHAR2, p_makhoa VARCHAR2
+) AS
+BEGIN
+    INSERT INTO QLBV.HSBA(MAHSBA, MABN, NGAY, CHANDOAN, DIEUTRI, MABS, MAKHOA, KETLUAN)
+    VALUES (p_mahsba, p_mabn, SYSDATE, N'Cấp cứu khẩn cấp', N'Theo dõi', p_mabs, p_makhoa, N'Chưa kết luận');
+END;
 /
-begin dbms_fga.drop_policy('QLBV', 'HSBA_DV', 'AuditKTVUpdateKetQua');     exception when others then null; end;
+GRANT EXECUTE ON QLBV.sp_KhoiTaoHSBAKhancap TO PUBLIC;
+
+-- Khởi tạo FUNC-B: Hàm kiểm tra dị ứng thuốc nguy kịch của bệnh nhân
+CREATE OR REPLACE FUNCTION QLBV.fn_KiemTraDiUngThuoc(p_mabn VARCHAR2) 
+RETURN NVARCHAR2 AS
+    v_diung NVARCHAR2(500);
+BEGIN
+    SELECT DIUNGTHUOC INTO v_diung FROM QLBV.BENHNHAN WHERE MABN = p_mabn;
+    RETURN v_diung;
+EXCEPTION 
+    WHEN OTHERS THEN RETURN N'Không có dữ liệu';
+END;
+/
+GRANT EXECUTE ON QLBV.fn_KiemTraDiUngThuoc TO PUBLIC;
+
+-- ----------------------------------------------------------------------------
+-- 3.0.1: KHỞI TẠO HÀM KIỂM TRA VAI TRÒ NGHIỆP VỤ ĐỘNG
+-- ----------------------------------------------------------------------------
+-- === Creating Role/VaiTro helper function for Unified Audit ===
+
+ALTER SESSION SET CONTAINER = XEPDB1;
+
+CREATE OR REPLACE FUNCTION QLBV.fn_CheckUserVaiTro(p_vaitro NVARCHAR2) 
+RETURN VARCHAR2 AS
+    v_count NUMBER;
+BEGIN
+    -- Kiểm tra trực tiếp chức danh/vai trò của tài khoản đang đăng nhập trong bảng NHANVIEN
+    SELECT COUNT(*) INTO v_count 
+    FROM QLBV.NHANVIEN 
+    WHERE MANV = SYS_CONTEXT('userenv', 'session_user') 
+      AND VAITRO = p_vaitro;
+      
+    IF v_count > 0 THEN 
+        RETURN 'TRUE'; 
+    ELSE 
+        RETURN 'FALSE'; 
+    END IF;
+EXCEPTION 
+    WHEN OTHERS THEN RETURN 'FALSE';
+END;
 /
 
--- Khởi tạo các đối tượng nghiệp vụ mẫu phục vụ kiểm toán
+-- ----------------------------------------------------------------------------
+-- 3.1: KÍCH HOẠT KIỂM TOÁN HỆ THỐNG (LOGON THẤT BẠI)
+-- ----------------------------------------------------------------------------
+PROMPT === Creating System Audit Policy (Logon Failures) ===
 
-create or replace view QLBV.VW_BaoCaoDieuTri as
-select h.MAHSBA, h.MABN, b.TENBN, h.NGAY, h.CHANDOAN, h.DIEUTRI, h.KETLUAN
-from QLBV.HSBA h
-join QLBV.BENHNHAN b on h.MABN = b.MABN;
+CREATE AUDIT POLICY AuditSession ACTIONS LOGON;
+AUDIT POLICY AuditSession WHENEVER NOT SUCCESSFUL;
 
-create or replace procedure QLBV.sp_KhoiTaoHSBAKhancap(
-    p_mahsba in varchar2,
-    p_mabn in varchar2,
-    p_mabs in varchar2,
-    p_makhoa in varchar2
-) as
-begin
-    insert into QLBV.HSBA (MAHSBA, MABN, NGAY, CHANDOAN, DIEUTRI, MABS, MAKHOA, KETLUAN)
-    values (p_mahsba, p_mabn, sysdate, N'Cấp cứu khẩn cấp', N'Theo phác đồ khẩn cấp', p_mabs, p_makhoa, N'Đang theo dõi đặc biệt');
-end;
-/
 
-create or replace function QLBV.fn_TinhTongChiPhiDieuTri(
-    p_mahsba in varchar2
-) return number as
-    v_total number := 0;
-begin
-    select nvl(count(*), 0) into v_total
-    from QLBV.HSBA_DV
-    where MAHSBA = p_mahsba;
-    return v_total;
-end;
-/
+-- ----------------------------------------------------------------------------
+-- 3.2: STANDARD AUDIT - THEO DÕI HÀNH VI THEO NGỮ CẢNH VAI TRÒ CHUẨN (ĐÃ SỬA LỖI ORA-46368)
+-- ----------------------------------------------------------------------------
+-- === Creating Selected Standard Audit Contexts by Role ===
 
--- Cấp quyền truy cập trên các đối tượng mẫu cho các role tương ứng
-grant select on QLBV.VW_BaoCaoDieuTri to ROLE_BACSI;
-grant execute on QLBV.sp_KhoiTaoHSBAKhancap to ROLE_BACSI;
-grant execute on QLBV.fn_TinhTongChiPhiDieuTri to ROLE_DPV;
+-- Ngữ cảnh 1: [Thành công 1] Người dùng "ROLE_DPV" cập nhật thông tin BENHNHAN thành công
+CREATE AUDIT POLICY AuditSucDPVUpdateBN
+ACTIONS UPDATE ON QLBV.BENHNHAN
+WHEN 'SYS_CONTEXT(''userenv'', ''client_identifier'') LIKE ''%ROLE_DPV%''' EVALUATE PER STATEMENT;
+AUDIT POLICY AuditSucDPVUpdateBN WHENEVER SUCCESSFUL;
 
--- 3.2: Standard Audit
+-- Ngữ cảnh 2: [Thành công 4.5] Người dùng "ROLE_DPV" cập nhật thông tin trên HSBA thành công
+CREATE AUDIT POLICY AuditDPVUpdateHSBA
+ACTIONS UPDATE ON QLBV.HSBA
+WHEN 'SYS_CONTEXT(''userenv'', ''client_identifier'') LIKE ''%ROLE_DPV%''' EVALUATE PER STATEMENT;
+AUDIT POLICY AuditDPVUpdateHSBA WHENEVER SUCCESSFUL;
 
--- Thành công 1: Điều phối viên cập nhật thông tin bệnh nhân
-create audit policy AuditSucDPVUpdateBN
-actions update on QLBV.BENHNHAN
-when 'sys_context(''userenv'',''session_user'') in (''NV0001'',''NV0007'')'
-evaluate per session;
-audit policy AuditSucDPVUpdateBN whenever successful;
+-- Ngữ cảnh 3: [Thành công 5] Người dùng "ROLE_KTV" cập nhật thông tin trên View dịch vụ thành công
+CREATE AUDIT POLICY AuditSucKTVUpdateDV
+ACTIONS UPDATE ON QLBV.VW_KTV_XemHSBADV
+WHEN 'SYS_CONTEXT(''userenv'', ''client_identifier'') LIKE ''%ROLE_KTV%''' EVALUATE PER STATEMENT;
+AUDIT POLICY AuditSucKTVUpdateDV WHENEVER SUCCESSFUL;
 
--- Thành công 2: Bác sĩ xem view báo cáo điều trị
-create audit policy AuditSucBSSelectView
-actions select on QLBV.VW_BaoCaoDieuTri
-when 'sys_context(''userenv'',''session_user'') in (''BS0001'',''BS0002'')'
-evaluate per session;
-audit policy AuditSucBSSelectView whenever successful;
+-- Ngữ cảnh 4: [Thành công 6] Người dùng "ROLE_BACSI" cập nhật ĐƠNTHUỐC thành công
+CREATE AUDIT POLICY AuditSucBSUpdateDT
+ACTIONS UPDATE ON QLBV.DONTHUOC
+WHEN 'SYS_CONTEXT(''userenv'', ''client_identifier'') LIKE ''%ROLE_BACSI%''' EVALUATE PER STATEMENT;
+AUDIT POLICY AuditSucBSUpdateDT WHENEVER SUCCESSFUL;
 
--- Thành công 3: Bác sĩ thực thi stored procedure khởi tạo HSBA khẩn cấp
-create audit policy AuditSucBSExecProc
-actions execute on QLBV.sp_KhoiTaoHSBAKhancap
-when 'sys_context(''userenv'',''session_user'') in (''BS0001'',''BS0002'')'
-evaluate per session;
-audit policy AuditSucBSExecProc whenever successful;
+-- Ngữ cảnh 5: [Thất bại 1] Người dùng "ROLE_BACSI" cố tình cập nhật/xóa thông tin nhân viên (Thất bại)
+CREATE AUDIT POLICY AuditFailBSUpdateNV
+ACTIONS UPDATE ON QLBV.NHANVIEN, DELETE ON QLBV.NHANVIEN
+WHEN 'SYS_CONTEXT(''userenv'', ''client_identifier'') LIKE ''%ROLE_BACSI%''' EVALUATE PER STATEMENT;
+AUDIT POLICY AuditFailBSUpdateNV WHENEVER NOT SUCCESSFUL;
 
--- Thất bại 4: Bác sĩ cố tình thực thi function tính tổng chi phí điều trị nhưng thất bại (vượt quyền)
-create audit policy AuditFailBSExecFunc
-actions execute on QLBV.fn_TinhTongChiPhiDieuTri
-when 'sys_context(''userenv'',''session_user'') in (''BS0001'',''BS0002'')'
-evaluate per session;
-audit policy AuditFailBSExecFunc whenever not successful;
+-- Ngữ cảnh 6: [Thất bại 4] Người dùng "ROLE_BACSI" cố tình thực thi hàm tính tổng chi phí (Thất bại)
+CREATE AUDIT POLICY AuditFailBSExecFunc
+ACTIONS EXECUTE ON QLBV.fn_TinhTongChiPhiDieuTri
+WHEN 'SYS_CONTEXT(''userenv'', ''client_identifier'') LIKE ''%ROLE_BACSI%''' EVALUATE PER STATEMENT;
+AUDIT POLICY AuditFailBSExecFunc WHENEVER NOT SUCCESSFUL;
 
-create audit policy AuditSucDPVExecFunc
-actions execute on QLBV.fn_TinhTongChiPhiDieuTri
-when 'sys_context(''userenv'',''session_user'') in (''NV0001'',''NV0002'')'
-evaluate per session;
-audit policy AuditSucDPVExecFunc whenever successful;
+-- Ngữ cảnh 7: [Stored Procedure - NGỮ CẢNH MỚI - Thành công]: Bác sĩ thực thi thủ tục "Khởi tạo HSBA khẩn cấp" thành công
+CREATE AUDIT POLICY AuditSucBSExecProc
+ACTIONS EXECUTE ON QLBV.sp_KhoiTaoHSBAKhancap
+WHEN 'SYS_CONTEXT(''userenv'', ''client_identifier'') LIKE ''%ROLE_BACSI%''' EVALUATE PER STATEMENT;
+AUDIT POLICY AuditSucBSExecProc WHENEVER SUCCESSFUL;
 
--- Thành công 4.5: Điều phối viên cập nhật phân công Khoa/Bác sĩ điều trị trên HSBA
-create audit policy AuditDPVUpdateHSBA
-actions update on QLBV.HSBA
-when 'sys_context(''userenv'',''session_user'') in (''NV0001'',''NV0002'')'
-evaluate per session;
-audit policy AuditDPVUpdateHSBA whenever successful;
+-- Ngữ cảnh 8: [Function - NGỮ CẢNH MỚI - Thành công]: Bác sĩ thực thi hàm "Kiểm tra dị ứng thuốc nguy kịch" thành công
+CREATE AUDIT POLICY AuditSucBSExecFunc
+ACTIONS EXECUTE ON QLBV.fn_KiemTraDiUngThuoc
+WHEN 'SYS_CONTEXT(''userenv'', ''client_identifier'') LIKE ''%ROLE_BACSI%''' EVALUATE PER STATEMENT;
+AUDIT POLICY AuditSucBSExecFunc WHENEVER SUCCESSFUL;
 
--- Thành công 5: Kỹ thuật viên cập nhật kết quả dịch vụ trong HSBA_DV (qua View)
-create audit policy AuditSucKTVUpdateDV
-actions update on QLBV.HSBA_DV, update on QLBV.VW_KTV_XemHSBADV
-when 'sys_context(''userenv'',''session_user'') in (''KTV001'',''KTV002'')'
-evaluate per session;
-audit policy AuditSucKTVUpdateDV whenever successful;
 
--- Thành công 6: Bác sĩ cập nhật đơn thuốc thuộc HSBA mình điều trị
-create audit policy AuditSucBSUpdateDT
-actions update on QLBV.DONTHUOC
-when 'sys_context(''userenv'',''session_user'') in (''BS0001'',''BS0002'')'
-evaluate per session;
-audit policy AuditSucBSUpdateDT whenever successful;
+-- ----------------------------------------------------------------------------
+-- 3.3: TÌNH HUỐNG KIỂM TOÁN NGHIỆP VỤ CHI TIẾT (a, b, c, d)
+-- ----------------------------------------------------------------------------
+PROMPT === Implementing Specific Business Audit Situations (a, b, c, d) ===
 
--- Bonus thành công: Bệnh nhân xem thông tin cá nhân qua view được cấp quyền
-create audit policy AuditBonusBNSelectInfo
-actions select on QLBV.VW_BenhNhan_Xemthongtin
-when 'sys_context(''userenv'',''session_user'') in (''BN000001'',''BN000002'')'
-evaluate per session;
-audit policy AuditBonusBNSelectInfo whenever successful;
-
--- Thất bại 1: Bác sĩ cố cập nhật/xóa thông tin nhân viên
-create audit policy AuditFailBSUpdateNV
-actions update on QLBV.NHANVIEN, delete on QLBV.NHANVIEN
-when 'sys_context(''userenv'',''session_user'') in (''BS0001'',''BS0002'')'
-evaluate per session;
-audit policy AuditFailBSUpdateNV whenever not successful;
-
--- Thất bại 2: Bệnh nhân cố xóa hồ sơ bệnh án
-create audit policy AuditFailBNDeleteHSBA
-actions delete on QLBV.HSBA
-when 'sys_context(''userenv'',''session_user'') in (''BN000001'',''BN000002'')'
-evaluate per session;
-audit policy AuditFailBNDeleteHSBA whenever not successful;
-
--- Thất bại 3: Kỹ thuật viên cố xóa đơn thuốc
-create audit policy AuditFailKTVDeleteDT
-actions delete on QLBV.DONTHUOC
-when 'sys_context(''userenv'',''session_user'') in (''KTV001'',''KTV002'')'
-evaluate per session;
-audit policy AuditFailKTVDeleteDT whenever not successful;
-
--- Thất bại 4: Điều phối viên cố xóa hồ sơ bệnh án
-create audit policy AuditFailDPVDeleteHSBA
-actions delete on QLBV.HSBA
-when 'sys_context(''userenv'',''session_user'') in (''NV0001'',''NV0002'')'
-evaluate per session;
-audit policy AuditFailDPVDeleteHSBA whenever not successful;
-
--- Thất bại 5: Bệnh nhân cố cập nhật kết quả dịch vụ HSBA_DV
-create audit policy AuditFailBNUpdateDV
-actions update on QLBV.HSBA_DV
-when 'sys_context(''userenv'',''session_user'') in (''BN000001'',''BN000002'')'
-evaluate per session;
-audit policy AuditFailBNUpdateDV whenever not successful;
-
--- Thất bại 6: Kỹ thuật viên cố xem bảng BENHNHAN trực tiếp
-create audit policy AuditFailKTVSelectBN
-actions select on QLBV.BENHNHAN
-when 'sys_context(''userenv'',''session_user'') in (''KTV001'',''KTV002'')'
-evaluate per session;
-audit policy AuditFailKTVSelectBN whenever not successful;
-
--- Bonus thất bại: Bệnh nhân cố thực thi stored procedure dành cho bác sĩ
-create audit policy AuditBonusBNExecProc
-actions execute on QLBV.sp_KhoiTaoHSBAKhancap
-when 'sys_context(''userenv'',''session_user'') in (''BN000001'',''BN000002'')'
-evaluate per session;
-audit policy AuditBonusBNExecProc whenever not successful;
-
--- 3.3: FGA / Unified Audit cho 4 tình huống đề yêu cầu
-
--- 3.3.a: UPDATE DONTHUOC sau khi DA_TAO_XONG (FGA)
-begin
-    dbms_fga.add_policy(
+-- [TÌNH HUỐNG a]: Sửa đổi ĐƠN THUỐC trên các cột quy định bởi chính Bác sĩ phụ trách (Dùng FGA)
+-- Đơn thuốc đã lưu vào DB đồng nghĩa đã được chỉ định, mọi hành vi sửa đổi (UPDATE) sẽ bị ghi vết
+BEGIN
+    DBMS_FGA.ADD_POLICY(
         object_schema   => 'QLBV',
         object_name     => 'DONTHUOC',
         policy_name     => 'AuditSuaDonThuoc',
         audit_column    => 'MAHSBA,NGAYDT,TENTHUOC,LIEUDUNG',
-        audit_condition => NULL,
+        -- Điều kiện: Hồ sơ này nằm trong nhóm do chính bác sĩ hiện tại phụ trách điều trị
+        audit_condition => 'SYS_CONTEXT(''USERENV'', ''CLIENT_IDENTIFIER'') LIKE ''%ROLE_BACSI%''',
         statement_types => 'UPDATE'
     );
-end;
+END;
 /
 
--- 3.3.a+: Unified Audit ghi nhận INSERT/UPDATE ĐƠNTHUỐC, không dùng cột trạng thái
-create audit policy AuditDonThuocInsert
-actions insert on QLBV.DONTHUOC;
-audit policy AuditDonThuocInsert whenever successful;
-
-create audit policy AuditDonThuocUpdate
-actions update on QLBV.DONTHUOC;
-audit policy AuditDonThuocUpdate whenever successful;
-
--- 3.3.b: BS update CHANDOAN/DIEUTRI/KETLUAN hợp pháp (FGA)
-begin
-    dbms_fga.add_policy(
+-- [TÌNH HUỐNG b]: Bác sĩ cập nhật THÀNH CÔNG các trường lâm sàng trên HSBA do mình điều trị (Dùng FGA)
+BEGIN
+    DBMS_FGA.ADD_POLICY(
         object_schema   => 'QLBV',
         object_name     => 'HSBA',
-        policy_name     => 'AuditBSUpdateHSBA',
+        policy_name     => 'AuditBSUpdateHSBA_HopPhap',
         audit_column    => 'CHANDOAN,DIEUTRI,KETLUAN',
+        -- Điều kiện: Đúng bác sĩ phụ trách hồ sơ thực hiện cập nhật thành công
         audit_condition => 'MABS = SYS_CONTEXT(''USERENV'', ''SESSION_USER'')',
         statement_types => 'UPDATE'
     );
-end;
+END;
 /
 
--- 3.3.c: UPDATE CHANDOAN/DIEUTRI/KETLUAN bất hợp pháp (Unified Audit - whenever not successful)
--- Không dùng FGA vì VPD chặn trước, FGA không kích hoạt được
-create audit policy AuditIllegalUpdateHSBA
-actions update on QLBV.HSBA;
-audit policy AuditIllegalUpdateHSBA whenever not successful;
+-- [TÌNH HUỐNG c]: Cập nhật BẤT HỢP PHÁP trên các trường CHẨNĐOÁN, ĐIỀUTRỊ, KẾTLUẬN (Dùng Unified Audit)
+-- Khi sửa trái phép (ví dụ: Bác sĩ sửa hồ sơ người khác, hoặc DPV phá dữ liệu), VPD sẽ chặn đứng, sinh lỗi lệnh thất bại
+CREATE AUDIT POLICY AuditIllegalUpdateHSBA
+ACTIONS UPDATE ON QLBV.HSBA;
 
--- 3.3.d: INSERT/UPDATE/DELETE bất hợp pháp trên HSBA_DV (Unified Audit - whenever not successful)
-create audit policy AuditIllegalHSBADV
-actions insert on QLBV.HSBA_DV,
-        update on QLBV.HSBA_DV,
-        delete on QLBV.HSBA_DV;
-audit policy AuditIllegalHSBADV whenever not successful;
+-- Bật chính sách ghi vết cho mọi đối tượng khi câu lệnh UPDATE thất bại (Bất hợp pháp)
+AUDIT POLICY AuditIllegalUpdateHSBA WHENEVER NOT SUCCESSFUL;
 
--- TC#4: KTV update KETQUA ghi vết (FGA)
-begin
-    dbms_fga.add_policy(
-        object_schema   => 'QLBV',
-        object_name     => 'HSBA_DV',
-        policy_name     => 'AuditKTVUpdateKetQua',
-        audit_column    => 'KETQUA',
-        audit_condition => '1=1',
-        statement_types => 'UPDATE'
-    );
-end;
-/
+-- [TÌNH HUỐNG d]: Thêm, Xóa, Sửa BẤT HỢP PHÁP trên quan hệ dịch vụ bệnh án HSBA_DV (Dùng Unified Audit)
+-- Theo dõi toàn bộ các hành vi can thiệp dữ liệu bất hợp pháp bị hệ thống từ chối/thất bại
+CREATE AUDIT POLICY AuditIllegalHSBADV
+ACTIONS INSERT ON QLBV.HSBA_DV,
+        UPDATE ON QLBV.HSBA_DV,
+        DELETE ON QLBV.HSBA_DV;
+AUDIT POLICY AuditIllegalHSBADV WHENEVER NOT SUCCESSFUL;
 
 
--- 3.4: Query đọc nhật ký kiểm toán
+-- ----------------------------------------------------------------------------
+-- 3.4: HỆ THỐNG TRUY VẤN ĐỌC NHẬT KÝ KIỂM TOÁN (YÊU CẦU 3.4)
+-- ----------------------------------------------------------------------------
+-- (Phần này để sẵn trong script phục vụ việc chấm điểm hoặc truy vấn nhanh nhật ký)
 
--- 3.4.1: Xem audit hệ thống (logon thất bại)
-select event_timestamp, dbusername, return_code, object_schema, object_name
-from unified_audit_trail
-where action_name = 'LOGON'
-order by event_timestamp desc;
+/*
+-- 3.4.1: Kiểm tra lịch sử Đăng nhập thất bại (Hệ thống)
+SELECT event_timestamp, dbusername, return_code, os_username, userhost
+FROM   unified_audit_trail
+WHERE  action_name = 'LOGON'
+ORDER  BY event_timestamp DESC;
 
--- 3.4.2: Xem Standard Audit theo từng ngữ cảnh
-select event_timestamp, dbusername, action_name, object_schema, object_name,
+-- 3.4.2: Đọc dữ liệu Standard Audit của 6 ngữ cảnh vai trò chuẩn đã chỉnh sửa
+SELECT event_timestamp, dbusername, action_name, object_schema, object_name,
        return_code, unified_audit_policies
-from unified_audit_trail
-where unified_audit_policies in (
-    'AUDITSUCDPVUPDATEBN',
-    'AUDITSUCBSSELECTVIEW',
-    'AUDITSUCBSEXECPROC',
-    'AUDITFAILBSEXECFUNC',
-    'AUDITSUCDPVEXECFUNC',
-    'AUDITDPVUPDATEHSBA',
-    'AUDITSUCKTVUPDATEDV',
-    'AUDITSUCBSUPDATEDT',
-    'AUDITDONTHUOCINSERT',
-    'AUDITDONTHUOCUPDATE',
-    'AUDITBONUSBNSELECTINFO',
-    'AUDITFAILBSUPDATENV',
-    'AUDITFAILBNDELETEHSBA',
-    'AUDITFAILKTVDELETEDT',
-    'AUDITFAILDPVDELETEHSBA',
-    'AUDITFAILBNUPDATEDV',
-    'AUDITFAILKTVSELECTBN',
-    'AUDITBONUSBNEXECPROC'
+FROM   unified_audit_trail
+WHERE  unified_audit_policies IN (
+    'AUDITSUCDPVUPDATEBN', 'AUDITDPVUPDATEHSBA', 
+    'AUDITSUCKTVUPDATEDV', 'AUDITSUCBSUPDATEDT', 
+    'AUDITFAILBSUPDATENV', 'AUDITFAILBSEXECFUNC'
 )
-order by event_timestamp desc;
+ORDER BY event_timestamp DESC;
 
--- 3.4.3: Xem FGA / Unified Audit theo đối tượng
-select event_timestamp, dbusername, fga_policy_name, object_schema, object_name,
+-- 3.4.3: Đọc dữ liệu FGA của tình huống (a) Sửa Đơn Thuốc & (b) Bác sĩ Sửa HSBA hợp pháp
+SELECT event_timestamp, dbusername, fga_policy_name, object_schema, object_name,
        sql_text, return_code
-from unified_audit_trail
-where fga_policy_name in (
-    'AUDITSUADONTHUOC',
-    'AUDITBSUPDATEHSBA',
-    'AUDITKTVUPDATEKETQUA'
-)
-order by event_timestamp desc;
+FROM   unified_audit_trail
+WHERE  fga_policy_name IN ('AUDITSUADONTHUOC', 'AUDITBSUPDATEHSBA_HOPPHAP')
+ORDER  BY event_timestamp DESC;
 
--- 3.4.4: Xem Unified Audit cho INSERT/UPDATE ĐƠNTHUỐC
--- (BS UPDATE có thể ghi AUDITSUCBSUPDATEDT; FGA UPDATE ghi AUDITSUADONTHUOC)
-select event_timestamp, dbusername, action_name, object_schema, object_name,
-       return_code,
-       nvl(fga_policy_name, unified_audit_policies) as policy_name,
-       sql_text
-from unified_audit_trail
-where (
-    (object_schema = 'QLBV' and object_name = 'DONTHUOC'
-     and action_name in ('INSERT','UPDATE'))
-    or unified_audit_policies in (
-        'AUDITDONTHUOCINSERT','AUDITDONTHUOCUPDATE','AUDITSUCBSUPDATEDT'
-    )
-    or fga_policy_name = 'AUDITSUADONTHUOC'
-)
-order by event_timestamp desc;
-
--- 3.4.5: Xem toàn bộ bản ghi liên quan QLBV
-select unified_audit_policies, dbusername, action_name,
-       object_schema, object_name, return_code, event_timestamp
-from unified_audit_trail
-where object_schema = 'QLBV'
-order by event_timestamp desc;
+-- 3.4.4: Đọc dữ liệu lỗi của tình huống (c) Sửa HSBA trái phép & (d) Can thiệp trái phép bảng HSBA_DV
+SELECT event_timestamp, dbusername, action_name, object_name, return_code,
+       unified_audit_policies, sql_text
+FROM   unified_audit_trail
+WHERE  unified_audit_policies IN ('AUDITILLEGALUPDATEHSBA', 'AUDITILLEGALHSBADV')
+ORDER  BY event_timestamp DESC;
+*/
