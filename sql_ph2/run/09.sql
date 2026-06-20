@@ -219,16 +219,21 @@ ROLLBACK;
 -- Policy kích hoạt: AuditFailBSExecFunc
 -- Kết quả mong đợi: THẤT BẠI (không có quyền EXECUTE)
 -- ============================================================
+SET SERVEROUTPUT ON;
 DECLARE
     v_total NUMBER;
 BEGIN
-    v_total := QLBV.fn_TinhTongChiPhiDieuTri('HS_DEMO');
+    -- Sử dụng Dynamic SQL để đẩy việc kiểm tra quyền xuống Runtime
+    EXECUTE IMMEDIATE 'BEGIN :1 := QLBV.fn_TinhTongChiPhiDieuTri(''HS_DEMO''); END;' 
+    USING OUT v_total;
+    
+    DBMS_OUTPUT.PUT_LINE('Thành công (Lỗi kịch bản - Bác sĩ không nên chạy được hàm này)');
 EXCEPTION
     WHEN OTHERS THEN
+        -- Lúc này ORA-06550/PLS-00201 hoặc ORA-00942 sẽ bị bắt tại đây
         DBMS_OUTPUT.PUT_LINE('[Mong doi loi] EXEC fn_TinhTongChiPhiDieuTri: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
 END;
 /
-
 
 -- ============================================================
 -- [TB1: Bác sĩ cố cập nhật/xóa thông tin nhân viên]
@@ -236,20 +241,30 @@ END;
 -- Policy kích hoạt: AuditFailBSUpdateNV
 -- Kết quả mong đợi: THẤT BẠI (không có quyền UPDATE/DELETE NHANVIEN)
 -- ============================================================
+SET SERVEROUTPUT ON;
+
+-- Khối test UPDATE NHANVIEN
 BEGIN
-    UPDATE QLBV.NHANVIEN
-    SET    COSO = COSO
-    WHERE  ROWNUM = 1;
+    -- Sử dụng SQL động để ép Oracle kiểm tra quyền ở thời điểm Runtime
+    EXECUTE IMMEDIATE 'UPDATE QLBV.NHANVIEN SET COSO = COSO WHERE ROWNUM = 1';
+    
+    DBMS_OUTPUT.PUT_LINE('Thành công (Lỗi kịch bản - User không được phép UPDATE bảng này)');
 EXCEPTION
     WHEN OTHERS THEN
+        -- Khối này bây giờ sẽ bắt gọn lỗi thiếu quyền tại Runtime và in ra đúng kịch bản
         DBMS_OUTPUT.PUT_LINE('[Mong doi loi] UPDATE NHANVIEN: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
 END;
 /
 
+-- Khối test DELETE NHANVIEN
 BEGIN
-    DELETE FROM QLBV.NHANVIEN WHERE ROWNUM = 1;
+    -- Sử dụng SQL động để ép Oracle kiểm tra quyền ở thời điểm Runtime
+    EXECUTE IMMEDIATE 'DELETE FROM QLBV.NHANVIEN WHERE ROWNUM = 1';
+    
+    DBMS_OUTPUT.PUT_LINE('Thành công (Lỗi kịch bản - User không được phép DELETE bảng này)');
 EXCEPTION
     WHEN OTHERS THEN
+        -- Khối này bây giờ sẽ bắt gọn lỗi thiếu quyền tại Runtime và in ra đúng kịch bản
         DBMS_OUTPUT.PUT_LINE('[Mong doi loi] DELETE NHANVIEN: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
 END;
 /
@@ -261,10 +276,16 @@ END;
 -- Policy kích hoạt: AuditFailBNDeleteHSBA
 -- Kết quả mong đợi: THẤT BẠI (không có quyền DELETE HSBA)
 -- ============================================================
+SET SERVEROUTPUT ON;
+
 BEGIN
-    DELETE FROM QLBV.HSBA WHERE ROWNUM = 1;
+    -- Sử dụng SQL động để ép Oracle kiểm tra quyền ở thời điểm Runtime
+    EXECUTE IMMEDIATE 'DELETE FROM QLBV.HSBA WHERE ROWNUM = 1';
+    
+    DBMS_OUTPUT.PUT_LINE('Thành công (Lỗi kịch bản - User không được phép DELETE bảng này)');
 EXCEPTION
     WHEN OTHERS THEN
+        -- Khối này bây giờ sẽ bắt gọn lỗi thiếu quyền tại Runtime và in ra đúng kịch bản
         DBMS_OUTPUT.PUT_LINE('[Mong doi loi] DELETE HSBA: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
 END;
 /
@@ -276,10 +297,16 @@ END;
 -- Policy kích hoạt: AuditFailKTVDeleteDT
 -- Kết quả mong đợi: THẤT BẠI (không có quyền DELETE DONTHUOC)
 -- ============================================================
+SET SERVEROUTPUT ON;
+
 BEGIN
-    DELETE FROM QLBV.DONTHUOC WHERE ROWNUM = 1;
+    -- Sử dụng SQL động để ép Oracle kiểm tra quyền ở thời điểm Runtime
+    EXECUTE IMMEDIATE 'DELETE FROM QLBV.DONTHUOC WHERE ROWNUM = 1';
+    
+    DBMS_OUTPUT.PUT_LINE('Thành công (Lỗi kịch bản - User không được phép DELETE bảng này)');
 EXCEPTION
     WHEN OTHERS THEN
+        -- Khối này bây giờ sẽ bắt gọn lỗi thiếu quyền tại Runtime và in ra đúng kịch bản
         DBMS_OUTPUT.PUT_LINE('[Mong doi loi] DELETE DONTHUOC: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
 END;
 /
@@ -291,10 +318,16 @@ END;
 -- Policy kích hoạt: AuditFailDPVDeleteHSBA
 -- Kết quả mong đợi: THẤT BẠI (không có quyền DELETE HSBA)
 -- ============================================================
+SET SERVEROUTPUT ON;
+
 BEGIN
-    DELETE FROM QLBV.HSBA WHERE ROWNUM = 1;
+    -- Sử dụng SQL động để ép Oracle kiểm tra quyền ở thời điểm Runtime
+    EXECUTE IMMEDIATE 'DELETE FROM QLBV.HSBA WHERE ROWNUM = 1';
+    
+    DBMS_OUTPUT.PUT_LINE('Thành công (Lỗi kịch bản - User không được phép DELETE bảng này)');
 EXCEPTION
     WHEN OTHERS THEN
+        -- Khối này bây giờ sẽ bắt gọn lỗi thiếu quyền tại Runtime và in ra đúng kịch bản
         DBMS_OUTPUT.PUT_LINE('[Mong doi loi] DELETE HSBA: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
 END;
 /
@@ -306,12 +339,16 @@ END;
 -- Policy kích hoạt: AuditFailBNUpdateDV
 -- Kết quả mong đợi: THẤT BẠI (không có quyền UPDATE HSBA_DV)
 -- ============================================================
+SET SERVEROUTPUT ON;
+
 BEGIN
-    UPDATE QLBV.HSBA_DV
-    SET    KETQUA = KETQUA
-    WHERE  ROWNUM = 1;
+    -- Sử dụng SQL động để ép Oracle kiểm tra quyền ở thời điểm Runtime
+    EXECUTE IMMEDIATE 'UPDATE QLBV.HSBA_DV SET KETQUA = KETQUA WHERE ROWNUM = 1';
+    
+    DBMS_OUTPUT.PUT_LINE('Thành công (Lỗi kịch bản - User không được phép UPDATE bảng này)');
 EXCEPTION
     WHEN OTHERS THEN
+        -- Khối này bây giờ sẽ bắt gọn lỗi thiếu quyền tại Runtime và in ra đúng kịch bản
         DBMS_OUTPUT.PUT_LINE('[Mong doi loi] UPDATE HSBA_DV: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
 END;
 /
@@ -323,13 +360,31 @@ END;
 -- Policy kích hoạt: AuditFailKTVSelectBN
 -- Kết quả mong đợi: THẤT BẠI (không có quyền SELECT trực tiếp BENHNHAN)
 -- ============================================================
+SET SERVEROUTPUT ON;
+
+DECLARE
+    -- Khai báo một con trỏ động (Ref Cursor)
+    type cur_type is ref cursor;
+    c cur_type;
+    
+    -- Khai báo một biến tạm để hứng dữ liệu (chỉ cần lấy 1 cột đại diện để test quyền)
+    v_dummy VARCHAR2(1); 
 BEGIN
-    FOR r IN (SELECT * FROM QLBV.BENHNHAN WHERE ROWNUM = 1) LOOP
-        NULL;
-    END LOOP;
+    -- Sử dụng SQL động để ép Oracle kiểm tra quyền ở thời điểm Runtime
+    OPEN c FOR 'SELECT ''X'' FROM QLBV.BENHNHAN WHERE ROWNUM = 1';
+    FETCH c INTO v_dummy;
+    CLOSE c;
+    
+    DBMS_OUTPUT.PUT_LINE('Thành công (Lỗi kịch bản - User không được phép xem bảng này)');
 EXCEPTION
     WHEN OTHERS THEN
+        -- Khối này bây giờ sẽ bắt gọn lỗi ORA-00942 tại Runtime
         DBMS_OUTPUT.PUT_LINE('[Mong doi loi] SELECT BENHNHAN: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
+        
+        -- Đảm bảo đóng con trỏ nếu nó đang mở để tránh rò rỉ bộ nhớ
+        IF c%ISOPEN THEN 
+            CLOSE c; 
+        END IF;
 END;
 /
 
@@ -341,15 +396,23 @@ END;
 -- Kết quả mong đợi: THẤT BẠI (không có quyền EXECUTE - chỉ
 --                    ROLE_BACSI mới được grant execute proc này)
 -- ============================================================
+
+SET SERVEROUTPUT ON;
+DECLARE
+    v_mahsba VARCHAR2(50) := 'HS_DEMO09_BN_FAIL';
+    v_mabn   VARCHAR2(50) := USER;
+    v_mabs   VARCHAR2(50) := 'BS0001';
+    v_makhoa VARCHAR2(50) := 'K001';
 BEGIN
-    QLBV.sp_KhoiTaoHSBAKhancap(
-        p_mahsba => 'HS_DEMO09_BN_FAIL',
-        p_mabn   => USER,
-        p_mabs   => 'BS0001',
-        p_makhoa => 'K001'
-    );
+    -- Sử dụng Dynamic SQL để đẩy việc check quyền xuống Runtime
+    EXECUTE IMMEDIATE 
+        'BEGIN QLBV.sp_KhoiTaoHSBAKhancap(:1, :2, :3, :4); END;'
+    USING v_mahsba, v_mabn, v_mabs, v_makhoa;
+
+    DBMS_OUTPUT.PUT_LINE('Thành công (Lỗi kịch bản - User không được phép chạy thủ tục này)');
 EXCEPTION
     WHEN OTHERS THEN
+        -- Khối này bây giờ sẽ bắt gọn lỗi PLS-00201 / ORA-06550 tại Runtime
         DBMS_OUTPUT.PUT_LINE('[Mong doi loi] EXEC sp_KhoiTaoHSBAKhancap: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
 END;
 /
@@ -409,8 +472,12 @@ END;
 --           chặn khi INSERT/UPDATE/DELETE HSBA_DV.
 -- Kết quả mong đợi: THẤT BẠI
 -- ============================================================
+SET SERVEROUTPUT ON;
+
+-- Khối test DELETE
 BEGIN
-    DELETE FROM QLBV.VW_KTV_XemHSBADV WHERE ROWNUM = 1;
+    -- Chuyển sang SQL động để tránh lỗi biên dịch nếu thiếu quyền
+    EXECUTE IMMEDIATE 'DELETE FROM QLBV.VW_KTV_XemHSBADV WHERE ROWNUM = 1';
     
     IF SQL%ROWCOUNT = 0 THEN
         DBMS_OUTPUT.PUT_LINE('[Mong doi loi - VPD chan] DELETE VW_KTV_XemHSBADV: Cap nhat 0 dong.');
@@ -421,11 +488,15 @@ EXCEPTION
 END;
 /
 
+-- Khối test INSERT
 BEGIN
-    INSERT INTO QLBV.VW_KTV_XemHSBADV (MAHSBA, KETQUA)
-    VALUES ('HS_KHONG_TON_TAI_HOAC_NGOAI_PHAM_VI', N'Demo loi VPD');
+    -- Chuyển sang SQL động để đẩy lỗi ORA-01031 xuống Runtime và bẫy bằng EXCEPTION
+    EXECUTE IMMEDIATE 'INSERT INTO QLBV.VW_KTV_XemHSBADV (MAHSBA, KETQUA) VALUES (:1, :2)' 
+    USING 'HS_KHONG_TON_TAI_HOAC_NGOAI_PHAM_VI', N'Demo loi VPD';
+    
 EXCEPTION
     WHEN OTHERS THEN
+        -- Khối này sẽ bắt được lỗi ORA-01031 hoặc các lỗi chính sách VPD chặn
         DBMS_OUTPUT.PUT_LINE('[Mong doi loi] INSERT VW_KTV_XemHSBADV: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
 END;
 /
