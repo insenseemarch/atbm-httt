@@ -1046,20 +1046,20 @@ namespace PhanHe1.Forms
                     var r = dgvBsDT.Rows[e.RowIndex];
                     string ma = r.Cells["MAHSBA"].Value?.ToString();
                     string tenThuocCu = r.Cells["TENTHUOC"].Value?.ToString();
-                    string ngayDt = Convert.ToDateTime(r.Cells["NGAYDT"].Value).ToString("dd/MM/yyyy");
 
-                    var fields = new Dictionary<string, string> {
-                    { "TENTHUOC", tenThuocCu },
-                    { "LIEUDUNG", r.Cells["LIEUDUNG"].Value?.ToString() }
-                };
-                    using (var f = new EditDonThuocForm($"Cập nhật Thuốc: {tenThuocCu}", fields))
+                    using (var f = new EditDonThuocForm(service, ma, Convert.ToDateTime(r.Cells["NGAYDT"].Value), tenThuocCu, r.Cells["LIEUDUNG"].Value?.ToString()))
                     {
                         if (f.ShowDialog(this) == DialogResult.OK)
                         {
                             try
                             {
-                                service.ExecuteNonQuery($"UPDATE QLBV.DONTHUOC SET TENTHUOC=N'{Esc(f.NewValues["TENTHUOC"])}', LIEUDUNG=N'{Esc(f.NewValues["LIEUDUNG"])}' WHERE MAHSBA='{Esc(ma)}' AND NGAYDT=TO_DATE('{ngayDt}','DD/MM/YYYY') AND TENTHUOC=N'{Esc(tenThuocCu)}'");
-                                Ok("Cập nhật thành công!");
+                                service.ExecuteNonQuery(
+                                    $"UPDATE QLBV.DONTHUOC SET MAHSBA='{Esc(f.MaHSBA)}', " +
+                                    $"NGAYDT=TO_DATE('{f.NgayDT:dd/MM/yyyy}','DD/MM/YYYY'), " +
+                                    $"TENTHUOC=N'{Esc(f.TenThuoc)}', LIEUDUNG=N'{Esc(f.LieuDung)}' " +
+                                    $"WHERE MAHSBA='{Esc(f.OriginalMaHSBA)}' AND NGAYDT=TO_DATE('{f.OriginalNgayDT:dd/MM/yyyy}','DD/MM/YYYY') " +
+                                    $"AND TENTHUOC=N'{Esc(f.OriginalTenThuoc)}'");
+                                Ok("Cập nhật thành công (AuditSucBSUpdateDT / AuditSuaDonThuoc)!");
                                 LoadBsDonThuocGrid(dgvBsDT);
                             }
                             catch (Exception ex) { Err(ex.Message); }
@@ -1068,7 +1068,7 @@ namespace PhanHe1.Forms
                 }
             };
 
-            tab.Controls.Add(Wrap(dgvBsDT, Toolbar(txtS, btnS, btnAdd, btnDel, btnRe, Note("Nhấn đúp (Double-click) vào dòng để sửa TÊN THUỐC / LIỀU DÙNG."))));
+            tab.Controls.Add(Wrap(dgvBsDT, Toolbar(txtS, btnS, btnAdd, btnDel, btnRe, Note("Nhấn đúp → sửa MAHSBA, NGÀYĐT, TÊN THUỐC, LIỀU DÙNG (FGA 3.a)."))));
             RegisterTabLazyLoad(ownerTabs, tab, () => LoadBsDonThuocGrid(dgvBsDT));
         }
 
@@ -5648,49 +5648,188 @@ END;");
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    //  DIALOG: Cập Nhật Đơn Thuốc
+    //  DIALOG: Cập Nhật Đơn Thuốc (BS — sửa cả MAHSBA/NGAYDT cho FGA 3.a)
     // ════════════════════════════════════════════════════════════════════════
     public class EditDonThuocForm : Form
     {
-        public Dictionary<string, string> NewValues { get; } = new Dictionary<string, string>();
-
-        public EditDonThuocForm(string title, Dictionary<string, string> fields)
+        private sealed class LookupItem
         {
-            Text = title; StartPosition = FormStartPosition.CenterParent;
-            FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false;
-            ClientSize = new Size(500, 185);
-            BackColor = UiTheme.LightCyan; Font = UiTheme.BodyFont;
+            public string Code { get; }
+            public string Label { get; }
+            public LookupItem(string code, string label) { Code = code; Label = label; }
+            public override string ToString() => Label;
+        }
 
-            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(16), BackColor = UiTheme.JordyBlue };
+        public string OriginalMaHSBA { get; }
+        public DateTime OriginalNgayDT { get; }
+        public string OriginalTenThuoc { get; }
+        public string MaHSBA { get; private set; }
+        public DateTime NgayDT { get; private set; }
+        public string TenThuoc { get; private set; }
+        public string LieuDung { get; private set; }
+
+        public EditDonThuocForm(OracleAdminService service, string maHsba, DateTime ngayDt, string tenThuoc, string lieuDung)
+        {
+            OriginalMaHSBA = maHsba ?? "";
+            OriginalNgayDT = ngayDt.Date;
+            OriginalTenThuoc = tenThuoc ?? "";
+
+            Text = "Cập Nhật Đơn Thuốc";
+            StartPosition = FormStartPosition.CenterParent;
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            ClientSize = new Size(540, 340);
+            BackColor = UiTheme.LightCyan;
+            Font = UiTheme.BodyFont;
+
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(16),
+                BackColor = UiTheme.JordyBlue
+            };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
 
-            var controls = new Dictionary<string, Control>();
             int row = 0;
-            foreach (var kv in fields)
+
+            void AddRow(string label, Control ctrl)
             {
                 layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
-                layout.Controls.Add(new Label { Text = kv.Key + ":", AutoSize = true, Font = UiTheme.HeaderFont, ForeColor = UiTheme.DeepBlue, Anchor = AnchorStyles.Right }, 0, row);
-                var txt = new TextBox { Dock = DockStyle.Fill, Text = kv.Value ?? "" };
-                layout.Controls.Add(txt, 1, row);
-                controls[kv.Key] = txt;
-                row++;
+                layout.Controls.Add(new Label
+                {
+                    Text = label, AutoSize = true, Font = UiTheme.HeaderFont,
+                    ForeColor = UiTheme.DeepBlue, Anchor = AnchorStyles.Right,
+                    Margin = new Padding(0, 8, 8, 0)
+                }, 0, row);
+                layout.Controls.Add(ctrl, 1, row++);
             }
+
+            var cmbHsba = new ComboBox
+            {
+                Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown,
+                Margin = new Padding(0, 4, 0, 4),
+                AutoCompleteMode = AutoCompleteMode.SuggestAppend,
+                AutoCompleteSource = AutoCompleteSource.ListItems
+            };
+            AddRow("Mã HSBA:", cmbHsba);
+
+            var dtpNgay = new DateTimePicker
+            {
+                Dock = DockStyle.Fill, Format = DateTimePickerFormat.Custom,
+                CustomFormat = "dd/MM/yyyy", ShowUpDown = false,
+                Value = ngayDt.Date, Margin = new Padding(0, 4, 0, 4)
+            };
+            AddRow("Ngày kê đơn:", dtpNgay);
+
+            var txtTenThuoc = new TextBox
+            {
+                Dock = DockStyle.Fill, Text = tenThuoc ?? "",
+                Margin = new Padding(0, 4, 0, 4)
+            };
+            AddRow("Tên thuốc:", txtTenThuoc);
+
+            var txtLieuDung = new TextBox
+            {
+                Dock = DockStyle.Fill, Text = lieuDung ?? "",
+                Margin = new Padding(0, 4, 0, 4)
+            };
+            AddRow("Liều dùng:", txtLieuDung);
+
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
+            layout.Controls.Add(new Label
+            {
+                Text = "Sửa MAHSBA/NGAYĐT bất thường sẽ ghi FGA AuditSuaDonThuoc (Yêu cầu 3.a).",
+                ForeColor = Color.FromArgb(90, 70, 0), AutoSize = true,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Italic), Margin = new Padding(0, 2, 0, 2)
+            }, 0, row);
+            layout.SetColumnSpan(layout.GetControlFromPosition(0, row), 2);
+            row++;
 
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 52F));
             var ft = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
-            var ok = new Button { Text = "Lưu", Width = 100, Height = 36, FlatStyle = FlatStyle.Flat, BackColor = UiTheme.PastelGreen, ForeColor = UiTheme.DeepBlue, Font = new Font("Segoe UI", 10F, FontStyle.Bold) }; ok.FlatAppearance.BorderSize = 0;
-            var cn = new Button { Text = "Hủy", Width = 90, Height = 36, FlatStyle = FlatStyle.Flat, BackColor = UiTheme.BrandeisBlue, ForeColor = UiTheme.WhiteText }; cn.FlatAppearance.BorderSize = 0;
+            var ok = new Button
+            {
+                Text = "Lưu", Width = 100, Height = 36, FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.PastelGreen, ForeColor = UiTheme.DeepBlue,
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold)
+            };
+            ok.FlatAppearance.BorderSize = 0;
+            var cn = new Button
+            {
+                Text = "Hủy", Width = 90, Height = 36, FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.BrandeisBlue, ForeColor = UiTheme.WhiteText
+            };
+            cn.FlatAppearance.BorderSize = 0;
 
-            ok.Click += (s, e) => {
-                foreach (var kv in controls)
-                    NewValues[kv.Key] = ((TextBox)kv.Value).Text.Trim();
-                DialogResult = DialogResult.OK; Close();
+            ok.Click += (s, e) =>
+            {
+                MaHSBA = ResolveLookupCode(cmbHsba);
+                TenThuoc = (txtTenThuoc.Text ?? "").Trim();
+                LieuDung = (txtLieuDung.Text ?? "").Trim();
+                NgayDT = dtpNgay.Value.Date;
+                if (string.IsNullOrEmpty(MaHSBA)) { MessageBox.Show("Nhập hoặc chọn mã HSBA."); return; }
+                if (string.IsNullOrEmpty(TenThuoc)) { MessageBox.Show("Nhập tên thuốc."); return; }
+                if (string.IsNullOrEmpty(LieuDung)) { MessageBox.Show("Nhập liều dùng."); return; }
+                DialogResult = DialogResult.OK;
+                Close();
             };
             cn.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
 
-            ft.Controls.Add(ok); ft.Controls.Add(cn); layout.Controls.Add(ft, 0, row); layout.SetColumnSpan(ft, 2);
-            Controls.Add(layout); AcceptButton = ok;
+            ft.Controls.Add(ok);
+            ft.Controls.Add(cn);
+            layout.Controls.Add(ft, 0, row);
+            layout.SetColumnSpan(ft, 2);
+
+            Controls.Add(layout);
+            AcceptButton = ok;
+
+            if (service != null)
+                LoadDoctorHsbaCombo(service, cmbHsba);
+            SelectCombo(cmbHsba, maHsba);
+        }
+
+        private static void LoadDoctorHsbaCombo(OracleAdminService service, ComboBox cmb)
+        {
+            cmb.Items.Clear();
+            try
+            {
+                var dt = service.Query(
+                    "SELECT MAHSBA, MABN FROM QLBV.HSBA WHERE MABS = USER ORDER BY MAHSBA");
+                foreach (DataRow r in dt.Rows)
+                {
+                    string code = r["MAHSBA"]?.ToString();
+                    string mabn = r["MABN"]?.ToString();
+                    if (!string.IsNullOrEmpty(code))
+                        cmb.Items.Add(new LookupItem(code, code + " — " + mabn));
+                }
+            }
+            catch { }
+        }
+
+        private static bool SelectCombo(ComboBox cmb, string code)
+        {
+            if (string.IsNullOrEmpty(code)) return false;
+            for (int i = 0; i < cmb.Items.Count; i++)
+            {
+                if (cmb.Items[i] is LookupItem item &&
+                    string.Equals(item.Code, code, StringComparison.OrdinalIgnoreCase))
+                {
+                    cmb.SelectedIndex = i;
+                    return true;
+                }
+            }
+            cmb.Text = code;
+            return false;
+        }
+
+        private static string ResolveLookupCode(ComboBox cmb)
+        {
+            if (cmb.SelectedItem is LookupItem item)
+                return item.Code?.Trim();
+            string text = (cmb.Text ?? "").Trim();
+            if (string.IsNullOrEmpty(text)) return null;
+            int sep = text.IndexOf(" — ", StringComparison.Ordinal);
+            return sep > 0 ? text.Substring(0, sep).Trim() : text;
         }
     }
 
