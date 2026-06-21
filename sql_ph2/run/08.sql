@@ -114,7 +114,9 @@ BEGIN
                 'AUDITFAILBSUPDATENV',  -- NC5: Bác sĩ cập nhật/xóa NHANVIEN (Thất bại - Vượt quyền)
                 'AUDITDIEUPHOINHANSU',  -- NC6: Giám sát Điều phối viên thực thi sp_DieuPhoiNhanSu (Mới bổ sung)
                 'AUDITSUCBSEXECPROC',   -- NC7: Bác sĩ thực thi sp_KhoiTaoHSBAKhancap thành công
-                'AUDITSUCBSEXECFUNC'   -- NC8: Bác sĩ thực thi fn_KiemTraDiUngThuoc thành công
+                'AUDITSUCBSEXECFUNC',   -- NC8: Bác sĩ thực thi fn_KiemTraDiUngThuoc thành công
+                'AUDITSUCBGDTAOTHONGBAO',  -- NC9: Ban Giám đốc tạo thông báo OLS theo chi nhánh
+                'AUDITFAILBGDTAOTHONGBAO'  -- NC9b: Người không phải BGD cố tạo thông báo (Thất bại)
            )
        OR  fga_policy_name IN (
                 'AUDITSUADONTHUOC',

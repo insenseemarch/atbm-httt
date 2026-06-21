@@ -9,7 +9,9 @@
 -- === Executing OLS User Label Assignment ===
 
 DECLARE
-    v_label VARCHAR2(200);
+    v_label       VARCHAR2(200);  -- dùng cho NV thường (LDK, LDP, NV...)
+    v_read_label  VARCHAR2(200);  -- riêng cho BGD: đọc full toàn hệ thống
+    v_write_label VARCHAR2(200);  -- riêng cho BGD: ghi mặc định theo chi nhánh (COSO)
     v_level VARCHAR2(10);
     v_comp  VARCHAR2(10);
     v_grp   VARCHAR2(10);
@@ -40,10 +42,37 @@ BEGIN
         END CASE;
 
         -- 4. Xây dựng chuỗi nhãn OLS phù hợp theo từng trường hợp đặc biệt
+
+        -- TRƯỜNG HỢP ĐẶC BIỆT: Ban Giám đốc — tách riêng nhãn ĐỌC (full) và nhãn GHI mặc định (theo chi nhánh)
         IF nv.CAPBAC = N'Ban Giám đốc' THEN
-            v_label := 'BGD:TH,TK,TM:HCM,HP,HN';
-        ELSIF nv.CAPBAC = N'Lãnh đạo phòng' AND nv.MAKHOA IS NULL THEN
-            -- Trường hợp u7: Lãnh đạo phòng ban tổng thể không giới hạn khoa/cơ sở
+            -- Đọc: toàn bộ hệ thống (đáp ứng u1 - GĐ đọc được toàn bộ thông báo)
+            v_read_label := 'BGD:TH,TK,TM:HCM,HP,HN';
+
+            -- Ghi mặc định: chỉ chi nhánh (COSO) của chính giám đốc đó
+            -- Fallback về v_read_label nếu GĐ chưa được gán COSO, tránh tạo nhãn rỗng/lỗi
+            v_write_label := CASE WHEN v_grp IS NOT NULL 
+                                   THEN 'BGD:TH,TK,TM:' || v_grp 
+                                   ELSE v_read_label 
+                              END;
+
+            BEGIN
+                LBACSYS.SA_USER_ADMIN.SET_USER_LABELS(
+                    policy_name     => 'OLS_QLBV_POLICY',
+                    user_name       => nv.MANV,
+                    max_read_label  => v_read_label,
+                    max_write_label => v_read_label,   -- trần ghi cho phép tới full (không hạ thấp năng lực)
+                    def_label       => v_write_label,  -- MẶC ĐỊNH/row_label = đúng nhãn chi nhánh của họ
+                    row_label       => v_write_label
+                );
+            EXCEPTION 
+                WHEN OTHERS THEN NULL;
+            END;
+
+            CONTINUE;  -- bỏ qua phần gán nhãn chung bên dưới cho case BGD
+        END IF;
+
+        -- TRƯỜNG HỢP u7: Lãnh đạo phòng ban tổng thể không giới hạn khoa/cơ sở
+        IF nv.CAPBAC = N'Lãnh đạo phòng' AND nv.MAKHOA IS NULL THEN
             v_label := 'LDP:TH,TK,TM:HCM,HP,HN';
         ELSIF v_comp IS NOT NULL AND v_grp IS NOT NULL THEN
             v_label := v_level || ':' || v_comp || ':' || v_grp;
@@ -55,14 +84,15 @@ BEGIN
             v_label := v_level;
         END IF;
 
-        -- 5. Gán nhãn cho User tương ứng trong hệ thống OLS
+        -- 5. Gán nhãn cho User tương ứng trong hệ thống OLS (NV / LDK / LDP thường)
         BEGIN
             LBACSYS.SA_USER_ADMIN.SET_USER_LABELS(
-                policy_name    => 'OLS_QLBV_POLICY',
-                user_name      => nv.MANV,
-                max_read_label => v_label,
-                def_label      => v_label,
-                row_label      => v_label
+                policy_name     => 'OLS_QLBV_POLICY',
+                user_name       => nv.MANV,
+                max_read_label  => v_label,
+                max_write_label => v_label,   -- cấp quyền INSERT/UPDATE đúng bằng nhãn của họ
+                def_label       => v_label,
+                row_label       => v_label
             );
         EXCEPTION 
             WHEN OTHERS THEN NULL; -- Tránh ngắt vòng lặp nếu user db chưa được tạo hoàn tất
@@ -70,6 +100,18 @@ BEGIN
     END LOOP;
 END;
 /
+
+DESC DBA_SA_USER_LABELS;
+
+SELECT user_name,
+       max_read_label,
+       max_write_label,
+       min_write_label,
+       default_read_label,
+       default_write_label,
+       default_row_label
+FROM   DBA_SA_USER_LABELS
+WHERE  user_name = 'NV0001'; -- thay bằng MANV của 1 GĐ thật
 
 -- ----------------------------------------------------------------------------
 -- PHẦN II: TÁI CẤU TRÚC HỆ THỐNG KIỂM TOÁN HỢP NHẤT (YÊU CẦU 3)
@@ -104,6 +146,66 @@ BEGIN DBMS_FGA.DROP_POLICY('QLBV', 'HSBA_DV',   'AuditKTVUpdateKetQua');      EX
 -- === Preparing Procedures and Functions for Auditing ===
 
 ALTER SESSION SET CONTAINER = XEPDB1;
+
+-- Procedure sp_BGD_ThongBaoOLS: Ban Giám đốc tạo thông báo gửi đến CHI NHÁNH (COSO)
+-- mà chính Giám đốc đó phụ trách. Nhãn OLS = cấp BGD, đủ 3 khoa, chỉ 1 group (chi nhánh).
+CREATE OR REPLACE PROCEDURE QLBV.sp_BGD_ThongBaoOLS(
+    p_noidung  IN NVARCHAR2,
+    p_diadiem  IN NVARCHAR2
+) AS
+    v_manv   VARCHAR2(20);
+    v_capbac NVARCHAR2(50);
+    v_coso   NVARCHAR2(50);
+    v_group  VARCHAR2(10);
+    v_label  VARCHAR2(200);
+BEGIN
+    v_manv := SYS_CONTEXT('userenv', 'session_user');
+
+    -- 1. Chỉ Ban Giám đốc (CAPBAC) mới được dùng thủ tục này
+    BEGIN
+        SELECT CAPBAC, COSO INTO v_capbac, v_coso
+        FROM QLBV.NHANVIEN
+        WHERE MANV = v_manv;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            RAISE_APPLICATION_ERROR(-20010, 'Tài khoản không tồn tại trong NHANVIEN.');
+    END;
+
+    IF v_capbac IS NULL OR v_capbac != N'Ban Giám đốc' THEN
+        RAISE_APPLICATION_ERROR(-20011, 'Chỉ Ban Giám đốc mới được phép tạo thông báo qua thủ tục này.');
+    END IF;
+
+    IF v_coso IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20012, 'Tài khoản Ban Giám đốc chưa được gán cơ sở (COSO).');
+    END IF;
+
+    -- 2. Xác định GROUP (chi nhánh) đúng theo cơ sở của Giám đốc đăng nhập
+    CASE v_coso
+        WHEN N'Hồ Chí Minh' THEN v_group := 'HCM';
+        WHEN N'Hải Phòng'   THEN v_group := 'HP';
+        WHEN N'Hà Nội'      THEN v_group := 'HN';
+        ELSE RAISE_APPLICATION_ERROR(-20013, 'Cơ sở không hợp lệ: ' || v_coso);
+    END CASE;
+
+    -- 3. Nhãn: LEVEL=BGD, COMPARTMENT=cả 3 khoa, GROUP=chỉ chi nhánh của giám đốc đó
+    v_label := 'BGD:TH,TK,TM:' || v_group;
+
+    INSERT INTO QLBV.THONGBAO (NOIDUNG, NGAYGIO, DIADIEM, OLS_COL)
+    VALUES (
+        p_noidung,
+        SYSTIMESTAMP,
+        p_diadiem,
+        CHAR_TO_LABEL('OLS_QLBV_POLICY', v_label)
+    );
+
+    COMMIT;
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE;
+END;
+/
+GRANT EXECUTE ON QLBV.sp_BGD_ThongBaoOLS TO PUBLIC;
 
 -- Khởi tạo Procedure sp_KhoiTaoHSBAKhancap (nếu chưa có ở các file trước)
 CREATE OR REPLACE PROCEDURE QLBV.sp_KhoiTaoHSBAKhancap(
@@ -251,6 +353,16 @@ CREATE AUDIT POLICY AuditSucBSExecFunc
 ACTIONS EXECUTE ON QLBV.fn_KiemTraDiUngThuoc
 WHEN 'SYS_CONTEXT(''userenv'', ''client_identifier'') LIKE ''%ROLE_BACSI%''' EVALUATE PER STATEMENT;
 AUDIT POLICY AuditSucBSExecFunc WHENEVER SUCCESSFUL;
+
+-- Ngữ cảnh 9: [Stored Procedure] Ban Giám đốc tạo thông báo OLS gửi chi nhánh – thành công
+CREATE AUDIT POLICY AuditSucBGDTaoThongBao
+ACTIONS EXECUTE ON QLBV.sp_BGD_ThongBaoOLS;
+AUDIT POLICY AuditSucBGDTaoThongBao WHENEVER SUCCESSFUL;
+
+-- (Tuỳ chọn) Ghi vết cả trường hợp người không phải BGD cố gọi thủ tục nhưng bị chặn
+CREATE AUDIT POLICY AuditFailBGDTaoThongBao
+ACTIONS EXECUTE ON QLBV.sp_BGD_ThongBaoOLS;
+AUDIT POLICY AuditFailBGDTaoThongBao WHENEVER NOT SUCCESSFUL;
 
 
 -- ----------------------------------------------------------------------------
