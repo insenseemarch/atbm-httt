@@ -4,7 +4,7 @@
 -- Câu 1:
 -- TC#1: Tạo tài khoản cho Nhân viên và Bệnh Nhân
 -- Nhân viên 
-begin 
+/* begin 
     for nv in (select MANV from NHANVIEN) loop
         -- xoá user nếu đã tồn tại
         begin 
@@ -23,7 +23,9 @@ begin
     end loop;
 end;
 /
+*/
 -- Bệnh nhân
+/*
 begin
     for bn in (select MABN from BENHNHAN) loop
         -- xoá bệnh nhân nếu đã tồn tại
@@ -43,7 +45,7 @@ begin
     end loop;
 end;
 /
-
+*/
 -- Câu 2: Chính sách bảo mật liên quan vai trò và "Kỹ thuật viên" và "Bệnh nhân"
 -- TC#4: Kỹ thuật viên
 -- Xóa role nếu đã tồn tại:
@@ -71,9 +73,9 @@ grant update (QUEQUAN, SODT) ON VW_KTV_Xemthongtin TO ROLE_KTV;
 
 -- TC#5 Bệnh nhân:
 -- Xoá role nếu tồn tại
+/*
 begin execute immediate 'drop role ROLE_BENHNHAN'; exception when others then null; end;
 /
-rollback
 -- Tạo role bệnh nhân
 create role ROLE_BENHNHAN;
 -- Bệnh nhân xem thông tin của chính mình 
@@ -84,15 +86,15 @@ where MABN = sys_context ('userenv', 'session_user');
 -- Cấp quyền trên View cho Role
 grant select on VW_BenhNhan_Xemthongtin to ROLE_BENHNHAN;
 grant update (SONHA, TENDUONG, QUANHUYEN, TINHTP, TIENSUBENH, TIENSUBENHGD, DIUNGTHUOC) ON VW_BenhNhan_Xemthongtin TO ROLE_BENHNHAN;
-
+*/
 -- Gán role cho user 
 begin
     for nv in (select MANV from NhanVien where VAITRO = N'Kỹ thuật viên') loop
         execute immediate 'grant ROLE_KTV to ' || nv.MANV;
     end loop;
-    for bn in (select MABN from BenhNhan) loop
+    /* for bn in (select MABN from BenhNhan) loop
         execute immediate 'grant ROLE_BENHNHAN to ' || bn.MABN;
-    end loop;
+    end loop; */
 end;
 /
 
