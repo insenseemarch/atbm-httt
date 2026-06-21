@@ -580,6 +580,14 @@ namespace PhanHe1
             return GetCurrentRolesInternal();
         }
 
+        /// <summary>Gán client_identifier cho Unified Audit (run/06.sql, 09.sql).</summary>
+        public void SetClientIdentifier(string clientIdentifier)
+        {
+            if (string.IsNullOrWhiteSpace(clientIdentifier)) return;
+            string safe = clientIdentifier.Replace("'", "''");
+            ExecuteNonQuery($"BEGIN DBMS_SESSION.SET_IDENTIFIER('{safe}'); END;");
+        }
+
         /// <summary>Chuỗi kết nối cho expdp/impdp CLI (dùng credential phiên đăng nhập hiện tại).</summary>
         public string GetDataPumpConnectString()
         {

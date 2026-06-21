@@ -4,7 +4,7 @@
 -- Câu 1:
 -- TC#1: Tạo tài khoản cho Nhân viên và Bệnh Nhân
 -- Nhân viên 
-begin 
+/* begin 
     for nv in (select MANV from NHANVIEN) loop
         -- xoá user nếu đã tồn tại
         begin 
@@ -23,7 +23,9 @@ begin
     end loop;
 end;
 /
+*/
 -- Bệnh nhân
+/*
 begin
     for bn in (select MABN from BENHNHAN) loop
         -- xoá bệnh nhân nếu đã tồn tại
@@ -43,6 +45,7 @@ begin
     end loop;
 end;
 /
+*/
 
 -- Câu 2: Chính sách bảo mật liên quan vai trò và "Kỹ thuật viên" và "Bệnh nhân"
 -- TC#4: Kỹ thuật viên
@@ -159,7 +162,7 @@ create or replace function fn_vpdHSBA(
     v_user   varchar2(100);
 begin
     v_user := sys_context ('userenv', 'session_user');
-    if v_user in ('SYS', 'SYSTEM', 'ADMIN', 'APP_ADMIN') then
+    if v_user in ('SYS', 'SYSTEM', 'ADMIN', 'APP_ADMIN', 'QLBV') then
         return '1=1';
     end if;
     select VAITRO into v_vaitro
@@ -306,37 +309,5 @@ end;
 -- Cập nhật dữ liệu mẫu để test 
 -- tương ứng mô tả u1-u8 trong đề
 grant select on THONGBAO to public;
-
--- u1: Giám đốc đọc toàn bộ
-update NHANVIEN set CAPBAC = N'Ban Giám đốc',   MAKHOA = null,  COSO = N'Hồ Chí Minh' 
-where MANV = 'NV0001';
-
--- u2: Lãnh đạo Khoa tim mạch tại HCM
-update NHANVIEN set CAPBAC = N'Lãnh đạo khoa', MAKHOA = 'K003', COSO = N'Hồ Chí Minh' 
-where MANV = 'NV0002';
-
--- u3: Lãnh đạo Khoa thần kinh tại Hà Nội
-update NHANVIEN set CAPBAC = N'Lãnh đạo khoa', MAKHOA = 'K002', COSO = N'Hà Nội'       
-where MANV = 'NV0003';
-
--- u4: Nhân viên Khoa thần kinh tại HCM
-update NHANVIEN set CAPBAC = N'Nhân viên', MAKHOA = 'K002', COSO = N'Hồ Chí Minh' 
-where MANV = 'NV0004';
-
--- u5: Nhân viên Khoa tim mạch tại HCM
-update NHANVIEN set CAPBAC = N'Nhân viên', MAKHOA = 'K003', COSO = N'Hồ Chí Minh' 
-where MANV = 'NV0005';
-
--- u6: Lãnh đạo phòng đọc thông báo Khoa tim mạch tại HCM
-update NHANVIEN set CAPBAC = N'Lãnh đạo phòng', MAKHOA = 'K003', COSO = N'Hồ Chí Minh' 
-where MANV = 'NV0006';
-
--- u7: Lãnh đạo phòng đọc toàn bộ thông báo cấp lãnh đạo phòng
-update NHANVIEN set CAPBAC = N'Lãnh đạo phòng', MAKHOA = null,   COSO = null             
-where MANV = 'NV0007';
-
--- u8: Nhân viên Khoa tiêu hóa tại Hà Nội
-update NHANVIEN set CAPBAC = N'Nhân viên', MAKHOA = 'K001', COSO = N'Hà Nội'
-where MANV = 'NV0008';
 
 commit;

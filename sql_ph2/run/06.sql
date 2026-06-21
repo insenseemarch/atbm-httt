@@ -201,10 +201,10 @@ WHEN 'SYS_CONTEXT(''userenv'', ''client_identifier'') LIKE ''%ROLE_BACSI%''' EVA
 AUDIT POLICY AuditFailBSUpdateNV WHENEVER NOT SUCCESSFUL;
 
 -- Ngữ cảnh 6: [Thất bại 4] Người dùng "ROLE_BACSI" cố tình thực thi hàm tính tổng chi phí (Thất bại)
-CREATE AUDIT POLICY AuditFailBSExecFunc
-ACTIONS EXECUTE ON QLBV.fn_TinhTongChiPhiDieuTri
-WHEN 'SYS_CONTEXT(''userenv'', ''client_identifier'') LIKE ''%ROLE_BACSI%''' EVALUATE PER STATEMENT;
-AUDIT POLICY AuditFailBSExecFunc WHENEVER NOT SUCCESSFUL;
+-- CREATE AUDIT POLICY AuditFailBSExecFunc
+-- ACTIONS EXECUTE ON QLBV.fn_TinhTongChiPhiDieuTri
+-- WHEN 'SYS_CONTEXT(''userenv'', ''client_identifier'') LIKE ''%ROLE_BACSI%''' EVALUATE PER STATEMENT;
+-- AUDIT POLICY AuditFailBSExecFunc WHENEVER NOT SUCCESSFUL;
 
 -- Ngữ cảnh 7: [Stored Procedure - NGỮ CẢNH MỚI - Thành công]: Bác sĩ thực thi thủ tục "Khởi tạo HSBA khẩn cấp" thành công
 CREATE AUDIT POLICY AuditSucBSExecProc
