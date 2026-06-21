@@ -17,10 +17,13 @@ namespace PhanHe1.Forms
     {
         private enum UserRole { Unknown, DPV, BACSI, KTV, BN, ADMIN, GIAMDOC }
 
-        // run/06.sql §3.2 NC1–NC8 + 09.sql query §3.4.2
+        private enum ThongBaoSendMode { ViewOnly, AdminOlsPicker, BgdProcedure }
+
+        // run/06.sql §3.2 NC1–NC9b — danh sách policy khớp 08.sql pr_auto_archive_audit_log
         private const string AuditStandardPolicyInList =
             "'AUDITSUCDPVUPDATEBN','AUDITDPVUPDATEHSBA','AUDITSUCKTVUPDATEDV','AUDITSUCBSUPDATEDT'," +
-            "'AUDITFAILBSUPDATENV','AUDITDIEUPHOINHANSU','AUDITSUCBSEXECPROC','AUDITSUCBSEXECFUNC'";
+            "'AUDITFAILBSUPDATENV','AUDITDIEUPHOINHANSU','AUDITSUCBSEXECPROC','AUDITSUCBSEXECFUNC'," +
+            "'AUDITSUCBGDTAOTHONGBAO','AUDITFAILBGDTAOTHONGBAO'";
 
         // run/06.sql §3.3 FGA
         private const string AuditFgaPolicyInList =
@@ -631,7 +634,7 @@ namespace PhanHe1.Forms
             var tTB = MakeTab("Thông Báo Khẩn (OLS)");
             var tDemo = MakeTab("Chức Năng Mở Rộng");
             BuildNV_Info(tInfo); 
-            BuildDPV_BN(tBN, tabs); BuildDPV_HSBA(tHSBA, tabs); BuildDPV_DV(tDV, tabs); BuildThongBaoTab(tTB, tabs, false);
+            BuildDPV_BN(tBN, tabs); BuildDPV_HSBA(tHSBA, tabs); BuildDPV_DV(tDV, tabs); BuildThongBaoTab(tTB, tabs, ThongBaoSendMode.ViewOnly);
             BuildAuditDemoTab(tDemo);
             tabs.TabPages.AddRange(new[] { tInfo, tBN, tHSBA, tDV, tTB, tDemo });
             parent.Controls.Add(tabs);
@@ -657,41 +660,43 @@ namespace PhanHe1.Forms
                 {
                     var r = dgvDpvBN.Rows[e.RowIndex];
                     string ma = r.Cells["MABN"].Value?.ToString();
+                    DateTime? ngaySinh = null;
+                    if (r.Cells["NGAYSINH"].Value != null && r.Cells["NGAYSINH"].Value != DBNull.Value)
+                        ngaySinh = Convert.ToDateTime(r.Cells["NGAYSINH"].Value);
 
-                    var fields = new Dictionary<string, string> {
-                        { "TENBN", r.Cells["TENBN"].Value?.ToString() },
-                        { "PHAI", r.Cells["PHAI"].Value?.ToString() },
-                        { "NGAYSINH", r.Cells["NGAYSINH"].Value != null ? Convert.ToDateTime(r.Cells["NGAYSINH"].Value).ToString("dd/MM/yyyy") : "" },
-                        { "CCCD", r.Cells["CCCD"].Value?.ToString() },
-                        { "SONHA", r.Cells["SONHA"].Value?.ToString() },
-                        { "TENDUONG", r.Cells["TENDUONG"].Value?.ToString() },
-                        { "QUANHUYEN", r.Cells["QUANHUYEN"].Value?.ToString() },
-                        { "TINHTP", r.Cells["TINHTP"].Value?.ToString() },
-                        { "TIENSUBENH", r.Cells["TIENSUBENH"].Value?.ToString() },
-                        { "TIENSUBENHGD", r.Cells["TIENSUBENHGD"].Value?.ToString() },
-                        { "DIUNGTHUOC", r.Cells["DIUNGTHUOC"].Value?.ToString() }
+                    var values = new BenhNhanFormValues
+                    {
+                        TenBN = r.Cells["TENBN"].Value?.ToString(),
+                        Phai = r.Cells["PHAI"].Value?.ToString(),
+                        NgaySinh = ngaySinh,
+                        CCCD = r.Cells["CCCD"].Value?.ToString(),
+                        SoNha = r.Cells["SONHA"].Value?.ToString(),
+                        TenDuong = r.Cells["TENDUONG"].Value?.ToString(),
+                        QuanHuyen = r.Cells["QUANHUYEN"].Value?.ToString(),
+                        TinhTP = r.Cells["TINHTP"].Value?.ToString(),
+                        TienSuBenh = r.Cells["TIENSUBENH"].Value?.ToString(),
+                        TienSuBenhGD = r.Cells["TIENSUBENHGD"].Value?.ToString(),
+                        DiUngThuoc = r.Cells["DIUNGTHUOC"].Value?.ToString()
                     };
 
-                    using (var f = new EditRowForm($"Cập nhật Bệnh Nhân: {ma}", fields))
+                    using (var f = new BenhNhanAddForm(ma, values))
                     {
                         if (f.ShowDialog(this) == DialogResult.OK)
                         {
                             try
                             {
-                                string ngaySinhSql = string.IsNullOrEmpty(f.NewValues["NGAYSINH"]) ? "NULL" : $"TO_DATE('{f.NewValues["NGAYSINH"]}','DD/MM/YYYY')";
-
                                 string sqlUpdate = $"UPDATE QLBV.BENHNHAN SET " +
-                                                   $"TENBN=N'{Esc(f.NewValues["TENBN"])}', " +
-                                                   $"PHAI=N'{Esc(f.NewValues["PHAI"])}', " +
-                                                   $"NGAYSINH={ngaySinhSql}, " +
-                                                   $"CCCD='{Esc(f.NewValues["CCCD"])}', " +
-                                                   $"SONHA=N'{Esc(f.NewValues["SONHA"])}', " +
-                                                   $"TENDUONG=N'{Esc(f.NewValues["TENDUONG"])}', " +
-                                                   $"QUANHUYEN=N'{Esc(f.NewValues["QUANHUYEN"])}', " +
-                                                   $"TINHTP=N'{Esc(f.NewValues["TINHTP"])}', " +
-                                                   $"TIENSUBENH=N'{Esc(f.NewValues["TIENSUBENH"])}', " +
-                                                   $"TIENSUBENHGD=N'{Esc(f.NewValues["TIENSUBENHGD"])}', " +
-                                                   $"DIUNGTHUOC=N'{Esc(f.NewValues["DIUNGTHUOC"])}' " +
+                                                   $"TENBN=N'{Esc(f.TenBN)}', " +
+                                                   $"PHAI=N'{Esc(f.Phai)}', " +
+                                                   $"NGAYSINH=TO_DATE('{f.NgaySinh:dd/MM/yyyy}','DD/MM/YYYY'), " +
+                                                   $"CCCD='{Esc(f.CCCD)}', " +
+                                                   $"SONHA=N'{Esc(f.SoNha)}', " +
+                                                   $"TENDUONG=N'{Esc(f.TenDuong)}', " +
+                                                   $"QUANHUYEN=N'{Esc(f.QuanHuyen)}', " +
+                                                   $"TINHTP=N'{Esc(f.TinhTP)}', " +
+                                                   $"TIENSUBENH=N'{Esc(f.TienSuBenh)}', " +
+                                                   $"TIENSUBENHGD=N'{Esc(f.TienSuBenhGD)}', " +
+                                                   $"DIUNGTHUOC=N'{Esc(f.DiUngThuoc)}' " +
                                                    $"WHERE MABN='{Esc(ma)}'";
 
                                 service.ExecuteNonQuery(sqlUpdate);
@@ -710,7 +715,7 @@ namespace PhanHe1.Forms
 
         private void DPV_ThemBN()
         {
-            using (var f = new BenhNhanAddForm())
+            using (var f = new BenhNhanAddForm(NextAvailableBnId()))
                 if (f.ShowDialog(this) == DialogResult.OK)
                     try { service.ExecuteNonQuery($"INSERT INTO QLBV.BENHNHAN(MABN,TENBN,PHAI,NGAYSINH,CCCD,SONHA,TENDUONG,QUANHUYEN,TINHTP,TIENSUBENH,TIENSUBENHGD,DIUNGTHUOC) VALUES('{Esc(f.MaBN)}',N'{Esc(f.TenBN)}',N'{Esc(f.Phai)}',TO_DATE('{f.NgaySinh:dd/MM/yyyy}','DD/MM/YYYY'),'{Esc(f.CCCD)}',N'{Esc(f.SoNha)}',N'{Esc(f.TenDuong)}',N'{Esc(f.QuanHuyen)}',N'{Esc(f.TinhTP)}',N'{Esc(f.TienSuBenh)}',N'{Esc(f.TienSuBenhGD)}',N'{Esc(f.DiUngThuoc)}')"); Ok("Đã thêm bệnh nhân!"); LoadGrid(dgvDpvBN, DpvBenhNhanSql()); } catch (Exception ex) { Err(ex.Message); }
         }
@@ -759,34 +764,19 @@ namespace PhanHe1.Forms
                     string mabsCu = r.Cells["MABS"].Value?.ToString() ?? "";
                     string khoaCu = r.Cells["MAKHOA"].Value?.ToString() ?? "";
 
-                    var fields = new Dictionary<string, string> {
-                        { "MABS", mabsCu },
-                        { "MAKHOA", khoaCu }
-                    };
-
-                    using (var f = new EditRowForm($"Điều phối HSBA: {ma}", fields))
+                    using (var f = new HsbaDieuPhoiForm(service, ma, khoaCu, mabsCu))
                     {
                         if (f.ShowDialog(this) == DialogResult.OK)
                         {
                             try
                             {
-                                string mabsMoi = f.NewValues["MABS"] ?? "";
-                                string khoaMoi = f.NewValues["MAKHOA"] ?? "";
-                                bool doiKhoa = !string.Equals(khoaMoi, khoaCu, StringComparison.OrdinalIgnoreCase);
-                                bool doiBs = !string.Equals(mabsMoi, mabsCu, StringComparison.OrdinalIgnoreCase);
-
+                                bool doiKhoa = !string.Equals(f.MaKhoa, khoaCu, StringComparison.OrdinalIgnoreCase);
+                                bool doiBs = !string.Equals(f.MaBS, mabsCu, StringComparison.OrdinalIgnoreCase);
                                 if (!doiKhoa && !doiBs) { Ok("Không có thay đổi."); return; }
 
-                                if (doiKhoa)
-                                    service.ExecuteNonQuery($"BEGIN QLBV.sp_DieuPhoiNhanSu('{Esc(ma)}','{Esc(khoaMoi)}'); END;");
-                                if (doiBs)
-                                    service.ExecuteNonQuery($"UPDATE QLBV.HSBA SET MABS='{Esc(mabsMoi)}' WHERE MAHSBA='{Esc(ma)}'");
-
-                                Ok(doiKhoa && doiBs
-                                    ? "Đã chuyển khoa (sp_DieuPhoiNhanSu) và phân công bác sĩ."
-                                    : doiKhoa
-                                        ? "Đã chuyển khoa qua sp_DieuPhoiNhanSu (AuditDieuPhoiNhanSu)."
-                                        : "Đã phân công bác sĩ (AuditDPVUpdateHSBA).");
+                                service.ExecuteNonQuery(
+                                    $"UPDATE QLBV.HSBA SET MAKHOA='{Esc(f.MaKhoa)}', MABS='{Esc(f.MaBS)}' WHERE MAHSBA='{Esc(ma)}'");
+                                Ok("Đã cập nhật khoa và bác sĩ phụ trách (AuditDPVUpdateHSBA).");
                                 LoadGrid(dgvDpvHSBA, DpvHsbaSql());
                             }
                             catch (Exception ex) { Err(ex.Message); }
@@ -795,13 +785,13 @@ namespace PhanHe1.Forms
                 }
             };
 
-            tab.Controls.Add(Wrap(dgvDpvHSBA, Toolbar(txtS, btnS, btnAdd, btnRe, btnCalc, Note("Nhấn đúp → sửa MABS/MAKHOA. Đổi MAKHOA gọi sp_DieuPhoiNhanSu; đổi MABS cập nhật trực tiếp."))));
+            tab.Controls.Add(Wrap(dgvDpvHSBA, Toolbar(txtS, btnS, btnAdd, btnRe, btnCalc, Note("Nhấn đúp → điều phối Khoa/Bác sĩ. + Tạo HSBA: mã tự sinh, chọn hoặc gõ MABN/khoa/BS."))));
             RegisterTabLazyLoad(ownerTabs, tab, () => LoadGrid(dgvDpvHSBA, DpvHsbaSql()));
         }
 
         private void DPV_ThemHSBA()
         {
-            using (var f = new HsbaAddForm())
+            using (var f = new HsbaAddForm(service, NextAvailableHsbaId()))
                 if (f.ShowDialog(this) == DialogResult.OK)
                     try { service.ExecuteNonQuery($"INSERT INTO QLBV.HSBA(MAHSBA,MABN,NGAY,MABS,MAKHOA) VALUES('{Esc(f.MaHSBA)}','{Esc(f.MaBN)}',TO_DATE('{f.Ngay:dd/MM/yyyy}','DD/MM/YYYY'),'{Esc(f.MaBS)}','{Esc(f.MaKhoa)}')"); Ok("Đã tạo HSBA! Y bác sĩ sẽ điền chẩn đoán/kết luận sau."); LoadGrid(dgvDpvHSBA, DpvHsbaSql()); } catch (Exception ex) { Err(ex.Message); }
         }
@@ -886,14 +876,12 @@ namespace PhanHe1.Forms
             var tDV = MakeTab("Dịch Vụ (HSBA_DV)");
             var tDT = MakeTab("Đơn Thuốc");
             var tTB = MakeTab("Thông Báo Khẩn (OLS)");
-            // ✅ [GỘPCODE-D] Tab Báo Cáo Điều Trị — VW_BaoCaoDieuTri + sp_KhoiTaoHSBAKhancap
-            var tBaoCao = MakeTab("Báo Cáo Điều Trị");
             var tDemo = MakeTab("Chức Năng Mở Rộng");
             BuildNV_Info(tInfo);
             BuildBs_HSBA(tHSBA, tabs); BuildBs_BN(tBN, tabs); BuildBs_DV(tDV, tabs); BuildBs_DT(tDT, tabs);
-            BuildBs_BaoCao(tBaoCao, tabs); BuildThongBaoTab(tTB, tabs, false);
+            BuildThongBaoTab(tTB, tabs, ThongBaoSendMode.ViewOnly);
             BuildAuditDemoTab(tDemo);
-            tabs.TabPages.AddRange(new[] { tInfo, tHSBA, tBN, tDV, tDT, tBaoCao, tTB, tDemo });
+            tabs.TabPages.AddRange(new[] { tInfo, tHSBA, tBN, tDV, tDT, tTB, tDemo });
             parent.Controls.Add(tabs);
         }
 
@@ -1020,7 +1008,7 @@ namespace PhanHe1.Forms
         // BS chỉ định dịch vụ — MAKTV để NULL, DPV phân công KTV sau
         private void Bs_ThemDV()
         {
-            using (var f = new HsbaDvAddForm(true))
+            using (var f = new HsbaDvAddForm(true, service))
                 if (f.ShowDialog(this) == DialogResult.OK)
                     try
                     {
@@ -1086,7 +1074,7 @@ namespace PhanHe1.Forms
 
         private void Bs_ThemDT()
         {
-            using (var f = new DonThuocAddForm())
+            using (var f = new DonThuocAddForm(service))
                 if (f.ShowDialog(this) == DialogResult.OK)
                     try
                     {
@@ -1118,57 +1106,6 @@ namespace PhanHe1.Forms
                     }
                     catch (Exception ex) { Err(ex.Message); }
             if (n > 0) { Ok($"Đã lưu {n} thay đổi (ghi vết audit)."); LoadBsDonThuocGrid(dgvBsDT); } else Ok("Không có thay đổi nào.");
-        }
-
-        // run/06.sql: sp_KhoiTaoHSBAKhancap + HSBA do bác sĩ phụ trách (thay VW_BaoCaoDieuTri)
-        private void BuildBs_BaoCao(TabPage tab, TabControl ownerTabs)
-        {
-            var grid = MakeGrid(true);
-            var btnRe     = QuickBtn("Tải Lại Báo Cáo", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 155);
-            var btnCapCuu = QuickBtn("🚨 Tạo HSBA Cấp Cứu", Color.FromArgb(206, 17, 38), UiTheme.WhiteText, 180);
-
-            const string baoCaoSql =
-                "SELECT MAHSBA, MABN, NGAY, CHANDOAN, DIEUTRI, KETLUAN, MABS, MAKHOA " +
-                "FROM QLBV.HSBA WHERE MABS = USER ORDER BY NGAY DESC FETCH FIRST 200 ROWS ONLY";
-
-            btnRe.Click += (s, e) => {
-                try
-                {
-                    grid.DataSource = service.Query(baoCaoSql);
-                    UiTheme.StyleGrid(grid);
-                }
-                catch (Exception ex) { Err(ex.Message); }
-            };
-
-            btnCapCuu.Click += (s, e) => {
-                using (var f = new CapCuuForm())
-                    if (f.ShowDialog(this) == DialogResult.OK)
-                        try
-                        {
-                            service.ExecuteNonQuery($"BEGIN QLBV.sp_KhoiTaoHSBAKhancap('{Esc(f.MaHSBA)}','{Esc(f.MaBN)}','{Esc(currentUser)}','{Esc(f.MaKhoa)}'); END;");
-                            Ok($"Đã tạo HSBA cấp cứu '{f.MaHSBA}' — policy AuditSucBSExecProc.");
-                            try
-                            {
-                                grid.DataSource = service.Query(baoCaoSql);
-                                UiTheme.StyleGrid(grid);
-                            }
-                            catch { }
-                        }
-                        catch (Exception ex) { Err(ex.Message); }
-            };
-
-            tab.Controls.Add(Wrap(grid, Toolbar(btnRe, btnCapCuu,
-                Note("HSBA do bác sĩ phụ trách (MABS=USER)  |  sp_KhoiTaoHSBAKhancap → AuditSucBSExecProc (run/06.sql)."))));
-
-            RegisterTabLazyLoad(ownerTabs, tab, () =>
-            {
-                try
-                {
-                    grid.DataSource = service.Query(baoCaoSql);
-                    UiTheme.StyleGrid(grid);
-                }
-                catch { }
-            });
         }
 
         // ═══════════════════════════════════════════════════════════════════
@@ -1237,52 +1174,12 @@ namespace PhanHe1.Forms
             var subTabs = new TabControl { Dock = DockStyle.Fill };
             switch (userRole)
             {
-                case UserRole.DPV:   BuildDemo_DpvDieuPhoi(subTabs); BuildDemo_DpvHsba(subTabs); break;
-                case UserRole.BACSI: BuildDemo_BsChiPhi(subTabs); BuildDemo_BsVaiTro(subTabs); BuildDemo_BsNhanVien(subTabs); BuildDemo_BsHsbaKhac(subTabs); break;
+                case UserRole.DPV:   BuildDemo_DpvHsba(subTabs); break;
+                case UserRole.BACSI: BuildDemo_BsChiPhi(subTabs); BuildDemo_BsVaiTro(subTabs); BuildDemo_BsNhanVien(subTabs); BuildDemo_BsHsbaKhac(subTabs); BuildDemo_BsBgdThongBao(subTabs); break;
                 case UserRole.KTV:   BuildDemo_KtvDonThuoc(subTabs); BuildDemo_KtvBenhNhan(subTabs); BuildDemo_KtvDichVu(subTabs); break;
-                case UserRole.BN:    BuildDemo_BnHsba(subTabs); BuildDemo_BnDichVu(subTabs); BuildDemo_BnCapCuu(subTabs); break;
+                case UserRole.BN:    BuildDemo_BnHsba(subTabs); BuildDemo_BnDichVu(subTabs); break;
             }
             tab.Controls.Add(subTabs);
-        }
-
-        // run/06.sql NC6 + 09.sql: sp_DieuPhoiNhanSu → AuditDieuPhoiNhanSu
-        private void BuildDemo_DpvDieuPhoi(TabControl parent)
-        {
-            var page = MakeTab("Điều Phối Nhân Sự");
-            var pnl = new Panel { Dock = DockStyle.Fill, Padding = new Padding(24, 20, 24, 20), BackColor = Color.White };
-
-            var lbl = new Label
-            {
-                Text = "Gọi QLBV.sp_DieuPhoiNhanSu để chuyển khoa bệnh nhân (NC6 — AuditDieuPhoiNhanSu).",
-                AutoSize = true, MaximumSize = new Size(700, 0), Font = new Font("Segoe UI", 10F), ForeColor = UiTheme.DeepBlue
-            };
-            var tbl = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, Location = new Point(0, 40), Padding = new Padding(0, 12, 0, 0) };
-            tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
-            tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 400));
-
-            var txtMa = new TextBox { Width = 280, Text = "HS000001" };
-            var txtKhoa = new TextBox { Width = 280, Text = "K002" };
-            tbl.Controls.Add(new Label { Text = "Mã HSBA:", AutoSize = true, Margin = new Padding(0, 8, 0, 0) }, 0, 0);
-            tbl.Controls.Add(txtMa, 1, 0);
-            tbl.Controls.Add(new Label { Text = "Mã khoa mới:", AutoSize = true, Margin = new Padding(0, 8, 0, 0) }, 0, 1);
-            tbl.Controls.Add(txtKhoa, 1, 1);
-
-            var btnRun = QuickBtn("Thực Thi Procedure", UiTheme.BrandeisBlue, UiTheme.WhiteText, 180, 40);
-            btnRun.Location = new Point(140, 130);
-            btnRun.Click += (s, e) =>
-            {
-                string ma = txtMa.Text.Trim();
-                string khoa = txtKhoa.Text.Trim();
-                if (string.IsNullOrEmpty(ma) || string.IsNullOrEmpty(khoa)) { Err("Nhập MAHSBA và MAKHOA."); return; }
-                HandleDemoAction("09-DPV-NC6", "AuditDieuPhoiNhanSu", "EXECUTE procedure",
-                    () => service.ExecuteNonQuery($"BEGIN QLBV.sp_DieuPhoiNhanSu('{Esc(ma)}','{Esc(khoa)}'); END;"));
-            };
-
-            pnl.Controls.Add(btnRun);
-            pnl.Controls.Add(tbl);
-            pnl.Controls.Add(lbl);
-            page.Controls.Add(pnl);
-            parent.TabPages.Add(page);
         }
 
         // [TB4] DPV — quản lý HSBA có nút xóa (không được phép DELETE)
@@ -1352,6 +1249,40 @@ namespace PhanHe1.Forms
                 Note("Chọn HSBA → Kiểm Tra Dị Ứng (fn_KiemTraDiUngThuoc, run/06.sql)."))));
             parent.TabPages.Add(page);
             try { LoadGrid(grid, "SELECT MAHSBA, MABN, CHANDOAN FROM QLBV.HSBA WHERE MABS = USER"); } catch { }
+        }
+
+        // run/06.sql NC9b: sp_BGD_ThongBaoOLS khi không phải BGD → AuditFailBGDTaoThongBao
+        private void BuildDemo_BsBgdThongBao(TabControl parent)
+        {
+            var page = MakeTab("BGD Thông Báo (NC9b)");
+            var pnl = new Panel { Dock = DockStyle.Fill, Padding = new Padding(24, 20, 24, 20), BackColor = Color.White };
+            var lbl = new Label
+            {
+                Text = "Gọi QLBV.sp_BGD_ThongBaoOLS (06.sql) khi không phải Ban Giám đốc → AuditFailBGDTaoThongBao.",
+                AutoSize = true, MaximumSize = new Size(700, 0), Font = new Font("Segoe UI", 10F), ForeColor = UiTheme.DeepBlue
+            };
+            var txNd = new TextBox { Width = 420, Multiline = true, Height = 80, Text = "[Demo] Bác sĩ cố tạo thông báo BGD" };
+            var txDd = new TextBox { Width = 420, Text = "Phòng họp A" };
+            var tbl = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, Location = new Point(0, 50), Padding = new Padding(0, 12, 0, 0) };
+            tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
+            tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 430));
+            tbl.Controls.Add(new Label { Text = "Nội dung:", AutoSize = true, Margin = new Padding(0, 8, 0, 0) }, 0, 0);
+            tbl.Controls.Add(txNd, 1, 0);
+            tbl.Controls.Add(new Label { Text = "Địa điểm:", AutoSize = true, Margin = new Padding(0, 8, 0, 0) }, 0, 1);
+            tbl.Controls.Add(txDd, 1, 1);
+            var btnRun = QuickBtn("Gọi sp_BGD_ThongBaoOLS", Color.FromArgb(206, 17, 38), UiTheme.WhiteText, 210, 40);
+            btnRun.Location = new Point(120, 180);
+            btnRun.Click += (s, e) =>
+            {
+                HandleDemoAction("NC9b", "AuditFailBGDTaoThongBao", "EXECUTE procedure",
+                    () => service.ExecuteNonQuery(
+                        $"BEGIN QLBV.sp_BGD_ThongBaoOLS(N'{Esc(txNd.Text)}', N'{Esc(txDd.Text)}'); END;"));
+            };
+            pnl.Controls.Add(btnRun);
+            pnl.Controls.Add(tbl);
+            pnl.Controls.Add(lbl);
+            page.Controls.Add(pnl);
+            parent.TabPages.Add(page);
         }
 
         // run/09.sql [09-BACSI-03]: fn_CheckUserVaiTro — helper kiểm tra vai trò động
@@ -1630,43 +1561,6 @@ namespace PhanHe1.Forms
             parent.TabPages.Add(page);
         }
 
-        // [TB7] BN — tạo HSBA cấp cứu (proc của BS)
-        private void BuildDemo_BnCapCuu(TabControl parent)
-        {
-            var page = MakeTab("Cấp Cứu");
-            var pnl = new Panel { Dock = DockStyle.Fill, Padding = new Padding(32, 28, 32, 28), BackColor = Color.FromArgb(255, 248, 248) };
-
-            pnl.Controls.Add(new Label
-            {
-                Text = "Yêu cầu khởi tạo hồ sơ bệnh án cấp cứu",
-                Font = new Font("Segoe UI", 13F, FontStyle.Bold), ForeColor = Color.FromArgb(180, 40, 40),
-                AutoSize = true, Location = new Point(0, 0)
-            });
-            pnl.Controls.Add(new Label
-            {
-                Text = "Chức năng này thường dành cho Bác sĩ. Bạn có thể gửi yêu cầu — hệ thống sẽ kiểm tra quyền.",
-                Location = new Point(0, 36), Size = new Size(600, 40), Font = new Font("Segoe UI", 9.5F), ForeColor = Color.Gray
-            });
-
-            var btn = QuickBtn("🚨 Tạo HSBA Cấp Cứu", Color.FromArgb(206, 17, 38), UiTheme.WhiteText, 200, 44);
-            btn.Location = new Point(0, 88);
-            btn.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
-            btn.Click += (s, e) =>
-            {
-                using (var f = new CapCuuForm())
-                {
-                    if (f.ShowDialog(this) != DialogResult.OK) return;
-                    HandleDemoAction("TB7", "AuditSucBSExecProc", "Vượt quyền EXECUTE",
-                        () => service.ExecuteNonQuery(
-                            $"BEGIN QLBV.sp_KhoiTaoHSBAKhancap('{Esc(f.MaHSBA)}','{Esc(f.MaBN)}','BS0001','{Esc(f.MaKhoa)}'); END;"));
-                }
-            };
-
-            pnl.Controls.Add(btn);
-            page.Controls.Add(pnl);
-            parent.TabPages.Add(page);
-        }
-
         // ═══════════════════════════════════════════════════════════════════
         //  KỸ THUẬT VIÊN  (TC#4)
         // ═══════════════════════════════════════════════════════════════════
@@ -1681,7 +1575,7 @@ namespace PhanHe1.Forms
             var tTB = MakeTab("Thông Báo Khẩn (OLS)");
             var tDemo = MakeTab("Chức Năng Mở Rộng");
             BuildNV_Info(tInfo);
-            BuildKTV_DV(tDV); BuildThongBaoTab(tTB, tabs, false);
+            BuildKTV_DV(tDV); BuildThongBaoTab(tTB, tabs, ThongBaoSendMode.ViewOnly);
             BuildAuditDemoTab(tDemo);
             tabs.TabPages.AddRange(new[] { tInfo, tDV, tTB, tDemo });
             parent.Controls.Add(tabs);
@@ -1889,32 +1783,18 @@ namespace PhanHe1.Forms
         //  BAN GIÁM ĐỐC
         // ═══════════════════════════════════════════════════════════════════
         // ═══════════════════════════════════════════════════════════════════
-        //  BAN GIÁM ĐỐC (Xem Full Bảng)
+        //  BAN GIÁM ĐỐC — thông tin cá nhân + gửi thông báo OLS chi nhánh
         // ═══════════════════════════════════════════════════════════════════
         private void BuildGiamDocInterface(Panel parent)
         {
             var tabs = MakeTabs();
+            var tInfo = MakeTab("Thông Tin Cá Nhân");
+            var tTB = MakeTab("Thông Báo Khẩn (OLS)");
 
-            // Tạo các tab
-            var tNV = MakeTab("Báo Cáo: Nhân Viên");
-            var tBN = MakeTab("Báo Cáo: Bệnh Nhân");
-            var tHSBA = MakeTab("Báo Cáo: HSBA");
-            var tDV = MakeTab("Báo Cáo: Dịch Vụ");
-            var tDT = MakeTab("Báo Cáo: Đơn Thuốc");
-            var tTB = MakeTab("Thông Báo (OLS)");
+            BuildNV_Info(tInfo);
+            BuildThongBaoTab(tTB, tabs, ThongBaoSendMode.BgdProcedure);
 
-            // Đổ giao diện vào từng tab
-            BuildAdmin_NV(tNV);  // Có bộ lọc chi nhánh
-            BuildAdmin_BN(tBN);  // Có bộ lọc chi nhánh
-
-            // Chức năng tìm kiếm đã truyền đúng cột MAHSBA
-            BuildGiamDoc_ReportTab(tHSBA, "SELECT * FROM QLBV.HSBA", "MAHSBA", "Tìm theo mã HSBA...");
-            BuildGiamDoc_ReportTab(tDV, "SELECT * FROM QLBV.HSBA_DV", "MAHSBA", "Tìm theo mã HSBA...");
-            BuildGiamDoc_ReportTab(tDT, "SELECT * FROM QLBV.DONTHUOC", "MAHSBA", "Tìm theo mã HSBA...");
-            BuildThongBaoTab(tTB, tabs, false); // Xem thông báo — OLS lọc theo nhãn BGD
-
-            // Nhét tất cả vào màn hình chính
-            tabs.TabPages.AddRange(new[] {tNV, tBN, tHSBA, tDV, tDT, tTB });
+            tabs.TabPages.AddRange(new[] { tInfo, tTB });
             parent.Controls.Add(tabs);
         }
         private void BuildAdminInterface(Panel parent)
@@ -1927,7 +1807,7 @@ namespace PhanHe1.Forms
 
             var tOLS = MakeTab("OLS Bảo Mật");
 
-            BuildThongBaoTab(tTB, tabs, true);
+            BuildThongBaoTab(tTB, tabs, ThongBaoSendMode.AdminOlsPicker);
             BuildAdmin_Audit(tAudit);
             BuildAdmin_Backup(tBackup);
             BuildAdmin_QuanLyTK(tTK);
@@ -1951,7 +1831,7 @@ namespace PhanHe1.Forms
             var btnAll  = QuickBtn("Tất Cả QLBV",           Color.FromArgb(210, 220, 230), UiTheme.DeepBlue,                 175);
             // ── §3.4.1: Đăng nhập thất bại (AuditSession)
             var btnLog  = QuickBtn("Đăng Nhập Thất Bại",    Color.FromArgb(206, 17,  38),  UiTheme.WhiteText,                175);
-            // ── §3.4.2: Standard Audit policies (8 policies run/06.sql §3.2)
+            // ── §3.4.2: Standard Audit — run/06.sql §3.2 + 08.sql archive (NC1–NC9b)
             var btnStd  = QuickBtn("Standard Audit (§3.4.2)", Color.FromArgb(0,  120, 180), UiTheme.WhiteText,                185);
             // ── §3.4.3: FGA policies (AuditSuaDonThuoc, AuditBSUpdateHSBA, AuditKTVUpdateKetQua)
             var btnFga  = QuickBtn("FGA Policies (§3.4.3)",  Color.FromArgb(120, 80, 180),  UiTheme.WhiteText,                170);
@@ -1990,7 +1870,7 @@ namespace PhanHe1.Forms
             bar.Controls.Add(btnFga);
             bar.Controls.Add(btnDT);
             bar.Controls.Add(btnIll);
-            bar.Controls.Add(Note("§3.4.5 Tất cả  |  §3.4.1 Đăng nhập  |  §3.4.2 Standard (8 policies)  |  §3.4.3 FGA  |  §3.3.a Đơn thuốc  |  §3.4.4 Bất hợp pháp"));
+            bar.Controls.Add(Note("§3.4.5 Tất cả  |  §3.4.1 Đăng nhập  |  §3.4.2 Standard (NC1–NC9b)  |  §3.4.3 FGA  |  §3.3.a Đơn thuốc  |  §3.4.4 Bất hợp pháp"));
 
             var wrapper = new Panel { Dock = DockStyle.Fill };
             wrapper.Controls.Add(grid);
@@ -2540,7 +2420,7 @@ namespace PhanHe1.Forms
                 var cmb    = new ComboBox { Width = 420, DropDownStyle = ComboBoxStyle.DropDownList, Margin = new Padding(4, 4, 8, 0) };
                 cmb.Items.AddRange(new object[] {
                     "Theo tên bảng (BENHNHAN/HSBA/HSBA_DV/DONTHUOC/NHANVIEN)",
-                    "Theo audit policy (09.sql query 2 — 8 Standard + Illegal + FGA)",
+                    "Theo audit policy (06.sql §3.2 + 08.sql archive — NC1–NC9b + Illegal + FGA)",
                     "FGA trail riêng (DBA_FGA_AUDIT_TRAIL)"
                 });
                 cmb.SelectedIndex = 0;
@@ -3120,30 +3000,125 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
         private string NextAvailableBnId() =>
             FindNextId("BN", 6, "QLBV.BENHNHAN", "MABN");
 
-        // Tính OLS label theo run/06.sql — khớp hoàn toàn với logic PL/SQL trong DB
+        private string NextAvailableHsbaId() =>
+            FindNextId("HS", 6, "QLBV.HSBA", "MAHSBA");
+
+        private static string CosoToOlsGroup(string coSo)
+        {
+            if (coSo == "Hồ Chí Minh") return "HCM";
+            if (coSo == "Hải Phòng") return "HP";
+            if (coSo == "Hà Nội") return "HN";
+            return null;
+        }
+
+        private static string ComputeBgdWriteLabel(string coSo)
+        {
+            string grp = CosoToOlsGroup(coSo);
+            return grp != null ? "BGD:TH,TK,TM:" + grp : "BGD:TH,TK,TM:HCM,HP,HN";
+        }
+
+        /// <summary>
+        /// Giám đốc chỉ gửi trong chi nhánh (06.sql: level::group hoặc level:comp:group).
+        /// Từ chối nhãn toàn hệ thống (NV/LDK/LDP thuần) hoặc nhiều cơ sở.
+        /// </summary>
+        private static string NormalizeGiamDocBranchLabel(string olsLabel, string branchCode)
+        {
+            if (string.IsNullOrWhiteSpace(branchCode)) return null;
+            string lbl = (olsLabel ?? "").Trim();
+            if (string.IsNullOrEmpty(lbl)) return null;
+
+            if (lbl.StartsWith("BGD", StringComparison.OrdinalIgnoreCase))
+                return lbl;
+
+            // NV/LDK/LDP không kèm chi nhánh → gắn chi nhánh giám đốc (06.sql PHẦN I)
+            if (lbl.Equals("NV", StringComparison.OrdinalIgnoreCase)
+                || lbl.Equals("LDK", StringComparison.OrdinalIgnoreCase)
+                || lbl.Equals("LDP", StringComparison.OrdinalIgnoreCase))
+                return lbl + "::" + branchCode;
+
+            if (lbl.Contains("::"))
+            {
+                string grpPart = lbl.Substring(lbl.IndexOf("::", StringComparison.Ordinal) + 2);
+                if (grpPart.IndexOf(',') >= 0) return null;
+                if (!grpPart.Equals(branchCode, StringComparison.OrdinalIgnoreCase)) return null;
+                return lbl;
+            }
+
+            int firstColon = lbl.IndexOf(':');
+            if (firstColon < 0) return null;
+            int secondColon = lbl.IndexOf(':', firstColon + 1);
+            if (secondColon < 0) return lbl + "::" + branchCode;
+
+            string tail = lbl.Substring(secondColon + 1);
+            if (tail.IndexOf(',') >= 0) return null;
+            if (!tail.Equals(branchCode, StringComparison.OrdinalIgnoreCase)) return null;
+            return lbl;
+        }
+
+        private string BuildAssignOlsLabelsSql(string manv, string capBac, string maKhoa, string coSo)
+        {
+            string nv = Esc(manv);
+            string capSql = string.IsNullOrEmpty(capBac) ? "NULL" : "N'" + Esc(capBac) + "'";
+            string khoaSql = string.IsNullOrEmpty(maKhoa) ? "NULL" : "'" + Esc(maKhoa) + "'";
+            string cosoSql = string.IsNullOrEmpty(coSo) ? "NULL" : "N'" + Esc(coSo) + "'";
+            return @"
+DECLARE
+    v_label       VARCHAR2(200);
+    v_read_label  VARCHAR2(200);
+    v_write_label VARCHAR2(200);
+    v_level VARCHAR2(10);
+    v_comp  VARCHAR2(10);
+    v_grp   VARCHAR2(10);
+    v_capbac NVARCHAR2(50) := " + capSql + @";
+    v_makhoa VARCHAR2(20) := " + khoaSql + @";
+    v_coso   NVARCHAR2(50) := " + cosoSql + @";
+BEGIN
+    IF v_capbac IS NULL THEN RETURN; END IF;
+    CASE v_capbac
+        WHEN N'Ban Giám đốc'   THEN v_level := 'BGD';
+        WHEN N'Lãnh đạo khoa'  THEN v_level := 'LDK';
+        WHEN N'Lãnh đạo phòng' THEN v_level := 'LDP';
+        ELSE v_level := 'NV';
+    END CASE;
+    CASE v_makhoa WHEN 'K001' THEN v_comp := 'TH'; WHEN 'K002' THEN v_comp := 'TK'; WHEN 'K003' THEN v_comp := 'TM'; ELSE v_comp := NULL; END CASE;
+    CASE v_coso WHEN N'Hồ Chí Minh' THEN v_grp := 'HCM'; WHEN N'Hải Phòng' THEN v_grp := 'HP'; WHEN N'Hà Nội' THEN v_grp := 'HN'; ELSE v_grp := NULL; END CASE;
+    IF v_capbac = N'Ban Giám đốc' THEN
+        v_read_label := 'BGD:TH,TK,TM:HCM,HP,HN';
+        v_write_label := CASE WHEN v_grp IS NOT NULL THEN 'BGD:TH,TK,TM:' || v_grp ELSE v_read_label END;
+        LBACSYS.SA_USER_ADMIN.SET_USER_LABELS(policy_name=>'OLS_QLBV_POLICY',user_name=>'" + nv + @"',max_read_label=>v_read_label,max_write_label=>v_read_label,def_label=>v_write_label,row_label=>v_write_label);
+        RETURN;
+    END IF;
+    IF v_capbac = N'Lãnh đạo phòng' AND v_makhoa IS NULL THEN v_label := 'LDP:TH,TK,TM:HCM,HP,HN';
+    ELSIF v_comp IS NOT NULL AND v_grp IS NOT NULL THEN v_label := v_level || ':' || v_comp || ':' || v_grp;
+    ELSIF v_comp IS NOT NULL THEN v_label := v_level || ':' || v_comp;
+    ELSIF v_grp IS NOT NULL THEN v_label := v_level || '::' || v_grp;
+    ELSE v_label := v_level; END IF;
+    LBACSYS.SA_USER_ADMIN.SET_USER_LABELS(policy_name=>'OLS_QLBV_POLICY',user_name=>'" + nv + @"',max_read_label=>v_label,max_write_label=>v_label,def_label=>v_label,row_label=>v_label);
+END;";
+        }
+
+        // Tính nhãn ghi mặc định theo run/06.sql PHẦN I
         private string ComputeOlsLabel(string capBac, string maKhoa, string coSo)
         {
+            if (capBac == "Ban Giám đốc")
+                return ComputeBgdWriteLabel(coSo);
+
             string level;
-            if (capBac == "Ban Giám đốc")   level = "BGD";
-            else if (capBac == "Lãnh đạo khoa")  level = "LDK";
+            if (capBac == "Lãnh đạo khoa") level = "LDK";
             else if (capBac == "Lãnh đạo phòng") level = "LDP";
-            else                                  level = "NV";
+            else level = "NV";
 
             string comp = null;
             if (maKhoa == "K001") comp = "TH";
             else if (maKhoa == "K002") comp = "TK";
             else if (maKhoa == "K003") comp = "TM";
 
-            string grp = null;
-            if (coSo == "Hồ Chí Minh")    grp = "HCM";
-            else if (coSo == "Hải Phòng")  grp = "HP";
-            else if (coSo == "Hà Nội")     grp = "HN";
+            string grp = CosoToOlsGroup(coSo);
 
-            if (level == "BGD")                       return "BGD:TH,TK,TM:HCM,HP,HN";
-            if (level == "LDP" && comp == null)        return "LDP:TH,TK,TM:HCM,HP,HN";
-            if (comp != null && grp != null)           return level + ":" + comp + ":" + grp;
-            if (comp != null)                          return level + ":" + comp;
-            if (grp != null)                           return level + "::" + grp;
+            if (level == "LDP" && comp == null) return "LDP:TH,TK,TM:HCM,HP,HN";
+            if (comp != null && grp != null) return level + ":" + comp + ":" + grp;
+            if (comp != null) return level + ":" + comp;
+            if (grp != null) return level + "::" + grp;
             return level;
         }
 
@@ -3196,21 +3171,15 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
                     else                                    role = "ROLE_DPV";
                     service.ExecuteNonQuery($"GRANT {role} TO {f.MaNV}");
 
-                    // 4. Gán OLS label nếu CAPBAC có giá trị (run/06.sql)
+                    // 4. Gán OLS label — run/06.sql PHẦN I
                     if (!string.IsNullOrEmpty(f.CapBac))
                     {
-                        string label = ComputeOlsLabel(f.CapBac, f.MaKhoa, f.CoSo);
-                        try
-                        {
-                            service.ExecuteNonQuery(
-                                $"BEGIN LBACSYS.SA_USER_ADMIN.SET_USER_LABELS(" +
-                                $"policy_name=>'OLS_QLBV_POLICY',user_name=>'{f.MaNV}'," +
-                                $"max_read_label=>'{label}',def_label=>'{label}',row_label=>'{label}'); END;");
-                        }
-                        catch { /* OLS không bắt buộc — tiếp tục */ }
+                        try { service.ExecuteNonQuery(BuildAssignOlsLabelsSql(f.MaNV, f.CapBac, f.MaKhoa, f.CoSo)); }
+                        catch { }
                     }
 
-                    Ok($"Đã tạo tài khoản nhân viên {f.MaNV} thành công!\nRole Oracle: {role}");
+                    string labelHint = string.IsNullOrEmpty(f.CapBac) ? "" : "\nOLS: " + ComputeOlsLabel(f.CapBac, f.MaKhoa, f.CoSo);
+                    Ok("Đã tạo tài khoản nhân viên " + f.MaNV + " thành công!\nRole Oracle: " + role + labelHint);
                     LoadDanhSachTaiKhoan(grid);
                 }
                 catch (Exception ex) { Err(ex.Message); }
@@ -3345,24 +3314,28 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
 
         private void LoadOlsUserLabels(DataGridView grid, string filter)
         {
-            // Dùng SELECT * để không phụ thuộc tên cột — cấu trúc DBA_SA_USER_LABELS
-            // có thể khác nhau giữa các phiên bản Oracle XE
-            string sql = "SELECT * FROM DBA_SA_USER_LABELS WHERE POLICY_NAME='OLS_QLBV_POLICY'";
+            // run/06.sql — SELECT user_name, max_read_label, max_write_label, ...
+            string sql =
+                "SELECT USER_NAME, MAX_READ_LABEL, MAX_WRITE_LABEL, MIN_WRITE_LABEL, " +
+                "DEFAULT_READ_LABEL, DEFAULT_WRITE_LABEL, DEFAULT_ROW_LABEL " +
+                "FROM DBA_SA_USER_LABELS WHERE POLICY_NAME='OLS_QLBV_POLICY'";
             if (!string.IsNullOrEmpty(filter))
                 sql += $" AND UPPER(USER_NAME) LIKE '%{filter.ToUpper().Replace("'", "''")}%'";
             sql += " ORDER BY USER_NAME";
             try { LoadGrid(grid, sql); UiTheme.StyleGrid(grid); }
-            catch { grid.DataSource = null; /* view không truy cập được — grid rỗng */ }
+            catch { grid.DataSource = null; }
         }
 
-        // Đồng bộ nhãn OLS cho tất cả NV — lặp lại logic PL/SQL từ run/06.sql
+        // run/06.sql PHẦN I — nguyên văn PL/SQL gán nhãn OLS (BGD tách read/write)
         private void SyncOlsLabels(DataGridView grid)
         {
             try
             {
                 service.ExecuteNonQuery(@"
 DECLARE
-    v_label VARCHAR2(200);
+    v_label       VARCHAR2(200);
+    v_read_label  VARCHAR2(200);
+    v_write_label VARCHAR2(200);
     v_level VARCHAR2(10);
     v_comp  VARCHAR2(10);
     v_grp   VARCHAR2(10);
@@ -3386,9 +3359,28 @@ BEGIN
             WHEN N'Hà Nội'      THEN v_grp := 'HN';
             ELSE v_grp := NULL;
         END CASE;
+
         IF nv.CAPBAC = N'Ban Giám đốc' THEN
-            v_label := 'BGD:TH,TK,TM:HCM,HP,HN';
-        ELSIF nv.CAPBAC = N'Lãnh đạo phòng' AND nv.MAKHOA IS NULL THEN
+            v_read_label := 'BGD:TH,TK,TM:HCM,HP,HN';
+            v_write_label := CASE WHEN v_grp IS NOT NULL
+                                   THEN 'BGD:TH,TK,TM:' || v_grp
+                                   ELSE v_read_label
+                              END;
+            BEGIN
+                LBACSYS.SA_USER_ADMIN.SET_USER_LABELS(
+                    policy_name     => 'OLS_QLBV_POLICY',
+                    user_name       => nv.MANV,
+                    max_read_label  => v_read_label,
+                    max_write_label => v_read_label,
+                    def_label       => v_write_label,
+                    row_label       => v_write_label
+                );
+            EXCEPTION WHEN OTHERS THEN NULL;
+            END;
+            CONTINUE;
+        END IF;
+
+        IF nv.CAPBAC = N'Lãnh đạo phòng' AND nv.MAKHOA IS NULL THEN
             v_label := 'LDP:TH,TK,TM:HCM,HP,HN';
         ELSIF v_comp IS NOT NULL AND v_grp IS NOT NULL THEN
             v_label := v_level || ':' || v_comp || ':' || v_grp;
@@ -3399,19 +3391,21 @@ BEGIN
         ELSE
             v_label := v_level;
         END IF;
+
         BEGIN
             LBACSYS.SA_USER_ADMIN.SET_USER_LABELS(
-                policy_name    => 'OLS_QLBV_POLICY',
-                user_name      => nv.MANV,
-                max_read_label => v_label,
-                def_label      => v_label,
-                row_label      => v_label
+                policy_name     => 'OLS_QLBV_POLICY',
+                user_name       => nv.MANV,
+                max_read_label  => v_label,
+                max_write_label => v_label,
+                def_label       => v_label,
+                row_label       => v_label
             );
         EXCEPTION WHEN OTHERS THEN NULL;
         END;
     END LOOP;
 END;");
-                Ok("Đã đồng bộ nhãn OLS cho tất cả nhân viên theo CAPBAC/MAKHOA/COSO.");
+                Ok("Đã đồng bộ nhãn OLS theo run/06.sql PHẦN I.");
                 LoadOlsUserLabels(grid, "");
             }
             catch (Exception ex) { Err(ex.Message); }
@@ -3448,32 +3442,6 @@ END;");
             tab.Controls.Add(Wrap(grid, tb));
             LoadGrid(grid, "SELECT * FROM QLBV.NHANVIEN");
         }
-        // Hàm dùng chung để tạo nhanh các tab báo cáo chỉ xem (Read-only) cho Giám đốc
-        private void BuildGiamDoc_ReportTab(TabPage tab, string sql, string searchCol, string searchHint)
-        {
-            var grid = MakeGrid(true); // true = Chỉ đọc, không cho sửa
-
-            var btnRe = QuickBtn("Tải Lại", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 90);
-            btnRe.Click += (s, e) => LoadGrid(grid, sql);
-
-            var txtS = SearchBox(searchHint, 220);
-            var btnS = QuickBtn("Tìm", UiTheme.DeepBlue, UiTheme.WhiteText, 80);
-
-            btnS.Click += (s, e) => {
-                string kw = Val(txtS, searchHint);
-                // Tìm kiếm chuẩn xác theo cột được truyền vào
-                if (!string.IsNullOrEmpty(kw))
-                    LoadGrid(grid, sql + $" WHERE {searchCol} LIKE '%{Esc(kw)}%'");
-                else
-                    LoadGrid(grid, sql);
-            };
-
-            var toolbar = Toolbar(txtS, btnS, btnRe, Note("Chế độ Xem Báo Cáo toàn hệ thống (Không bị giới hạn bởi VPD)"));
-
-            tab.Controls.Add(Wrap(grid, toolbar));
-            LoadGrid(grid, sql);
-        }
-
         private static (FlowLayoutPanel tb, ComboBox cmb) BranchToolbar()
         {
             var bar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 54, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, Padding = new Padding(8, 9, 8, 9), BackColor = Color.FromArgb(238, 248, 255) };
@@ -3489,7 +3457,7 @@ END;");
         //  THÔNG BÁO (OLS) — dùng chung
         // ═══════════════════════════════════════════════════════════════════
 
-        private void BuildThongBaoTab(TabPage tab, TabControl ownerTabs, bool canSend)
+        private void BuildThongBaoTab(TabPage tab, TabControl ownerTabs, ThongBaoSendMode sendMode)
         {
             var grid = MakeGrid(true);
             var btnRe = QuickBtn("Tải Lại", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 90);
@@ -3499,10 +3467,10 @@ END;");
                 ForeColor = Color.FromArgb(100, 100, 120),
                 Margin = new Padding(4, 10, 0, 0),
                 Font = new Font("Segoe UI", 8.5F),
-                Text = "Mở tab để tải thông báo (OLS lọc theo nhãn user — run/05.sql + 06.sql)."
+                Text = "Mở tab để tải thông báo (OLS — run/06.sql PHẦN I)."
             };
 
-            // OLS READ_CONTROL trên THONGBAO — cùng query, Oracle lọc theo max_read_label của user đang login
+            bool showOlsColumn = sendMode != ThongBaoSendMode.ViewOnly;
             string sqlWithLabel =
                 "SELECT NOIDUNG, TO_CHAR(NGAYGIO,'DD/MM/YYYY HH24:MI:SS') AS NGAYGIO, DIADIEM, " +
                 "LABEL_TO_CHAR(OLS_COL) AS \"NHÃN OLS\" FROM QLBV.THONGBAO ORDER BY NGAYGIO DESC";
@@ -3514,26 +3482,27 @@ END;");
             {
                 try
                 {
-                    if (canSend)
+                    if (showOlsColumn)
                     {
                         try { LoadGrid(grid, sqlWithLabel); }
                         catch { LoadGrid(grid, sqlNoLabel); }
                     }
                     else
-                    {
                         LoadGrid(grid, sqlNoLabel);
-                    }
+
                     int n = (grid.DataSource as DataTable)?.Rows.Count ?? 0;
-                    lblInfo.Text = canSend
-                        ? $"Hiển thị {n} thông báo (QLBV/ADMIN — có cột nhãn OLS, exempt policy nếu login QLBV)."
-                        : $"Hiển thị {n} thông báo OLS cho {service.CurrentUser}. (0 dòng → kiểm tra 05.sql + 06.sql gán nhãn.)";
+                    if (sendMode == ThongBaoSendMode.BgdProcedure)
+                        lblInfo.Text = $"Hiển thị {n} thông báo OLS. Gửi mới: NV/LDK/LDP trong chi nhánh (COSO) của giám đốc đăng nhập.";
+                    else if (sendMode == ThongBaoSendMode.AdminOlsPicker)
+                        lblInfo.Text = $"Hiển thị {n} thông báo (QLBV — INSERT thủ công + chọn nhãn OLS).";
+                    else
+                        lblInfo.Text = $"Hiển thị {n} thông báo OLS cho {service.CurrentUser}.";
                 }
                 catch (Exception ex)
                 {
                     grid.DataSource = null;
                     lblInfo.Text = "Không tải được THONGBAO.";
-                    Err("Không thể tải thông báo:\n" + ex.Message +
-                        "\n\nGợi ý: chạy sql_ph2/run/05.sql (dữ liệu mẫu) và 06.sql (gán nhãn OLS cho user).");
+                    Err("Không thể tải thông báo:\n" + ex.Message);
                 }
             }
 
@@ -3559,37 +3528,97 @@ END;");
             };
 
             Panel toolbar;
-            if (canSend)
+            if (sendMode == ThongBaoSendMode.AdminOlsPicker)
             {
                 var btnSend = QuickBtn("+ Gửi Thông Báo Khẩn", UiTheme.PastelGreen, UiTheme.DeepBlue, 190);
-                btnSend.Click += (s, e) => GuiThongBao(LoadThongBao);
-                toolbar = Toolbar(btnSend, btnRe, lblInfo, Note("Nhấn đúp xem chi tiết. Gửi thông báo: login QLBV/123 (có quyền INSERT + OLS)."));
+                btnSend.Click += (s, e) => GuiThongBaoAdmin(LoadThongBao);
+                toolbar = Toolbar(btnSend, btnRe, lblInfo, Note("QLBV: INSERT + chọn nhãn OLS."));
+            }
+            else if (sendMode == ThongBaoSendMode.BgdProcedure)
+            {
+                var btnSend = QuickBtn("+ Gửi Thông Báo Khẩn", UiTheme.PastelGreen, UiTheme.DeepBlue, 190);
+                btnSend.Click += (s, e) => GuiThongBaoBgd(LoadThongBao);
+                toolbar = Toolbar(btnSend, btnRe, lblInfo,
+                    Note("Giám đốc gửi NV/LDK/LDP trong chi nhánh (COSO) của tài khoản; không chọn cơ sở khác."));
             }
             else
             {
-                toolbar = Toolbar(btnRe, lblInfo, Note("Nhấn đúp xem chi tiết. Chỉ thấy thông báo trong phạm vi nhãn OLS của bạn."));
+                toolbar = Toolbar(btnRe, lblInfo, Note("Nhấn đúp xem chi tiết. Chỉ thấy thông báo trong phạm vi nhãn OLS."));
             }
 
             tab.Controls.Add(Wrap(grid, toolbar));
             RegisterTabLazyLoad(ownerTabs, tab, LoadThongBao);
         }
 
-        private void GuiThongBao(Action afterSend = null)
+        private void GuiThongBaoAdmin(Action afterSend = null)
         {
             using (var f = new ThongBaoForm())
                 if (f.ShowDialog(this) == DialogResult.OK)
                     try
                     {
-                        // Nếu QLBV chọn nhãn OLS → INSERT với CHAR_TO_LABEL để đích thị đúng đối tượng
-                        // Nếu không chọn (rỗng) → Oracle tự dùng row_label mặc định của QLBV (BGD:...)
-                        string olsSql = string.IsNullOrEmpty(f.OlsLabel)
-                            ? $"INSERT INTO QLBV.THONGBAO(NOIDUNG,NGAYGIO,DIADIEM) " +
-                              $"VALUES(N'{Esc(f.NoiDung)}',TO_TIMESTAMP('{f.NgayGio:dd/MM/yyyy HH:mm}','DD/MM/YYYY HH24:MI'),N'{Esc(f.DiaDiem)}')"
-                            : $"INSERT INTO QLBV.THONGBAO(NOIDUNG,NGAYGIO,DIADIEM,OLS_COL) " +
-                              $"VALUES(N'{Esc(f.NoiDung)}',TO_TIMESTAMP('{f.NgayGio:dd/MM/yyyy HH:mm}','DD/MM/YYYY HH24:MI'),N'{Esc(f.DiaDiem)}'," +
-                              $"CHAR_TO_LABEL('OLS_QLBV_POLICY','{f.OlsLabel}'))";
-                        service.ExecuteNonQuery(olsSql);
+                        InsertThongBao(f.NoiDung, f.NgayGio, f.DiaDiem, f.OlsLabel);
                         Ok($"Đã gửi thông báo khẩn!\nNhãn OLS: {(string.IsNullOrEmpty(f.OlsLabel) ? "(mặc định QLBV)" : f.OlsLabel)}");
+                        afterSend?.Invoke();
+                    }
+                    catch (Exception ex) { Err(ex.Message); }
+        }
+
+        private void InsertThongBao(string noiDung, DateTime ngayGio, string diaDiem, string olsLabel)
+        {
+            string olsSql = string.IsNullOrEmpty(olsLabel)
+                ? $"INSERT INTO QLBV.THONGBAO(NOIDUNG,NGAYGIO,DIADIEM) " +
+                  $"VALUES(N'{Esc(noiDung)}',TO_TIMESTAMP('{ngayGio:dd/MM/yyyy HH:mm}','DD/MM/YYYY HH24:MI'),N'{Esc(diaDiem)}')"
+                : $"INSERT INTO QLBV.THONGBAO(NOIDUNG,NGAYGIO,DIADIEM,OLS_COL) " +
+                  $"VALUES(N'{Esc(noiDung)}',TO_TIMESTAMP('{ngayGio:dd/MM/yyyy HH:mm}','DD/MM/YYYY HH24:MI'),N'{Esc(diaDiem)}'," +
+                  $"CHAR_TO_LABEL('OLS_QLBV_POLICY','{olsLabel}'))";
+            service.ExecuteNonQuery(olsSql);
+        }
+
+        // Giám đốc: cùng UI chọn nhãn OLS như QLBV, cơ sở cố định theo COSO tài khoản
+        private void GuiThongBaoBgd(Action afterSend = null)
+        {
+            string coSo = null;
+            string grpCode = null;
+            try
+            {
+                var dt = service.Query($"SELECT COSO FROM QLBV.NHANVIEN WHERE MANV = '{Esc(currentUser)}'");
+                if (dt.Rows.Count > 0)
+                {
+                    coSo = dt.Rows[0]["COSO"]?.ToString();
+                    grpCode = CosoToOlsGroup(coSo);
+                }
+            }
+            catch { }
+
+            if (string.IsNullOrEmpty(grpCode))
+            {
+                Err("Tài khoản chưa được gán cơ sở (COSO) trong NHANVIEN.");
+                return;
+            }
+
+            using (var f = new ThongBaoForm(grpCode, coSo))
+                if (f.ShowDialog(this) == DialogResult.OK)
+                    try
+                    {
+                        string label = NormalizeGiamDocBranchLabel(f.OlsLabel, grpCode);
+                        if (string.IsNullOrEmpty(label))
+                        {
+                            Err($"Chỉ được gửi thông báo NV/LDK/LDP trong chi nhánh {coSo} ({grpCode}).\n" +
+                                "Không chọn nhiều cơ sở hoặc cơ sở khác chi nhánh của giám đốc.");
+                            return;
+                        }
+
+                        if (label.StartsWith("BGD", StringComparison.OrdinalIgnoreCase))
+                        {
+                            service.ExecuteNonQuery(
+                                $"BEGIN QLBV.sp_BGD_ThongBaoOLS(N'{Esc(f.NoiDung)}', N'{Esc(f.DiaDiem)}'); END;");
+                            Ok($"Đã gửi thông báo khẩn!\n\nChi nhánh: {coSo}\nNhãn OLS: {ComputeBgdWriteLabel(coSo)}\nPolicy: AuditSucBGDTaoThongBao (NC9)");
+                        }
+                        else
+                        {
+                            InsertThongBao(f.NoiDung, f.NgayGio, f.DiaDiem, label);
+                            Ok($"Đã gửi thông báo khẩn!\n\nChi nhánh: {coSo}\nĐối tượng: {f.SelectedLevel}\nNhãn OLS: {label}");
+                        }
                         afterSend?.Invoke();
                     }
                     catch (Exception ex) { Err(ex.Message); }
@@ -3606,7 +3635,7 @@ END;");
             => (s, e) => { foreach (var c in allowed) if (string.Equals(grid.Columns[e.ColumnIndex].Name, c, StringComparison.OrdinalIgnoreCase)) return; e.Cancel = true; };
 
         // ═══════════════════════════════════════════════════════════════════
-        //  THÔNG TIN CÁ NHÂN (Dùng chung cho NV: DPV, BACSI, KTV, ADMIN)
+        //  THÔNG TIN CÁ NHÂN (Dùng chung cho NV: DPV, BACSI, KTV, GIAMDOC)
         // ═══════════════════════════════════════════════════════════════════
 
         private void BuildNV_Info(TabPage tab)
@@ -3700,8 +3729,23 @@ END;");
 
 
     // ════════════════════════════════════════════════════════════════════════
-    //  DIALOG: Thêm Bệnh Nhân
+    //  DIALOG: Thêm / Sửa Bệnh Nhân (DPV)
     // ════════════════════════════════════════════════════════════════════════
+
+    public sealed class BenhNhanFormValues
+    {
+        public string TenBN { get; set; }
+        public string Phai { get; set; }
+        public DateTime? NgaySinh { get; set; }
+        public string CCCD { get; set; }
+        public string SoNha { get; set; }
+        public string TenDuong { get; set; }
+        public string QuanHuyen { get; set; }
+        public string TinhTP { get; set; }
+        public string TienSuBenh { get; set; }
+        public string TienSuBenhGD { get; set; }
+        public string DiUngThuoc { get; set; }
+    }
 
     public class BenhNhanAddForm : Form
     {
@@ -3718,29 +3762,207 @@ END;");
         public string TienSuBenhGD { get; private set; }
         public string DiUngThuoc { get; private set; }
 
-        public BenhNhanAddForm()
+        public BenhNhanAddForm(string maBn, BenhNhanFormValues editValues = null)
         {
-            Text = "Thêm Bệnh Nhân Mới"; StartPosition = FormStartPosition.CenterParent;
-            FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false;
-            ClientSize = new Size(650, 570); BackColor = UiTheme.LightCyan; Font = UiTheme.BodyFont;
+            bool isEdit = editValues != null;
+            Text = isEdit ? "Cập Nhật Bệnh Nhân" : "Thêm Bệnh Nhân Mới";
+            StartPosition = FormStartPosition.CenterParent;
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            ClientSize = new Size(650, 620);
+            BackColor = UiTheme.LightCyan;
+            Font = UiTheme.BodyFont;
 
             var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
-            var layout = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, Dock = DockStyle.Top, BackColor = UiTheme.JordyBlue, Padding = new Padding(16) };
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 240F));
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100F));
+            var layout = new TableLayoutPanel
+            {
+                ColumnCount = 2, AutoSize = true, Dock = DockStyle.Top,
+                BackColor = UiTheme.JordyBlue, Padding = new Padding(16)
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220F));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 360F));
 
-            string[] lbs = { "Mã BN:", "Họ tên:", "Phái (Nam/Nữ):", "Ngày sinh (dd/mm/yyyy):", "CCCD:", "Số nhà:", "Tên đường:", "Quận/Huyện:", "Tỉnh/TP:", "Tiền sử bệnh:", "Tiền sử bệnh GĐ:", "Dị ứng thuốc:" };
-            var flds = new TextBox[lbs.Length];
-            for (int i = 0; i < lbs.Length; i++) { layout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); layout.Controls.Add(new Label { Text = lbs[i], AutoSize = true, Font = UiTheme.HeaderFont, ForeColor = UiTheme.DeepBlue, Anchor = AnchorStyles.Right, Margin = new Padding(0, 6, 6, 0) }, 0, i); flds[i] = new TextBox { Dock = DockStyle.Fill, Margin = new Padding(0, 4, 0, 4) }; if (i >= 9) { flds[i].Multiline = true; flds[i].Height = 54; } layout.Controls.Add(flds[i], 1, i); }
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 54F));
-            var ft = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, Margin = new Padding(0, 6, 0, 0) };
-            var ok = new Button { Text = "Thêm", Width = 110, Height = 36, FlatStyle = FlatStyle.Flat, BackColor = UiTheme.PastelGreen, ForeColor = UiTheme.DeepBlue, Font = new Font("Segoe UI", 10F, FontStyle.Bold) }; ok.FlatAppearance.BorderSize = 0;
-            var cn = new Button { Text = "Hủy", Width = 100, Height = 36, FlatStyle = FlatStyle.Flat, BackColor = UiTheme.BrandeisBlue, ForeColor = UiTheme.WhiteText }; cn.FlatAppearance.BorderSize = 0;
-            ok.Click += (s, e) => { if (string.IsNullOrWhiteSpace(flds[0].Text) || string.IsNullOrWhiteSpace(flds[1].Text)) { MessageBox.Show("Nhập Mã BN và Họ tên."); return; } if (!DateTime.TryParseExact(flds[3].Text, "dd/MM/yyyy", null, System.Globalization.DateTimeStyles.None, out DateTime dob)) { MessageBox.Show("Ngày sinh không hợp lệ (dd/mm/yyyy)."); return; } MaBN = flds[0].Text.Trim(); TenBN = flds[1].Text.Trim(); Phai = flds[2].Text.Trim(); NgaySinh = dob; CCCD = flds[4].Text.Trim(); SoNha = flds[5].Text.Trim(); TenDuong = flds[6].Text.Trim(); QuanHuyen = flds[7].Text.Trim(); TinhTP = flds[8].Text.Trim(); TienSuBenh = flds[9].Text.Trim(); TienSuBenhGD = flds[10].Text.Trim(); DiUngThuoc = flds[11].Text.Trim(); DialogResult = DialogResult.OK; Close(); };
+            int row = 0;
+
+            Control MakeRequiredLabel(string text)
+            {
+                var panel = new FlowLayoutPanel
+                {
+                    AutoSize = true, FlowDirection = FlowDirection.LeftToRight,
+                    WrapContents = false, Anchor = AnchorStyles.Right,
+                    Margin = new Padding(0, 8, 8, 0), BackColor = Color.Transparent
+                };
+                panel.Controls.Add(new Label
+                {
+                    Text = text, AutoSize = true, Font = UiTheme.HeaderFont,
+                    ForeColor = UiTheme.DeepBlue, Margin = new Padding(0)
+                });
+                panel.Controls.Add(new Label
+                {
+                    Text = "*", AutoSize = true, ForeColor = Color.Red,
+                    Font = new Font("Segoe UI", 10F, FontStyle.Bold), Margin = new Padding(2, 0, 0, 0)
+                });
+                return panel;
+            }
+
+            void AddOptionalLabel(string text, int r, int height = 46)
+            {
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, height));
+                layout.Controls.Add(new Label
+                {
+                    Text = text, AutoSize = true, Font = UiTheme.HeaderFont,
+                    ForeColor = UiTheme.DeepBlue, Anchor = AnchorStyles.Right,
+                    Margin = new Padding(0, 8, 8, 0)
+                }, 0, r);
+            }
+
+            void AddRequiredLabel(string text, int r, int height = 46)
+            {
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, height));
+                layout.Controls.Add(MakeRequiredLabel(text), 0, r);
+            }
+
+            TextBox MakeTxt(string val = "") =>
+                new TextBox { Dock = DockStyle.Fill, Text = val, Margin = new Padding(0, 4, 0, 4) };
+
+            AddRequiredLabel("Mã BN:", row);
+            var txtMaBN = MakeTxt(maBn ?? "");
+            txtMaBN.ReadOnly = true;
+            txtMaBN.BackColor = Color.FromArgb(245, 245, 245);
+            layout.Controls.Add(txtMaBN, 1, row++);
+
+            AddRequiredLabel("Họ tên:", row);
+            var txtTenBN = MakeTxt(editValues?.TenBN ?? "");
+            layout.Controls.Add(txtTenBN, 1, row++);
+
+            AddRequiredLabel("Phái:", row);
+            var cmbPhai = new ComboBox
+            {
+                Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList,
+                Margin = new Padding(0, 4, 0, 4)
+            };
+            cmbPhai.Items.AddRange(new object[] { "Nam", "Nữ" });
+            cmbPhai.SelectedIndex = 0;
+            if (!string.IsNullOrEmpty(editValues?.Phai))
+            {
+                for (int i = 0; i < cmbPhai.Items.Count; i++)
+                    if (string.Equals(cmbPhai.Items[i].ToString(), editValues.Phai, StringComparison.OrdinalIgnoreCase))
+                    { cmbPhai.SelectedIndex = i; break; }
+            }
+            layout.Controls.Add(cmbPhai, 1, row++);
+
+            AddRequiredLabel("Ngày sinh:", row);
+            var dtpNgaySinh = new DateTimePicker
+            {
+                Dock = DockStyle.Fill, Format = DateTimePickerFormat.Custom,
+                CustomFormat = "dd/MM/yyyy", ShowUpDown = false,
+                Margin = new Padding(0, 4, 0, 4),
+                Value = editValues?.NgaySinh ?? DateTime.Today.AddYears(-30)
+            };
+            layout.Controls.Add(dtpNgaySinh, 1, row++);
+
+            AddOptionalLabel("CCCD:", row);
+            var txtCCCD = MakeTxt(editValues?.CCCD ?? "");
+            layout.Controls.Add(txtCCCD, 1, row++);
+
+            AddOptionalLabel("Số nhà:", row);
+            var txtSoNha = MakeTxt(editValues?.SoNha ?? "");
+            layout.Controls.Add(txtSoNha, 1, row++);
+
+            AddOptionalLabel("Tên đường:", row);
+            var txtTenDuong = MakeTxt(editValues?.TenDuong ?? "");
+            layout.Controls.Add(txtTenDuong, 1, row++);
+
+            AddOptionalLabel("Quận/Huyện:", row);
+            var txtQuanHuyen = MakeTxt(editValues?.QuanHuyen ?? "");
+            layout.Controls.Add(txtQuanHuyen, 1, row++);
+
+            AddOptionalLabel("Tỉnh/TP:", row);
+            var txtTinhTP = MakeTxt(editValues?.TinhTP ?? "");
+            layout.Controls.Add(txtTinhTP, 1, row++);
+
+            AddOptionalLabel("Tiền sử bệnh:", row, 68);
+            var txtTienSuBenh = new TextBox
+            {
+                Dock = DockStyle.Fill, Multiline = true, Height = 56,
+                ScrollBars = ScrollBars.Vertical, Margin = new Padding(0, 4, 0, 4),
+                Text = editValues?.TienSuBenh ?? ""
+            };
+            layout.Controls.Add(txtTienSuBenh, 1, row++);
+
+            AddOptionalLabel("Tiền sử bệnh GĐ:", row, 68);
+            var txtTienSuBenhGD = new TextBox
+            {
+                Dock = DockStyle.Fill, Multiline = true, Height = 56,
+                ScrollBars = ScrollBars.Vertical, Margin = new Padding(0, 4, 0, 4),
+                Text = editValues?.TienSuBenhGD ?? ""
+            };
+            layout.Controls.Add(txtTienSuBenhGD, 1, row++);
+
+            AddOptionalLabel("Dị ứng thuốc:", row);
+            var txtDiUngThuoc = MakeTxt(editValues?.DiUngThuoc ?? "");
+            layout.Controls.Add(txtDiUngThuoc, 1, row++);
+
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28F));
+            layout.Controls.Add(new Label
+            {
+                Text = isEdit
+                    ? "Mã BN không được chỉnh sửa."
+                    : "Mã BN tự động đề xuất nhỏ nhất chưa dùng (BN000001, BN000002, ...).",
+                ForeColor = Color.FromArgb(90, 70, 0), AutoSize = true,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Italic), Margin = new Padding(0, 2, 0, 2)
+            }, 0, row);
+            layout.SetColumnSpan(layout.GetControlFromPosition(0, row), 2);
+            row++;
+
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 52F));
+            var ft = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
+            var ok = new Button
+            {
+                Text = isEdit ? "Lưu" : "Thêm", Width = 110, Height = 36, FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.PastelGreen, ForeColor = UiTheme.DeepBlue,
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold)
+            };
+            ok.FlatAppearance.BorderSize = 0;
+            var cn = new Button
+            {
+                Text = "Hủy", Width = 100, Height = 36, FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.BrandeisBlue, ForeColor = UiTheme.WhiteText
+            };
+            cn.FlatAppearance.BorderSize = 0;
+
+            ok.Click += (s, e) =>
+            {
+                if (string.IsNullOrWhiteSpace(txtMaBN.Text)) { MessageBox.Show("Mã BN không hợp lệ."); return; }
+                if (string.IsNullOrWhiteSpace(txtTenBN.Text)) { MessageBox.Show("Nhập Họ tên."); return; }
+                if (cmbPhai.SelectedIndex < 0) { MessageBox.Show("Chọn Phái."); return; }
+                if (dtpNgaySinh.Value.Date > DateTime.Today) { MessageBox.Show("Ngày sinh không được ở tương lai."); return; }
+
+                MaBN = txtMaBN.Text.Trim();
+                TenBN = txtTenBN.Text.Trim();
+                Phai = cmbPhai.SelectedItem.ToString();
+                NgaySinh = dtpNgaySinh.Value.Date;
+                CCCD = txtCCCD.Text.Trim();
+                SoNha = txtSoNha.Text.Trim();
+                TenDuong = txtTenDuong.Text.Trim();
+                QuanHuyen = txtQuanHuyen.Text.Trim();
+                TinhTP = txtTinhTP.Text.Trim();
+                TienSuBenh = txtTienSuBenh.Text.Trim();
+                TienSuBenhGD = txtTienSuBenhGD.Text.Trim();
+                DiUngThuoc = txtDiUngThuoc.Text.Trim();
+                DialogResult = DialogResult.OK;
+                Close();
+            };
             cn.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
-            ft.Controls.Add(ok); ft.Controls.Add(cn);
-            layout.Controls.Add(ft, 0, lbs.Length); layout.SetColumnSpan(ft, 2);
-            scroll.Controls.Add(layout); Controls.Add(scroll); AcceptButton = ok;
+
+            ft.Controls.Add(ok);
+            ft.Controls.Add(cn);
+            layout.Controls.Add(ft, 0, row);
+            layout.SetColumnSpan(ft, 2);
+
+            scroll.Controls.Add(layout);
+            Controls.Add(scroll);
+            AcceptButton = ok;
         }
     }
 
@@ -3750,65 +3972,705 @@ END;");
 
     public class HsbaAddForm : Form
     {
+        private sealed class LookupItem
+        {
+            public string Code { get; }
+            public string Label { get; }
+            public LookupItem(string code, string label) { Code = code; Label = label; }
+            public override string ToString() => Label;
+        }
+
+        private static readonly LookupItem[] FallbackKhoa =
+        {
+            new LookupItem("K001", "K001 — Khoa Tiêu hóa"),
+            new LookupItem("K002", "K002 — Khoa Thần kinh"),
+            new LookupItem("K003", "K003 — Khoa Tim mạch")
+        };
+
         public string MaHSBA { get; private set; }
         public string MaBN { get; private set; }
         public DateTime Ngay { get; private set; }
         public string MaBS { get; private set; }
         public string MaKhoa { get; private set; }
-        // CHANDOAN / DIEUTRI / KETLUAN do bác sĩ cập nhật sau — luôn rỗng khi tạo mới
         public string ChanDoan => string.Empty;
         public string DieuTri => string.Empty;
         public string KetLuan => string.Empty;
 
-        public HsbaAddForm()
+        private readonly OracleAdminService _service;
+        private readonly TextBox _txtMaHsba;
+        private readonly ComboBox _cmbBn;
+        private readonly ComboBox _cmbKhoa;
+        private readonly ComboBox _cmbBs;
+        private bool _suppressSync;
+        private bool _khoaItemsLoaded;
+
+        private static string SqlLit(string s) => (s ?? "").Replace("'", "''");
+
+        public HsbaAddForm(OracleAdminService service, string suggestedMaHsba)
         {
+            _service = service;
+
             Text = "Tạo Hồ Sơ Bệnh Án Mới";
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
-            ClientSize = new Size(480, 320);
+            ClientSize = new Size(540, 380);
             BackColor = UiTheme.LightCyan;
             Font = UiTheme.BodyFont;
 
-            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(18), BackColor = UiTheme.JordyBlue };
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 175F));
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(18),
+                BackColor = UiTheme.JordyBlue
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 165F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
 
-            string[] lbs = { "Mã HSBA:", "Mã bệnh nhân:", "Ngày (dd/mm/yyyy):", "Mã bác sĩ:", "Mã khoa:" };
-            var flds = new TextBox[lbs.Length];
-            for (int i = 0; i < lbs.Length; i++)
+            Control MakeRequiredLabel(string text)
             {
-                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
-                layout.Controls.Add(new Label { Text = lbs[i], AutoSize = true, Font = UiTheme.HeaderFont, ForeColor = UiTheme.DeepBlue, Anchor = AnchorStyles.Right, Margin = new Padding(0, 8, 8, 0) }, 0, i);
-                flds[i] = new TextBox { Dock = DockStyle.Fill };
-                layout.Controls.Add(flds[i], 1, i);
+                var panel = new FlowLayoutPanel
+                {
+                    AutoSize = true, FlowDirection = FlowDirection.LeftToRight,
+                    WrapContents = false, Anchor = AnchorStyles.Right,
+                    Margin = new Padding(0, 8, 8, 0), BackColor = Color.Transparent
+                };
+                panel.Controls.Add(new Label
+                {
+                    Text = text, AutoSize = true, Font = UiTheme.HeaderFont,
+                    ForeColor = UiTheme.DeepBlue, Margin = new Padding(0)
+                });
+                panel.Controls.Add(new Label
+                {
+                    Text = "*", AutoSize = true, ForeColor = Color.Red,
+                    Font = new Font("Segoe UI", 10F, FontStyle.Bold), Margin = new Padding(2, 0, 0, 0)
+                });
+                return panel;
             }
 
+            ComboBox MakeEditableCombo() => new ComboBox
+            {
+                Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown,
+                Margin = new Padding(0, 4, 0, 4),
+                AutoCompleteMode = AutoCompleteMode.SuggestAppend,
+                AutoCompleteSource = AutoCompleteSource.ListItems
+            };
+
+            int row = 0;
+
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+            layout.Controls.Add(new Label
+            {
+                Text = "Mã HSBA:", AutoSize = true, Font = UiTheme.HeaderFont,
+                ForeColor = UiTheme.DeepBlue, Anchor = AnchorStyles.Right, Margin = new Padding(0, 8, 8, 0)
+            }, 0, row);
+            _txtMaHsba = new TextBox
+            {
+                Text = suggestedMaHsba ?? "", ReadOnly = true, Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(245, 245, 245), Margin = new Padding(0, 4, 0, 4)
+            };
+            layout.Controls.Add(_txtMaHsba, 1, row++);
+
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+            layout.Controls.Add(MakeRequiredLabel("Bệnh nhân:"), 0, row);
+            _cmbBn = MakeEditableCombo();
+            layout.Controls.Add(_cmbBn, 1, row++);
+
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+            layout.Controls.Add(new Label
+            {
+                Text = "Ngày:", AutoSize = true, Font = UiTheme.HeaderFont,
+                ForeColor = UiTheme.DeepBlue, Anchor = AnchorStyles.Right, Margin = new Padding(0, 8, 8, 0)
+            }, 0, row);
+            layout.Controls.Add(new TextBox
+            {
+                Text = "Tự động — ngày hiện tại khi bấm Tạo HSBA",
+                ReadOnly = true, Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(245, 245, 245), Margin = new Padding(0, 4, 0, 4),
+                ForeColor = Color.FromArgb(80, 80, 80)
+            }, 1, row++);
+
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+            layout.Controls.Add(MakeRequiredLabel("Bác sĩ:"), 0, row);
+            _cmbBs = MakeEditableCombo();
+            layout.Controls.Add(_cmbBs, 1, row++);
+
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+            layout.Controls.Add(MakeRequiredLabel("Khoa:"), 0, row);
+            _cmbKhoa = MakeEditableCombo();
+            layout.Controls.Add(_cmbKhoa, 1, row++);
+
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 52F));
+            layout.Controls.Add(new Label
+            {
+                Text = "Bác sĩ hoặc Khoa nhập trước đều được — chọn một bên sẽ gợi ý bên kia nếu có dữ liệu.",
+                ForeColor = Color.FromArgb(90, 70, 0), AutoSize = true,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Italic), Margin = new Padding(0, 2, 0, 2)
+            }, 0, row);
+            layout.SetColumnSpan(layout.GetControlFromPosition(0, row), 2);
+            row++;
+
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-            var note = new Label { Text = "Chẩn đoán / Điều trị / Kết luận do Y bác sĩ cập nhật sau.", ForeColor = Color.FromArgb(100, 80, 0), AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Italic) };
-            layout.Controls.Add(note, 0, lbs.Length);
-            layout.SetColumnSpan(note, 2);
+            layout.Controls.Add(new Label
+            {
+                Text = "Chẩn đoán / Điều trị / Kết luận do Y bác sĩ cập nhật sau.",
+                ForeColor = Color.FromArgb(100, 80, 0), AutoSize = true,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Italic)
+            }, 0, row);
+            layout.SetColumnSpan(layout.GetControlFromPosition(0, row), 2);
+            row++;
 
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 52F));
             var ft = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
-            var ok = new Button { Text = "Tạo HSBA", Width = 120, Height = 36, FlatStyle = FlatStyle.Flat, BackColor = UiTheme.PastelGreen, ForeColor = UiTheme.DeepBlue, Font = new Font("Segoe UI", 10F, FontStyle.Bold) };
+            var ok = new Button
+            {
+                Text = "Tạo HSBA", Width = 120, Height = 36, FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.PastelGreen, ForeColor = UiTheme.DeepBlue,
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold)
+            };
             ok.FlatAppearance.BorderSize = 0;
-            var cn = new Button { Text = "Hủy", Width = 90, Height = 36, FlatStyle = FlatStyle.Flat, BackColor = UiTheme.BrandeisBlue, ForeColor = UiTheme.WhiteText };
+            var cn = new Button
+            {
+                Text = "Hủy", Width = 90, Height = 36, FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.BrandeisBlue, ForeColor = UiTheme.WhiteText
+            };
             cn.FlatAppearance.BorderSize = 0;
+
+            _cmbBs.SelectedIndexChanged += (s, e) => { if (!_suppressSync) OnBsInputChanged(false); };
+            _cmbBs.Leave += (s, e) => { if (!_suppressSync) OnBsInputChanged(true); };
+
+            _cmbKhoa.SelectedIndexChanged += (s, e) => { if (!_suppressSync) OnKhoaInputChanged(false); };
+            _cmbKhoa.Leave += (s, e) => { if (!_suppressSync) OnKhoaInputChanged(true); };
+
             ok.Click += (s, e) =>
             {
-                if (string.IsNullOrWhiteSpace(flds[0].Text) || string.IsNullOrWhiteSpace(flds[1].Text)) { MessageBox.Show("Nhập Mã HSBA và Mã bệnh nhân."); return; }
-                if (!DateTime.TryParseExact(flds[2].Text, "dd/MM/yyyy", null, System.Globalization.DateTimeStyles.None, out DateTime ng)) { MessageBox.Show("Ngày không hợp lệ (dd/mm/yyyy)."); return; }
-                MaHSBA = flds[0].Text.Trim(); MaBN = flds[1].Text.Trim(); Ngay = ng;
-                MaBS = flds[3].Text.Trim(); MaKhoa = flds[4].Text.Trim();
-                DialogResult = DialogResult.OK; Close();
+                MaHSBA = (_txtMaHsba.Text ?? "").Trim();
+                MaBN = ResolveLookupCode(_cmbBn);
+                MaKhoa = ResolveLookupCode(_cmbKhoa);
+                MaBS = ResolveLookupCode(_cmbBs);
+                if (string.IsNullOrEmpty(MaHSBA)) { MessageBox.Show("Thiếu mã HSBA."); return; }
+                if (string.IsNullOrEmpty(MaBN)) { MessageBox.Show("Nhập hoặc chọn mã bệnh nhân."); return; }
+                if (string.IsNullOrEmpty(MaKhoa)) { MessageBox.Show("Nhập hoặc chọn khoa."); return; }
+                if (string.IsNullOrEmpty(MaBS)) { MessageBox.Show("Nhập hoặc chọn bác sĩ phụ trách."); return; }
+                Ngay = DateTime.Today;
+                DialogResult = DialogResult.OK;
+                Close();
             };
             cn.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
-            ft.Controls.Add(ok); ft.Controls.Add(cn);
-            layout.Controls.Add(ft, 0, lbs.Length + 1);
+
+            ft.Controls.Add(ok);
+            ft.Controls.Add(cn);
+            layout.Controls.Add(ft, 0, row);
             layout.SetColumnSpan(ft, 2);
+
             Controls.Add(layout);
             AcceptButton = ok;
+
+            LoadBenhNhan();
+            PopulateKhoaCombo(null);
+            PopulateBacSiCombo(null, null);
+        }
+
+        private void OnKhoaInputChanged(bool fromLeave)
+        {
+            string maKhoa = ResolveLookupCode(_cmbKhoa);
+            string maBs = ResolveLookupCode(_cmbBs);
+            _suppressSync = true;
+            PopulateBacSiCombo(maKhoa, maBs);
+            _suppressSync = false;
+        }
+
+        private void OnBsInputChanged(bool fromLeave)
+        {
+            string maBs = ResolveLookupCode(_cmbBs);
+            if (string.IsNullOrEmpty(maBs)) return;
+
+            string maKhoa = ResolveLookupCode(_cmbKhoa);
+            string resolvedKhoa = TryResolveKhoaFromBs(maBs);
+
+            _suppressSync = true;
+            if (string.IsNullOrEmpty(maKhoa) && !string.IsNullOrEmpty(resolvedKhoa))
+                SelectCombo(_cmbKhoa, resolvedKhoa);
+
+            maKhoa = ResolveLookupCode(_cmbKhoa);
+            PopulateBacSiCombo(maKhoa, maBs);
+            _suppressSync = false;
+        }
+
+        private string TryResolveKhoaFromBs(string maBs)
+        {
+            if (string.IsNullOrEmpty(maBs)) return null;
+
+            try
+            {
+                var dt = _service.Query(
+                    "SELECT MAKHOA FROM QLBV.NHANVIEN " +
+                    $"WHERE MANV = '{SqlLit(maBs)}' AND MAKHOA IS NOT NULL AND ROWNUM = 1");
+                if (dt.Rows.Count > 0)
+                {
+                    string k = dt.Rows[0]["MAKHOA"]?.ToString();
+                    if (!string.IsNullOrEmpty(k)) return k;
+                }
+            }
+            catch { }
+
+            try
+            {
+                var dt = _service.Query(
+                    "SELECT MAKHOA FROM QLBV.HSBA " +
+                    $"WHERE MABS = '{SqlLit(maBs)}' AND MAKHOA IS NOT NULL AND ROWNUM = 1");
+                if (dt.Rows.Count > 0)
+                {
+                    string k = dt.Rows[0]["MAKHOA"]?.ToString();
+                    if (!string.IsNullOrEmpty(k)) return k;
+                }
+            }
+            catch { }
+
+            if (maBs.Length > 2 && maBs.StartsWith("BS", StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(maBs.Substring(2), out int num))
+            {
+                int kIdx = (num - 1) % 3 + 1;
+                if (kIdx == 1) return "K001";
+                if (kIdx == 2) return "K002";
+                if (kIdx == 3) return "K003";
+            }
+
+            return null;
+        }
+
+        private void LoadBenhNhan()
+        {
+            _cmbBn.Items.Clear();
+            try
+            {
+                var dt = _service.Query(
+                    "SELECT MABN, TENBN FROM QLBV.BENHNHAN ORDER BY MABN FETCH FIRST 500 ROWS ONLY");
+                foreach (DataRow r in dt.Rows)
+                {
+                    string code = r["MABN"]?.ToString();
+                    string ten = r["TENBN"]?.ToString();
+                    if (!string.IsNullOrEmpty(code))
+                        _cmbBn.Items.Add(new LookupItem(code, code + " — " + ten));
+                }
+            }
+            catch { }
+        }
+
+        private void PopulateKhoaCombo(string selectCode)
+        {
+            if (!_khoaItemsLoaded)
+            {
+                _cmbKhoa.Items.Clear();
+                bool loadedFromDb = false;
+                try
+                {
+                    var dt = _service.Query("SELECT MAKHOA, TENKHOA FROM QLBV.KHOA ORDER BY MAKHOA");
+                    if (dt.Rows.Count > 0)
+                    {
+                        foreach (DataRow r in dt.Rows)
+                        {
+                            string code = r["MAKHOA"]?.ToString();
+                            string ten = r["TENKHOA"]?.ToString();
+                            if (!string.IsNullOrEmpty(code))
+                                _cmbKhoa.Items.Add(new LookupItem(code, code + " — " + ten));
+                        }
+                        loadedFromDb = _cmbKhoa.Items.Count > 0;
+                    }
+                }
+                catch { }
+
+                if (!loadedFromDb)
+                {
+                    foreach (var k in FallbackKhoa)
+                        _cmbKhoa.Items.Add(k);
+                }
+
+                _khoaItemsLoaded = true;
+            }
+
+            if (!string.IsNullOrEmpty(selectCode))
+                SelectCombo(_cmbKhoa, selectCode);
+        }
+
+        private void PopulateBacSiCombo(string maKhoaFilter, string selectCode)
+        {
+            string preserve = selectCode ?? ResolveLookupCode(_cmbBs);
+            _cmbBs.Items.Clear();
+            _cmbBs.Enabled = true;
+
+            var added = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            void AddBs(string manv, string hoten)
+            {
+                if (string.IsNullOrEmpty(manv) || !added.Add(manv)) return;
+                string label = string.IsNullOrEmpty(hoten) ? manv : manv + " — " + hoten;
+                _cmbBs.Items.Add(new LookupItem(manv, label));
+            }
+
+            string khoaClause = string.IsNullOrEmpty(maKhoaFilter)
+                ? ""
+                : $" AND MAKHOA = '{SqlLit(maKhoaFilter)}'";
+
+            try
+            {
+                var dt = _service.Query(
+                    "SELECT MANV, HOTEN FROM QLBV.NHANVIEN " +
+                    $"WHERE VAITRO = N'Bác sĩ/Y sĩ'{khoaClause} ORDER BY MANV");
+                foreach (DataRow r in dt.Rows)
+                    AddBs(r["MANV"]?.ToString(), r["HOTEN"]?.ToString());
+            }
+            catch { }
+
+            try
+            {
+                string hsbaSql = string.IsNullOrEmpty(maKhoaFilter)
+                    ? "SELECT DISTINCT MABS FROM QLBV.HSBA WHERE MABS IS NOT NULL ORDER BY MABS"
+                    : "SELECT DISTINCT MABS FROM QLBV.HSBA " +
+                      $"WHERE MAKHOA = '{SqlLit(maKhoaFilter)}' AND MABS IS NOT NULL ORDER BY MABS";
+                var dtHsba = _service.Query(hsbaSql);
+                foreach (DataRow r in dtHsba.Rows)
+                    AddBs(r["MABS"]?.ToString(), null);
+            }
+            catch { }
+
+            if (_cmbBs.Items.Count == 0)
+            {
+                if (!string.IsNullOrEmpty(maKhoaFilter))
+                {
+                    int kIdx = maKhoaFilter == "K001" ? 1 : maKhoaFilter == "K002" ? 2 : maKhoaFilter == "K003" ? 3 : 0;
+                    if (kIdx > 0)
+                    {
+                        for (int i = 1; i <= 52; i++)
+                        {
+                            if ((i - 1) % 3 + 1 != kIdx) continue;
+                            AddBs("BS" + i.ToString("D4"), null);
+                        }
+                    }
+                }
+                else
+                {
+                    for (int i = 1; i <= 52; i++)
+                        AddBs("BS" + i.ToString("D4"), null);
+                }
+            }
+
+            if (!string.IsNullOrEmpty(preserve))
+                SelectCombo(_cmbBs, preserve);
+        }
+
+        private static bool SelectCombo(ComboBox cmb, string code)
+        {
+            if (string.IsNullOrEmpty(code)) return false;
+            for (int i = 0; i < cmb.Items.Count; i++)
+            {
+                if (cmb.Items[i] is LookupItem item &&
+                    string.Equals(item.Code, code, StringComparison.OrdinalIgnoreCase))
+                {
+                    cmb.SelectedIndex = i;
+                    return true;
+                }
+            }
+            if (cmb.DropDownStyle == ComboBoxStyle.DropDown)
+                cmb.Text = code;
+            return false;
+        }
+
+        private static string ResolveLookupCode(ComboBox cmb)
+        {
+            if (cmb.SelectedItem is LookupItem item)
+                return item.Code?.Trim();
+            string text = (cmb.Text ?? "").Trim();
+            if (string.IsNullOrEmpty(text)) return null;
+            int sep = text.IndexOf(" — ", StringComparison.Ordinal);
+            return sep > 0 ? text.Substring(0, sep).Trim() : text;
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  DIALOG: Điều phối HSBA — chọn Khoa → Bác sĩ (dropdown)
+    // ════════════════════════════════════════════════════════════════════════
+
+    public class HsbaDieuPhoiForm : Form
+    {
+        private sealed class LookupItem
+        {
+            public string Code { get; }
+            public string Label { get; }
+            public LookupItem(string code, string label) { Code = code; Label = label; }
+            public override string ToString() => Label;
+        }
+
+        // insert_khoa.sql — DPV thường không có SELECT trên QLBV.KHOA (03.sql chưa grant)
+        private static readonly LookupItem[] FallbackKhoa =
+        {
+            new LookupItem("K001", "K001 — Khoa Tiêu hóa"),
+            new LookupItem("K002", "K002 — Khoa Thần kinh"),
+            new LookupItem("K003", "K003 — Khoa Tim mạch")
+        };
+
+        public string MaKhoa { get; private set; }
+        public string MaBS { get; private set; }
+
+        private readonly OracleAdminService _service;
+        private readonly ComboBox _cmbKhoa;
+        private readonly ComboBox _cmbBs;
+        private bool _suppressBsReload;
+
+        private static string SqlLit(string s) => (s ?? "").Replace("'", "''");
+
+        public HsbaDieuPhoiForm(OracleAdminService service, string maHsba, string maKhoaHienTai, string maBsHienTai)
+        {
+            _service = service;
+
+            Text = "Điều Phối HSBA — " + maHsba;
+            StartPosition = FormStartPosition.CenterParent;
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            ClientSize = new Size(520, 280);
+            BackColor = UiTheme.LightCyan;
+            Font = UiTheme.BodyFont;
+
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(18),
+                BackColor = UiTheme.JordyBlue
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150F));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+
+            Control MakeRequiredLabel(string text)
+            {
+                var panel = new FlowLayoutPanel
+                {
+                    AutoSize = true, FlowDirection = FlowDirection.LeftToRight,
+                    WrapContents = false, Anchor = AnchorStyles.Right,
+                    Margin = new Padding(0, 8, 8, 0), BackColor = Color.Transparent
+                };
+                panel.Controls.Add(new Label
+                {
+                    Text = text, AutoSize = true, Font = UiTheme.HeaderFont,
+                    ForeColor = UiTheme.DeepBlue, Margin = new Padding(0)
+                });
+                panel.Controls.Add(new Label
+                {
+                    Text = "*", AutoSize = true, ForeColor = Color.Red,
+                    Font = new Font("Segoe UI", 10F, FontStyle.Bold), Margin = new Padding(2, 0, 0, 0)
+                });
+                return panel;
+            }
+
+            int row = 0;
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+            layout.Controls.Add(new Label
+            {
+                Text = "Mã HSBA:", AutoSize = true, Font = UiTheme.HeaderFont,
+                ForeColor = UiTheme.DeepBlue, Anchor = AnchorStyles.Right, Margin = new Padding(0, 8, 8, 0)
+            }, 0, row);
+            layout.Controls.Add(new TextBox
+            {
+                Text = maHsba ?? "", ReadOnly = true, Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(245, 245, 245), Margin = new Padding(0, 4, 0, 4)
+            }, 1, row++);
+
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+            layout.Controls.Add(MakeRequiredLabel("Khoa:"), 0, row);
+            _cmbKhoa = new ComboBox
+            {
+                Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown,
+                Margin = new Padding(0, 4, 0, 4), AutoCompleteMode = AutoCompleteMode.SuggestAppend,
+                AutoCompleteSource = AutoCompleteSource.ListItems
+            };
+            layout.Controls.Add(_cmbKhoa, 1, row++);
+
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+            layout.Controls.Add(MakeRequiredLabel("Bác sĩ:"), 0, row);
+            _cmbBs = new ComboBox
+            {
+                Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown,
+                Margin = new Padding(0, 4, 0, 4), AutoCompleteMode = AutoCompleteMode.SuggestAppend,
+                AutoCompleteSource = AutoCompleteSource.ListItems
+            };
+            layout.Controls.Add(_cmbBs, 1, row++);
+
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
+            layout.Controls.Add(new Label
+            {
+                Text = "Chọn từ dropdown hoặc gõ mã (vd. K001, BS0004). Chọn khoa trước để lọc bác sĩ.",
+                ForeColor = Color.FromArgb(90, 70, 0), AutoSize = true,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Italic), Margin = new Padding(0, 4, 0, 0)
+            }, 0, row);
+            layout.SetColumnSpan(layout.GetControlFromPosition(0, row), 2);
+            row++;
+
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 52F));
+            var ft = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
+            var ok = new Button
+            {
+                Text = "Lưu", Width = 110, Height = 36, FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.PastelGreen, ForeColor = UiTheme.DeepBlue,
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold)
+            };
+            ok.FlatAppearance.BorderSize = 0;
+            var cn = new Button
+            {
+                Text = "Hủy", Width = 90, Height = 36, FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.BrandeisBlue, ForeColor = UiTheme.WhiteText
+            };
+            cn.FlatAppearance.BorderSize = 0;
+
+            _cmbKhoa.SelectedIndexChanged += (s, e) =>
+            {
+                if (_suppressBsReload) return;
+                LoadBacSiTheoKhoa(ResolveLookupCode(_cmbKhoa), null);
+            };
+            _cmbKhoa.Leave += (s, e) =>
+            {
+                if (_suppressBsReload) return;
+                LoadBacSiTheoKhoa(ResolveLookupCode(_cmbKhoa), ResolveLookupCode(_cmbBs));
+            };
+
+            ok.Click += (s, e) =>
+            {
+                MaKhoa = ResolveLookupCode(_cmbKhoa);
+                MaBS = ResolveLookupCode(_cmbBs);
+                if (string.IsNullOrEmpty(MaKhoa)) { MessageBox.Show("Nhập hoặc chọn khoa."); return; }
+                if (string.IsNullOrEmpty(MaBS)) { MessageBox.Show("Nhập hoặc chọn bác sĩ phụ trách."); return; }
+                DialogResult = DialogResult.OK;
+                Close();
+            };
+            cn.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
+
+            ft.Controls.Add(ok);
+            ft.Controls.Add(cn);
+            layout.Controls.Add(ft, 0, row);
+            layout.SetColumnSpan(ft, 2);
+
+            Controls.Add(layout);
+            AcceptButton = ok;
+
+            LoadKhoa(maKhoaHienTai, maBsHienTai);
+        }
+
+        private void LoadKhoa(string maKhoaHienTai, string maBsHienTai)
+        {
+            _suppressBsReload = true;
+            _cmbKhoa.Items.Clear();
+
+            bool loadedFromDb = false;
+            try
+            {
+                var dt = _service.Query("SELECT MAKHOA, TENKHOA FROM QLBV.KHOA ORDER BY MAKHOA");
+                if (dt.Rows.Count > 0)
+                {
+                    foreach (DataRow r in dt.Rows)
+                    {
+                        string code = r["MAKHOA"]?.ToString();
+                        string ten = r["TENKHOA"]?.ToString();
+                        if (!string.IsNullOrEmpty(code))
+                            _cmbKhoa.Items.Add(new LookupItem(code, code + " — " + ten));
+                    }
+                    loadedFromDb = _cmbKhoa.Items.Count > 0;
+                }
+            }
+            catch { }
+
+            if (!loadedFromDb)
+            {
+                foreach (var k in FallbackKhoa)
+                    _cmbKhoa.Items.Add(k);
+            }
+
+            SelectCombo(_cmbKhoa, maKhoaHienTai);
+            _suppressBsReload = false;
+            var khoa = _cmbKhoa.SelectedItem as LookupItem;
+            LoadBacSiTheoKhoa(khoa?.Code ?? maKhoaHienTai, maBsHienTai);
+        }
+
+        private void LoadBacSiTheoKhoa(string maKhoa, string chonMaBs)
+        {
+            _cmbBs.Items.Clear();
+            if (string.IsNullOrEmpty(maKhoa))
+            {
+                _cmbBs.Enabled = false;
+                return;
+            }
+
+            _cmbBs.Enabled = true;
+            var added = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            void AddBs(string manv, string hoten)
+            {
+                if (string.IsNullOrEmpty(manv) || !added.Add(manv)) return;
+                string label = string.IsNullOrEmpty(hoten) ? manv : manv + " — " + hoten;
+                _cmbBs.Items.Add(new LookupItem(manv, label));
+            }
+
+            // QLBV/ROLE_DPV: thử NHANVIEN (VPD có thể chỉ trả về chính user DPV)
+            try
+            {
+                var dt = _service.Query(
+                    "SELECT MANV, HOTEN FROM QLBV.NHANVIEN " +
+                    $"WHERE VAITRO = N'Bác sĩ/Y sĩ' AND MAKHOA = '{SqlLit(maKhoa)}' ORDER BY MANV");
+                foreach (DataRow r in dt.Rows)
+                    AddBs(r["MANV"]?.ToString(), r["HOTEN"]?.ToString());
+            }
+            catch { }
+
+            // Bổ sung từ HSBA — DPV có SELECT toàn bộ HSBA (fn_vpdHSBA → 1=1)
+            try
+            {
+                var dtHsba = _service.Query(
+                    "SELECT DISTINCT MABS FROM QLBV.HSBA " +
+                    $"WHERE MAKHOA = '{SqlLit(maKhoa)}' AND MABS IS NOT NULL ORDER BY MABS");
+                foreach (DataRow r in dtHsba.Rows)
+                    AddBs(r["MABS"]?.ToString(), null);
+            }
+            catch { }
+
+            // Fallback: bác sĩ seed insert_nhanvien (BSxxxx luân phiên K001/K002/K003)
+            if (_cmbBs.Items.Count == 0)
+            {
+                int kIdx = maKhoa == "K001" ? 1 : maKhoa == "K002" ? 2 : maKhoa == "K003" ? 3 : 0;
+                if (kIdx > 0)
+                {
+                    for (int i = 1; i <= 52; i++)
+                    {
+                        if ((i - 1) % 3 + 1 != kIdx) continue;
+                        AddBs("BS" + i.ToString("D4"), null);
+                    }
+                }
+            }
+
+            if (!SelectCombo(_cmbBs, chonMaBs) && _cmbBs.Items.Count > 0)
+                _cmbBs.SelectedIndex = 0;
+        }
+
+        private static bool SelectCombo(ComboBox cmb, string code)
+        {
+            if (string.IsNullOrEmpty(code)) return false;
+            for (int i = 0; i < cmb.Items.Count; i++)
+            {
+                if (cmb.Items[i] is LookupItem item &&
+                    string.Equals(item.Code, code, StringComparison.OrdinalIgnoreCase))
+                {
+                    cmb.SelectedIndex = i;
+                    return true;
+                }
+            }
+            if (cmb.DropDownStyle == ComboBoxStyle.DropDown)
+                cmb.Text = code;
+            return false;
+        }
+
+        /// <summary>Chọn từ list (LookupItem) hoặc lấy mã từ text tự gõ (K001 / K001 — Khoa …).</summary>
+        private static string ResolveLookupCode(ComboBox cmb)
+        {
+            if (cmb.SelectedItem is LookupItem item)
+                return item.Code?.Trim();
+            string text = (cmb.Text ?? "").Trim();
+            if (string.IsNullOrEmpty(text)) return null;
+            int sep = text.IndexOf(" — ", StringComparison.Ordinal);
+            return sep > 0 ? text.Substring(0, sep).Trim() : text;
         }
     }
 
@@ -3822,24 +4684,204 @@ END;");
 
     public class HsbaDvAddForm : Form
     {
+        private sealed class LookupItem
+        {
+            public string Code { get; }
+            public string Label { get; }
+            public LookupItem(string code, string label) { Code = code; Label = label; }
+            public override string ToString() => Label;
+        }
+
         public string MaHSBA { get; private set; }
         public string LoaiDV { get; private set; }
         public DateTime NgayDV { get; private set; }
         public string MaKTV { get; private set; }
 
-        public HsbaDvAddForm(bool isDoctor = false)
+        public HsbaDvAddForm(bool isDoctor = false, OracleAdminService service = null)
         {
-            Text = isDoctor ? "Bác Sĩ Chỉ Định Dịch Vụ" : "Điều Phối / Thêm Dịch Vụ";
+            if (isDoctor)
+                BuildDoctorUi(service);
+            else
+                BuildDpvUi();
+        }
+
+        private void BuildDoctorUi(OracleAdminService service)
+        {
+            Text = "Bác Sĩ Chỉ Định Dịch Vụ";
+            StartPosition = FormStartPosition.CenterParent;
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            ClientSize = new Size(520, 280);
+            BackColor = UiTheme.LightCyan;
+            Font = UiTheme.BodyFont;
+
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(16),
+                BackColor = UiTheme.JordyBlue
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 185F));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+
+            Control MakeRequiredLabel(string text)
+            {
+                var panel = new FlowLayoutPanel
+                {
+                    AutoSize = true, FlowDirection = FlowDirection.LeftToRight,
+                    WrapContents = false, Anchor = AnchorStyles.Right,
+                    Margin = new Padding(0, 8, 8, 0), BackColor = Color.Transparent
+                };
+                panel.Controls.Add(new Label
+                {
+                    Text = text, AutoSize = true, Font = UiTheme.HeaderFont,
+                    ForeColor = UiTheme.DeepBlue, Margin = new Padding(0)
+                });
+                panel.Controls.Add(new Label
+                {
+                    Text = "*", AutoSize = true, ForeColor = Color.Red,
+                    Font = new Font("Segoe UI", 10F, FontStyle.Bold), Margin = new Padding(2, 0, 0, 0)
+                });
+                return panel;
+            }
+
+            int row = 0;
+
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+            layout.Controls.Add(MakeRequiredLabel("Mã HSBA:"), 0, row);
+            var cmbHsba = new ComboBox
+            {
+                Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown,
+                Margin = new Padding(0, 4, 0, 4),
+                AutoCompleteMode = AutoCompleteMode.SuggestAppend,
+                AutoCompleteSource = AutoCompleteSource.ListItems
+            };
+            layout.Controls.Add(cmbHsba, 1, row++);
+
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+            layout.Controls.Add(MakeRequiredLabel("Loại dịch vụ:"), 0, row);
+            var txtLoaiDv = new TextBox { Dock = DockStyle.Fill, Margin = new Padding(0, 4, 0, 4) };
+            layout.Controls.Add(txtLoaiDv, 1, row++);
+
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+            layout.Controls.Add(MakeRequiredLabel("Ngày DV:"), 0, row);
+            var dtpNgay = new DateTimePicker
+            {
+                Dock = DockStyle.Fill, Format = DateTimePickerFormat.Custom,
+                CustomFormat = "dd/MM/yyyy", ShowUpDown = false,
+                MinDate = DateTime.Today, Value = DateTime.Today,
+                Margin = new Padding(0, 4, 0, 4)
+            };
+            layout.Controls.Add(dtpNgay, 1, row++);
+
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
+            layout.Controls.Add(new Label
+            {
+                Text = "HSBA: chọn hoặc gõ mã hồ sơ bạn phụ trách. Ngày DV không được trước hôm nay.",
+                ForeColor = Color.FromArgb(90, 70, 0), AutoSize = true,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Italic), Margin = new Padding(0, 2, 0, 2)
+            }, 0, row);
+            layout.SetColumnSpan(layout.GetControlFromPosition(0, row), 2);
+            row++;
+
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
+            layout.Controls.Add(new Label
+            {
+                Text = "KTV do Điều phối viên phân công sau.",
+                ForeColor = Color.FromArgb(160, 80, 0), AutoSize = true,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Italic)
+            }, 0, row);
+            layout.SetColumnSpan(layout.GetControlFromPosition(0, row), 2);
+            row++;
+
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 52F));
+            var ft = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
+            var ok = new Button
+            {
+                Text = "Chỉ Định", Width = 120, Height = 36, FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.PastelGreen, ForeColor = UiTheme.DeepBlue,
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold)
+            };
+            ok.FlatAppearance.BorderSize = 0;
+            var cn = new Button
+            {
+                Text = "Hủy", Width = 90, Height = 36, FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.BrandeisBlue, ForeColor = UiTheme.WhiteText
+            };
+            cn.FlatAppearance.BorderSize = 0;
+
+            ok.Click += (s, e) =>
+            {
+                MaHSBA = ResolveLookupCode(cmbHsba);
+                LoaiDV = (txtLoaiDv.Text ?? "").Trim();
+                if (string.IsNullOrEmpty(MaHSBA)) { MessageBox.Show("Nhập hoặc chọn mã HSBA."); return; }
+                if (string.IsNullOrEmpty(LoaiDV)) { MessageBox.Show("Nhập loại dịch vụ."); return; }
+                if (dtpNgay.Value.Date < DateTime.Today)
+                {
+                    MessageBox.Show("Ngày dịch vụ không được trước hôm nay.");
+                    dtpNgay.Value = DateTime.Today;
+                    return;
+                }
+                NgayDV = dtpNgay.Value.Date;
+                MaKTV = null;
+                DialogResult = DialogResult.OK;
+                Close();
+            };
+            cn.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
+
+            ft.Controls.Add(ok);
+            ft.Controls.Add(cn);
+            layout.Controls.Add(ft, 0, row);
+            layout.SetColumnSpan(ft, 2);
+
+            Controls.Add(layout);
+            AcceptButton = ok;
+
+            if (service != null)
+                LoadDoctorHsbaCombo(service, cmbHsba);
+        }
+
+        private static void LoadDoctorHsbaCombo(OracleAdminService service, ComboBox cmb)
+        {
+            cmb.Items.Clear();
+            try
+            {
+                var dt = service.Query(
+                    "SELECT MAHSBA, MABN FROM QLBV.HSBA WHERE MABS = USER ORDER BY MAHSBA");
+                foreach (DataRow r in dt.Rows)
+                {
+                    string code = r["MAHSBA"]?.ToString();
+                    string mabn = r["MABN"]?.ToString();
+                    if (!string.IsNullOrEmpty(code))
+                    {
+                        string label = string.IsNullOrEmpty(mabn) ? code : code + " — " + mabn;
+                        cmb.Items.Add(new LookupItem(code, label));
+                    }
+                }
+            }
+            catch { }
+        }
+
+        private static string ResolveLookupCode(ComboBox cmb)
+        {
+            if (cmb.SelectedItem is LookupItem item)
+                return item.Code?.Trim();
+            string text = (cmb.Text ?? "").Trim();
+            if (string.IsNullOrEmpty(text)) return null;
+            int sep = text.IndexOf(" — ", StringComparison.Ordinal);
+            return sep > 0 ? text.Substring(0, sep).Trim() : text;
+        }
+
+        private void BuildDpvUi()
+        {
+            Text = "Điều Phối / Thêm Dịch Vụ";
             StartPosition = FormStartPosition.CenterParent; FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false;
-            ClientSize = isDoctor ? new Size(460, 240) : new Size(460, 295);
+            ClientSize = new Size(460, 295);
             BackColor = UiTheme.LightCyan; Font = UiTheme.BodyFont;
 
             var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(16), BackColor = UiTheme.JordyBlue };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 185F)); layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
 
-            string[] lbs = isDoctor
-                ? new string[] { "Mã HSBA:", "Loại dịch vụ:", "Ngày DV (dd/mm/yyyy):" }
-                : new string[] { "Mã HSBA:", "Loại dịch vụ:", "Ngày DV (dd/mm/yyyy):", "Mã KTV:" };
+            string[] lbs = { "Mã HSBA:", "Loại dịch vụ:", "Ngày DV (dd/mm/yyyy):", "Mã KTV:" };
             var flds = new TextBox[lbs.Length];
 
             for (int i = 0; i < lbs.Length; i++)
@@ -3851,25 +4893,21 @@ END;");
             }
 
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-
-            string noteText = isDoctor
-                ? "Chỉ định dịch vụ — KTV do Điều phối viên phân công sau."
-                : "Kết quả do KTV nhập sau.";
-            var nt = new Label { Text = noteText, ForeColor = Color.FromArgb(160, 80, 0), AutoSize = true };
+            var nt = new Label { Text = "Kết quả do KTV nhập sau.", ForeColor = Color.FromArgb(160, 80, 0), AutoSize = true };
             layout.Controls.Add(nt, 0, lbs.Length); layout.SetColumnSpan(nt, 2);
 
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 52F));
             var ft = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
-            var ok = new Button { Text = isDoctor ? "Chỉ Định" : "Điều Phối", Width = 120, Height = 36, FlatStyle = FlatStyle.Flat, BackColor = UiTheme.PastelGreen, ForeColor = UiTheme.DeepBlue, Font = new Font("Segoe UI", 10F, FontStyle.Bold) }; ok.FlatAppearance.BorderSize = 0;
+            var ok = new Button { Text = "Điều Phối", Width = 120, Height = 36, FlatStyle = FlatStyle.Flat, BackColor = UiTheme.PastelGreen, ForeColor = UiTheme.DeepBlue, Font = new Font("Segoe UI", 10F, FontStyle.Bold) }; ok.FlatAppearance.BorderSize = 0;
             var cn = new Button { Text = "Hủy", Width = 90, Height = 36, FlatStyle = FlatStyle.Flat, BackColor = UiTheme.BrandeisBlue, ForeColor = UiTheme.WhiteText }; cn.FlatAppearance.BorderSize = 0;
 
             ok.Click += (s, e) => {
                 if (string.IsNullOrWhiteSpace(flds[0].Text)) { MessageBox.Show("Nhập Mã HSBA."); return; }
                 if (string.IsNullOrWhiteSpace(flds[1].Text)) { MessageBox.Show("Nhập loại dịch vụ."); return; }
                 if (!DateTime.TryParseExact(flds[2].Text, "dd/MM/yyyy", null, System.Globalization.DateTimeStyles.None, out DateTime ng)) { MessageBox.Show("Ngày không hợp lệ."); return; }
-                if (!isDoctor && string.IsNullOrWhiteSpace(flds[3].Text)) { MessageBox.Show("Nhập Mã KTV."); return; }
+                if (string.IsNullOrWhiteSpace(flds[3].Text)) { MessageBox.Show("Nhập Mã KTV."); return; }
                 MaHSBA = flds[0].Text.Trim(); LoaiDV = flds[1].Text.Trim(); NgayDV = ng;
-                MaKTV = isDoctor ? null : flds[3].Text.Trim();
+                MaKTV = flds[3].Text.Trim();
                 DialogResult = DialogResult.OK; Close();
             };
             cn.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
@@ -3884,38 +4922,179 @@ END;");
 
     public class DonThuocAddForm : Form
     {
+        private sealed class LookupItem
+        {
+            public string Code { get; }
+            public string Label { get; }
+            public LookupItem(string code, string label) { Code = code; Label = label; }
+            public override string ToString() => Label;
+        }
+
         public string MaHSBA { get; private set; }
         public DateTime NgayDT { get; private set; }
         public string TenThuoc { get; private set; }
         public string LieuDung { get; private set; }
 
-        public DonThuocAddForm()
+        public DonThuocAddForm(OracleAdminService service = null)
         {
-            Text = "Thêm Đơn Thuốc"; StartPosition = FormStartPosition.CenterParent; FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false;
-            ClientSize = new Size(440, 260);
-            BackColor = UiTheme.LightCyan; Font = UiTheme.BodyFont;
+            Text = "Thêm Đơn Thuốc";
+            StartPosition = FormStartPosition.CenterParent;
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            ClientSize = new Size(520, 300);
+            BackColor = UiTheme.LightCyan;
+            Font = UiTheme.BodyFont;
 
-            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(16), BackColor = UiTheme.JordyBlue };
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190F)); layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(16),
+                BackColor = UiTheme.JordyBlue
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190F));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
 
-            string[] lbs = { "Mã HSBA:", "Ngày (dd/mm/yyyy):", "Tên thuốc:", "Liều dùng:" };
-            var flds = new TextBox[lbs.Length];
-            for (int i = 0; i < lbs.Length; i++) { layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F)); layout.Controls.Add(new Label { Text = lbs[i], AutoSize = true, Font = UiTheme.HeaderFont, ForeColor = UiTheme.DeepBlue, Anchor = AnchorStyles.Right }, 0, i); flds[i] = new TextBox { Dock = DockStyle.Fill }; layout.Controls.Add(flds[i], 1, i); }
+            Control MakeRequiredLabel(string text)
+            {
+                var panel = new FlowLayoutPanel
+                {
+                    AutoSize = true, FlowDirection = FlowDirection.LeftToRight,
+                    WrapContents = false, Anchor = AnchorStyles.Right,
+                    Margin = new Padding(0, 8, 8, 0), BackColor = Color.Transparent
+                };
+                panel.Controls.Add(new Label
+                {
+                    Text = text, AutoSize = true, Font = UiTheme.HeaderFont,
+                    ForeColor = UiTheme.DeepBlue, Margin = new Padding(0)
+                });
+                panel.Controls.Add(new Label
+                {
+                    Text = "*", AutoSize = true, ForeColor = Color.Red,
+                    Font = new Font("Segoe UI", 10F, FontStyle.Bold), Margin = new Padding(2, 0, 0, 0)
+                });
+                return panel;
+            }
+
+            int row = 0;
+
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+            layout.Controls.Add(MakeRequiredLabel("Mã HSBA:"), 0, row);
+            var cmbHsba = new ComboBox
+            {
+                Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown,
+                Margin = new Padding(0, 4, 0, 4),
+                AutoCompleteMode = AutoCompleteMode.SuggestAppend,
+                AutoCompleteSource = AutoCompleteSource.ListItems
+            };
+            layout.Controls.Add(cmbHsba, 1, row++);
+
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+            layout.Controls.Add(MakeRequiredLabel("Ngày:"), 0, row);
+            var dtpNgay = new DateTimePicker
+            {
+                Dock = DockStyle.Fill, Format = DateTimePickerFormat.Custom,
+                CustomFormat = "dd/MM/yyyy", ShowUpDown = false,
+                MinDate = DateTime.Today, Value = DateTime.Today,
+                Margin = new Padding(0, 4, 0, 4)
+            };
+            layout.Controls.Add(dtpNgay, 1, row++);
+
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+            layout.Controls.Add(MakeRequiredLabel("Tên thuốc:"), 0, row);
+            var txtTenThuoc = new TextBox { Dock = DockStyle.Fill, Margin = new Padding(0, 4, 0, 4) };
+            layout.Controls.Add(txtTenThuoc, 1, row++);
+
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+            layout.Controls.Add(MakeRequiredLabel("Liều dùng:"), 0, row);
+            var txtLieuDung = new TextBox { Dock = DockStyle.Fill, Margin = new Padding(0, 4, 0, 4) };
+            layout.Controls.Add(txtLieuDung, 1, row++);
+
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
+            layout.Controls.Add(new Label
+            {
+                Text = "HSBA: chọn hoặc gõ mã hồ sơ bạn phụ trách. Ngày kê đơn không được trước hôm nay.",
+                ForeColor = Color.FromArgb(90, 70, 0), AutoSize = true,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Italic), Margin = new Padding(0, 2, 0, 2)
+            }, 0, row);
+            layout.SetColumnSpan(layout.GetControlFromPosition(0, row), 2);
+            row++;
 
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 52F));
             var ft = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
-            var ok = new Button { Text = "Thêm", Width = 100, Height = 36, FlatStyle = FlatStyle.Flat, BackColor = UiTheme.PastelGreen, ForeColor = UiTheme.DeepBlue, Font = new Font("Segoe UI", 10F, FontStyle.Bold) }; ok.FlatAppearance.BorderSize = 0;
-            var cn = new Button { Text = "Hủy", Width = 90, Height = 36, FlatStyle = FlatStyle.Flat, BackColor = UiTheme.BrandeisBlue, ForeColor = UiTheme.WhiteText }; cn.FlatAppearance.BorderSize = 0;
+            var ok = new Button
+            {
+                Text = "Thêm", Width = 100, Height = 36, FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.PastelGreen, ForeColor = UiTheme.DeepBlue,
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold)
+            };
+            ok.FlatAppearance.BorderSize = 0;
+            var cn = new Button
+            {
+                Text = "Hủy", Width = 90, Height = 36, FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.BrandeisBlue, ForeColor = UiTheme.WhiteText
+            };
+            cn.FlatAppearance.BorderSize = 0;
 
-            ok.Click += (s, e) => {
-                if (string.IsNullOrWhiteSpace(flds[0].Text)) { MessageBox.Show("Nhập Mã HSBA."); return; }
-                if (!DateTime.TryParseExact(flds[1].Text, "dd/MM/yyyy", null, System.Globalization.DateTimeStyles.None, out DateTime ng)) { MessageBox.Show("Ngày không hợp lệ."); return; }
-                MaHSBA = flds[0].Text.Trim(); NgayDT = ng; TenThuoc = flds[2].Text.Trim(); LieuDung = flds[3].Text.Trim();
-                DialogResult = DialogResult.OK; Close();
+            ok.Click += (s, e) =>
+            {
+                MaHSBA = ResolveLookupCode(cmbHsba);
+                TenThuoc = (txtTenThuoc.Text ?? "").Trim();
+                LieuDung = (txtLieuDung.Text ?? "").Trim();
+                if (string.IsNullOrEmpty(MaHSBA)) { MessageBox.Show("Nhập hoặc chọn mã HSBA."); return; }
+                if (string.IsNullOrEmpty(TenThuoc)) { MessageBox.Show("Nhập tên thuốc."); return; }
+                if (string.IsNullOrEmpty(LieuDung)) { MessageBox.Show("Nhập liều dùng."); return; }
+                if (dtpNgay.Value.Date < DateTime.Today)
+                {
+                    MessageBox.Show("Ngày kê đơn không được trước hôm nay.");
+                    dtpNgay.Value = DateTime.Today;
+                    return;
+                }
+                NgayDT = dtpNgay.Value.Date;
+                DialogResult = DialogResult.OK;
+                Close();
             };
             cn.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
 
-            ft.Controls.Add(ok); ft.Controls.Add(cn); layout.Controls.Add(ft, 0, lbs.Length); layout.SetColumnSpan(ft, 2); Controls.Add(layout); AcceptButton = ok;
+            ft.Controls.Add(ok);
+            ft.Controls.Add(cn);
+            layout.Controls.Add(ft, 0, row);
+            layout.SetColumnSpan(ft, 2);
+
+            Controls.Add(layout);
+            AcceptButton = ok;
+
+            if (service != null)
+                LoadDoctorHsbaCombo(service, cmbHsba);
+        }
+
+        private static void LoadDoctorHsbaCombo(OracleAdminService service, ComboBox cmb)
+        {
+            cmb.Items.Clear();
+            try
+            {
+                var dt = service.Query(
+                    "SELECT MAHSBA, MABN FROM QLBV.HSBA WHERE MABS = USER ORDER BY MAHSBA");
+                foreach (DataRow r in dt.Rows)
+                {
+                    string code = r["MAHSBA"]?.ToString();
+                    string mabn = r["MABN"]?.ToString();
+                    if (!string.IsNullOrEmpty(code))
+                    {
+                        string label = string.IsNullOrEmpty(mabn) ? code : code + " — " + mabn;
+                        cmb.Items.Add(new LookupItem(code, label));
+                    }
+                }
+            }
+            catch { }
+        }
+
+        private static string ResolveLookupCode(ComboBox cmb)
+        {
+            if (cmb.SelectedItem is LookupItem item)
+                return item.Code?.Trim();
+            string text = (cmb.Text ?? "").Trim();
+            if (string.IsNullOrEmpty(text)) return null;
+            int sep = text.IndexOf(" — ", StringComparison.Ordinal);
+            return sep > 0 ? text.Substring(0, sep).Trim() : text;
         }
     }
 
@@ -3932,14 +5111,27 @@ END;");
         public DateTime NgayGio  { get; private set; }
         public string   DiaDiem  { get; private set; }
         public string   OlsLabel { get; private set; }   // "BGD:TH,TK,TM:HCM,HP,HN" etc.
+        public string   SelectedLevel { get; private set; }
 
-        public ThongBaoForm()
+        private readonly string _fixedGroupCode;
+        private readonly string _fixedCoSoDisplay;
+        private readonly bool _bgdMode;
+
+        /// <param name="fixedGroupCode">HCM/HP/HN — khóa cơ sở (Ban Giám đốc)</param>
+        /// <param name="fixedCoSoDisplay">Tên hiển thị cơ sở, vd. Hồ Chí Minh</param>
+        public ThongBaoForm(string fixedGroupCode = null, string fixedCoSoDisplay = null)
         {
-            Text = "Gửi Thông Báo Khẩn — Chọn Nhãn OLS";
+            _fixedGroupCode = fixedGroupCode;
+            _fixedCoSoDisplay = fixedCoSoDisplay;
+            _bgdMode = !string.IsNullOrEmpty(fixedGroupCode);
+
+            Text = _bgdMode
+                ? "Gửi Thông Báo Khẩn — Ban Giám Đốc"
+                : "Gửi Thông Báo Khẩn — Chọn Nhãn OLS";
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
-            ClientSize = new Size(850, 640);
+            ClientSize = new Size(850, 700);
             BackColor = UiTheme.LightCyan;
             Font = UiTheme.BodyFont;
 
@@ -3971,7 +5163,13 @@ END;");
             leftPanel.Controls.Add(MkLbl("Nội dung thông báo *:"));
 
             leftPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            var txN = new TextBox { Dock = DockStyle.Fill, Multiline = true, ScrollBars = ScrollBars.Vertical };
+            var txN = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                Multiline = true,
+                ScrollBars = ScrollBars.Vertical,
+                Text = _bgdMode ? "[BGD] Thông báo họp khẩn chi nhánh" : ""
+            };
             leftPanel.Controls.Add(txN);
 
             leftPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
@@ -3992,7 +5190,11 @@ END;");
             leftPanel.Controls.Add(MkLbl("Địa điểm:"));
 
             leftPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
-            var txL = new TextBox { Dock = DockStyle.Fill };
+            var txL = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                Text = _bgdMode ? "Phòng họp Ban Giám đốc" : ""
+            };
             leftPanel.Controls.Add(txL);
 
             outer.Controls.Add(leftPanel, 0, 0);
@@ -4053,7 +5255,7 @@ END;");
             rightLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
             var btnPresetAllNv = new Button
             {
-                Text = "📢 Toàn bộ nhân viên (nhãn NV)",
+                Text = _bgdMode ? "📢 Toàn bộ NV chi nhánh" : "📢 Toàn bộ nhân viên (NV)",
                 Dock = DockStyle.Fill, Height = 30,
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(255, 230, 180),
@@ -4062,6 +5264,32 @@ END;");
             };
             btnPresetAllNv.FlatAppearance.BorderSize = 0;
             rightLayout.Controls.Add(btnPresetAllNv);
+
+            rightLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
+            var btnPresetLdk = new Button
+            {
+                Text = _bgdMode ? "📢 Lãnh đạo khoa chi nhánh" : "📢 Lãnh đạo khoa (LDK)",
+                Dock = DockStyle.Fill, Height = 30,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(220, 240, 255),
+                ForeColor = UiTheme.DeepBlue,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold)
+            };
+            btnPresetLdk.FlatAppearance.BorderSize = 0;
+            rightLayout.Controls.Add(btnPresetLdk);
+
+            rightLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
+            var btnPresetLdp = new Button
+            {
+                Text = _bgdMode ? "📢 Lãnh đạo phòng chi nhánh" : "📢 Lãnh đạo phòng (LDP)",
+                Dock = DockStyle.Fill, Height = 30,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(220, 240, 255),
+                ForeColor = UiTheme.DeepBlue,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold)
+            };
+            btnPresetLdp.FlatAppearance.BorderSize = 0;
+            rightLayout.Controls.Add(btnPresetLdp);
 
             // ── COMPARTMENT GroupBox ──
             var gbComp = new GroupBox
@@ -4121,6 +5349,18 @@ END;");
             rightLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 88F));
             rightLayout.Controls.Add(gbGrp);
 
+            if (_bgdMode)
+            {
+                gbGrp.Text = "Cơ sở (Group) — " + (_fixedCoSoDisplay ?? _fixedGroupCode) + " (cố định)";
+                gbGrp.Enabled = false;
+                foreach (var cb in cbGrps)
+                {
+                    string code = cb.Tag.ToString();
+                    cb.Enabled = false;
+                    cb.Checked = code == _fixedGroupCode;
+                }
+            }
+
             // ── Preview nhãn ──
             rightLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
             rightLayout.Controls.Add(new Label
@@ -4145,7 +5385,9 @@ END;");
             rightLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44F));
             rightLayout.Controls.Add(new Label
             {
-                Text = "Gửi toàn NV: chọn NV + Tất cả khoa/cơ sở → nhãn NV (không phải NV:TH,TK,TM:...).",
+                Text = _bgdMode
+                    ? "Giám đốc chỉ gửi NV/LDK/LDP trong chi nhánh của mình (nhãn dạng NV::HCM hoặc NV:TH:HCM)."
+                    : "Gửi toàn NV: chọn NV + Tất cả khoa/cơ sở → nhãn NV (không phải NV:TH,TK,TM:...).",
                 Dock = DockStyle.Fill, ForeColor = Color.FromArgb(140, 80, 0),
                 Font = new Font("Segoe UI", 8F), AutoSize = false
             });
@@ -4160,9 +5402,6 @@ END;");
                 foreach (var rb in rbLevels)
                     if (rb.Checked) { level = rb.Tag.ToString(); break; }
 
-                // BGD: không cần chọn comp/group — full access
-                if (level == "BGD") { lblPreview.Text = "BGD:TH,TK,TM:HCM,HP,HN"; return; }
-
                 // Compartments
                 bool allComp = false;
                 var selComps = new System.Collections.Generic.List<string>();
@@ -4176,35 +5415,81 @@ END;");
                 // Groups
                 bool allGrp = false;
                 var selGrps = new System.Collections.Generic.List<string>();
-                foreach (var cb in cbGrps)
+                if (_bgdMode)
+                    selGrps.Add(_fixedGroupCode);
+                else
                 {
-                    if (!cb.Checked) continue;
-                    if (cb.Tag.ToString() == "ALL") { allGrp = true; break; }
-                    selGrps.Add(cb.Tag.ToString());
+                    foreach (var cb in cbGrps)
+                    {
+                        if (!cb.Checked) continue;
+                        if (cb.Tag.ToString() == "ALL") { allGrp = true; break; }
+                        selGrps.Add(cb.Tag.ToString());
+                    }
                 }
 
-                // NV + tất cả khoa + tất cả cơ sở = thông báo toàn bệnh viện
-                // Phải dùng nhãn NV thuần (05.sql t1) — KHÔNG dùng NV:TH,TK,TM:HCM,HP,HN
-                // vì nhãn đầy đủ yêu cầu user có đủ mọi khoa/cơ sở mới đọc được (chỉ BGD thấy).
-                if (level == "NV" && allComp && allGrp) { lblPreview.Text = "NV"; return; }
+                // Giám đốc: luôn gắn chi nhánh cố định (06.sql — level::group / level:comp:group)
+                if (_bgdMode)
+                {
+                    if (level == "BGD")
+                    {
+                        lblPreview.Text = "BGD:TH,TK,TM:" + _fixedGroupCode;
+                        return;
+                    }
 
-                // LDP toàn quyền (u7) — khớp 01.sql label 50010
-                if (level == "LDP" && allComp && allGrp) { lblPreview.Text = "LDP:TH,TK,TM:HCM,HP,HN"; return; }
+                    string grp = _fixedGroupCode;
+                    if (allComp || selComps.Count == 0)
+                    {
+                        lblPreview.Text = level + "::" + grp;
+                        return;
+                    }
 
-                // LDK toàn khoa — nhãn LDK thuần (50003) để mọi lãnh đạo khoa đọc được
-                if (level == "LDK" && allComp && allGrp) { lblPreview.Text = "LDK"; return; }
+                    string compPart = string.Join(",", selComps);
+                    lblPreview.Text = $"{level}:{compPart}:{grp}";
+                    return;
+                }
+
+                // BGD level — toàn hệ thống (QLBV)
+                if (level == "BGD")
+                {
+                    lblPreview.Text = "BGD:TH,TK,TM:HCM,HP,HN";
+                    return;
+                }
+
+                // Chỉ chọn cấp độ (không chọn khoa/cơ sở) → nhãn thuần NV/LDK/LDP (05.sql t1/t3)
+                if (!allComp && selComps.Count == 0 && !allGrp && selGrps.Count == 0)
+                {
+                    lblPreview.Text = level;
+                    return;
+                }
+
+                // Tất cả khoa — chỉ dùng nhãn đã có trong 01.sql / 05.sql
+                if (allComp && (allGrp || selGrps.Count == 0))
+                {
+                    if (level == "NV") { lblPreview.Text = "NV"; return; }
+                    if (level == "LDK") { lblPreview.Text = "LDK"; return; }
+                    if (level == "LDP")
+                    {
+                        lblPreview.Text = !allGrp ? "LDP" : "LDP:TH,TK,TM:HCM,HP,HN";
+                        return;
+                    }
+                }
 
                 // Ghép nhãn theo phạm vi cụ thể
-                string compPart = allComp ? "TH,TK,TM" : (selComps.Count > 0 ? string.Join(",", selComps) : "");
-                string grpPart = allGrp ? "HCM,HP,HN" : (selGrps.Count > 0 ? string.Join(",", selGrps) : "");
+                string compPartAdmin = allComp ? "TH,TK,TM" : (selComps.Count > 0 ? string.Join(",", selComps) : "");
+                string grpPartAdmin = allGrp ? "HCM,HP,HN" : (selGrps.Count > 0 ? string.Join(",", selGrps) : "");
 
                 string lbl = level;
-                if (!string.IsNullOrEmpty(compPart) && !string.IsNullOrEmpty(grpPart))
-                    lbl = $"{level}:{compPart}:{grpPart}";
-                else if (!string.IsNullOrEmpty(compPart))
-                    lbl = $"{level}:{compPart}";
-                else if (!string.IsNullOrEmpty(grpPart))
-                    lbl = $"{level}::{grpPart}";
+                if (!string.IsNullOrEmpty(compPartAdmin) && !string.IsNullOrEmpty(grpPartAdmin))
+                    lbl = $"{level}:{compPartAdmin}:{grpPartAdmin}";
+                else if (!string.IsNullOrEmpty(compPartAdmin))
+                    lbl = $"{level}:{compPartAdmin}";
+                else if (!string.IsNullOrEmpty(grpPartAdmin))
+                    lbl = $"{level}::{grpPartAdmin}";
+
+                if (compPartAdmin == "TH,TK,TM" && level != "LDP")
+                    lbl = level;
+                else if (compPartAdmin == "TH,TK,TM" && grpPartAdmin == "HCM,HP,HN" && level == "LDK")
+                    lbl = "LDK";
 
                 lblPreview.Text = lbl;
             }
@@ -4214,9 +5499,9 @@ END;");
             {
                 rb.CheckedChanged += (s, e) =>
                 {
-                    bool isBgd = rb.Tag.ToString() == "BGD" && rb.Checked;
-                    gbComp.Enabled = !isBgd;
-                    gbGrp.Enabled  = !isBgd;
+                    bool isBgdLevel = rb.Tag.ToString() == "BGD" && rb.Checked;
+                    gbComp.Enabled = !isBgdLevel;
+                    if (!_bgdMode) gbGrp.Enabled = !isBgdLevel;
                     UpdatePreview();
                 };
             }
@@ -4229,25 +5514,43 @@ END;");
                     cbComps[3].Checked = false;
                 UpdatePreview();
             };
-            foreach (var cb in cbGrps) cb.CheckedChanged += (s, e) =>
+            if (!_bgdMode)
             {
-                // "Tất cả cơ sở" mutex
-                if (cb.Tag.ToString() == "ALL" && cb.Checked)
-                    foreach (var c in cbGrps) if (c.Tag.ToString() != "ALL") c.Checked = false;
-                else if (cb.Tag.ToString() != "ALL" && cb.Checked)
-                    cbGrps[3].Checked = false;
-                UpdatePreview();
-            };
+                foreach (var cb in cbGrps) cb.CheckedChanged += (s, e) =>
+                {
+                    // "Tất cả cơ sở" mutex
+                    if (cb.Tag.ToString() == "ALL" && cb.Checked)
+                        foreach (var c in cbGrps) if (c.Tag.ToString() != "ALL") c.Checked = false;
+                    else if (cb.Tag.ToString() != "ALL" && cb.Checked)
+                        cbGrps[3].Checked = false;
+                    UpdatePreview();
+                };
+            }
 
-            btnPresetAllNv.Click += (s, e) =>
+            void ApplyBroadcastPreset(int levelIndex)
             {
-                rbLevels[3].Checked = true;
+                rbLevels[levelIndex].Checked = true;
                 cbComps[3].Checked = true;
                 foreach (var c in cbComps) if (c.Tag.ToString() != "ALL") c.Checked = false;
-                cbGrps[3].Checked = true;
-                foreach (var c in cbGrps) if (c.Tag.ToString() != "ALL") c.Checked = false;
+                if (!_bgdMode)
+                {
+                    cbGrps[3].Checked = true;
+                    foreach (var c in cbGrps) if (c.Tag.ToString() != "ALL") c.Checked = false;
+                }
                 UpdatePreview();
-            };
+            }
+
+            btnPresetAllNv.Click += (s, e) => ApplyBroadcastPreset(3);
+            btnPresetLdk.Click += (s, e) => ApplyBroadcastPreset(1);
+            btnPresetLdp.Click += (s, e) => ApplyBroadcastPreset(2);
+
+            if (_bgdMode)
+            {
+                // Giám đốc gửi tới NV/LDK/LDP trong chi nhánh — không chọn cơ sở khác
+                if (rbLevels[0].Tag.ToString() == "BGD")
+                    rbLevels[0].Visible = false;
+                rbLevels[3].Checked = true;
+            }
 
             UpdatePreview();
 
@@ -4280,6 +5583,9 @@ END;");
                 NgayGio = dtpNgayGio.Value;
                 DiaDiem = txL.Text.Trim();
                 OlsLabel = lblPreview.Text.Trim();
+                SelectedLevel = "NV";
+                foreach (var rb in rbLevels)
+                    if (rb.Checked && rb.Visible) { SelectedLevel = rb.Tag.ToString(); break; }
                 DialogResult = DialogResult.OK;
                 Close();
             };
@@ -4293,6 +5599,7 @@ END;");
             AcceptButton = ok;
         }
     }
+
     // ════════════════════════════════════════════════════════════════════════
     //  DIALOG: Cập nhật thông tin (Dùng chung cho mọi Role)
     // ════════════════════════════════════════════════════════════════════════
@@ -4808,61 +6115,6 @@ END;");
             scroll.Controls.Add(layout);
             Controls.Add(scroll);
             AcceptButton = ok;
-        }
-    }
-
-    // ════════════════════════════════════════════════════════════════════════
-    //  DIALOG: Tạo HSBA Cấp Cứu — gọi sp_KhoiTaoHSBAKhancap
-    // ════════════════════════════════════════════════════════════════════════
-    // ✅ [GỘPCODE-D] Form nhập tham số cho stored procedure sp_KhoiTaoHSBAKhancap.
-    //    Nguồn: sys_PH2.sql — AuditBSExecCapCuu ghi vết mỗi lần BS EXECUTE procedure này.
-    public class CapCuuForm : Form
-    {
-        public string MaHSBA  { get; private set; }
-        public string MaBN    { get; private set; }
-        public string MaKhoa  { get; private set; }
-
-        public CapCuuForm()
-        {
-            Text = "Tạo HSBA Cấp Cứu Khẩn Cấp"; StartPosition = FormStartPosition.CenterParent;
-            FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false;
-            ClientSize = new Size(440, 250);
-            BackColor = Color.FromArgb(255, 230, 230); Font = UiTheme.BodyFont;
-
-            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(16), BackColor = Color.FromArgb(255, 200, 200) };
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160F));
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-
-            string[] lbs = { "Mã HSBA mới:", "Mã Bệnh Nhân:", "Mã Khoa (K001/K002/K003):" };
-            var flds = new TextBox[lbs.Length];
-            for (int i = 0; i < lbs.Length; i++)
-            {
-                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
-                layout.Controls.Add(new Label { Text = lbs[i], AutoSize = true, Font = UiTheme.HeaderFont, ForeColor = Color.DarkRed, Anchor = AnchorStyles.Right }, 0, i);
-                flds[i] = new TextBox { Dock = DockStyle.Fill };
-                layout.Controls.Add(flds[i], 1, i);
-            }
-
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28F));
-            var note = new Label { Text = "Chẩn đoán/điều trị sẽ được điền tự động: 'Cấp cứu khẩn cấp'.", ForeColor = Color.DarkRed, AutoSize = true, Font = new Font("Segoe UI", 8.5F) };
-            layout.Controls.Add(note, 0, lbs.Length); layout.SetColumnSpan(note, 2);
-
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 52F));
-            var ft = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
-            var ok = new Button { Text = "Tạo Cấp Cứu", Width = 130, Height = 36, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(206, 17, 38), ForeColor = Color.White, Font = new Font("Segoe UI", 10F, FontStyle.Bold) }; ok.FlatAppearance.BorderSize = 0;
-            var cn = new Button { Text = "Hủy", Width = 90, Height = 36, FlatStyle = FlatStyle.Flat, BackColor = UiTheme.BrandeisBlue, ForeColor = UiTheme.WhiteText }; cn.FlatAppearance.BorderSize = 0;
-
-            ok.Click += (s, e) => {
-                if (string.IsNullOrWhiteSpace(flds[0].Text)) { MessageBox.Show("Nhập Mã HSBA."); return; }
-                if (string.IsNullOrWhiteSpace(flds[1].Text)) { MessageBox.Show("Nhập Mã Bệnh Nhân."); return; }
-                if (string.IsNullOrWhiteSpace(flds[2].Text)) { MessageBox.Show("Nhập Mã Khoa."); return; }
-                MaHSBA = flds[0].Text.Trim(); MaBN = flds[1].Text.Trim(); MaKhoa = flds[2].Text.Trim();
-                DialogResult = DialogResult.OK; Close();
-            };
-            cn.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
-
-            ft.Controls.Add(ok); ft.Controls.Add(cn); layout.Controls.Add(ft, 0, lbs.Length + 1); layout.SetColumnSpan(ft, 2);
-            Controls.Add(layout); AcceptButton = ok;
         }
     }
 }
