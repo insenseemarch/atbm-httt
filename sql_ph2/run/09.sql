@@ -150,6 +150,35 @@ BEGIN
 END;
 /
 
+-- ----------------------------------------------------------------------------
+-- [09-BGD-01] Ngữ cảnh 9: Giám đốc tạo thông báo cho chi nhánh mình phụ trách
+-- CONNECTION: (Tài khoản NHANVIEN có CAPBAC = 'Ban Giám đốc')
+-- POLICY KÍCH HOẠT: AuditSucBGDTaoThongBao
+-- KẾT QUẢ MONG ĐỢI: THÀNH CÔNG (chỉ gửi cho group/COSO của chính giám đốc đó)
+-- Nếu connect xong chạy lần đầu bị lỗi, đừng lo lắng, hãy: DISCONNET xong CONECT lại !!!
+-- ----------------------------------------------------------------------------
+BEGIN
+    QLBV.sp_BGD_ThongBaoOLS(
+        p_noidung => N'[BGD] Thông báo họp khẩn chi nhánh',
+        p_diadiem => N'Phòng họp Ban Giám đốc'
+    );
+END;
+/
+
+-- ----------------------------------------------------------------------------
+-- [09-BGD-02] Ngữ cảnh 9b: Người KHÔNG phải Ban Giám đốc cố gọi thủ tục (vượt quyền)
+-- CONNECTION: bất kỳ NHANVIEN có CAPBAC khác 'Ban Giám đốc'
+-- POLICY KÍCH HOẠT: AuditFailBGDTaoThongBao
+-- KẾT QUẢ MONG ĐỢI: THẤT BẠI (RAISE_APPLICATION_ERROR -20011)
+-- ----------------------------------------------------------------------------
+BEGIN
+    QLBV.sp_BGD_ThongBaoOLS(
+        p_noidung => N'Thử tạo thông báo trái phép',
+        p_diadiem => N'N/A'
+    );
+END;
+/
+
 
 -- ============================================================================
 -- PHẦN III: TÌNH HUỐNG KIỂM TOÁN NGHIỆP VỤ CHI TIẾT (MỤC 3.3 TRONG 06.SQL)
@@ -233,7 +262,9 @@ WHERE  unified_audit_policies IN (
         'AUDITFAILBSUPDATENV',  -- NC5: Bác sĩ cập nhật/xóa NHANVIEN (Thất bại - Vượt quyền)
         'AUDITDIEUPHOINHANSU',  -- NC6: Giám sát Điều phối viên thực thi sp_DieuPhoiNhanSu (Mới bổ sung)
         'AUDITSUCBSEXECPROC',   -- NC7: Bác sĩ thực thi sp_KhoiTaoHSBAKhancap thành công
-        'AUDITSUCBSEXECFUNC'   -- NC8: Bác sĩ thực thi fn_KiemTraDiUngThuoc thành công
+        'AUDITSUCBSEXECFUNC',   -- NC8: Bác sĩ thực thi fn_KiemTraDiUngThuoc thành công
+        'AUDITSUCBGDTAOTHONGBAO',  -- NC9: Ban Giám đốc tạo thông báo OLS theo chi nhánh
+        'AUDITFAILBGDTAOTHONGBAO'  -- NC9b: Người không phải BGD cố tạo thông báo (Thất bại)
 )
 ORDER BY event_timestamp DESC;
 
