@@ -226,12 +226,16 @@ SELECT event_timestamp, dbusername, action_name, object_name,
        return_code, unified_audit_policies
 FROM   unified_audit_trail
 WHERE  unified_audit_policies IN (
-    'AUDITSUCDPVUPDATEBN', 'AUDITDPVUPDATEHSBA', 
-    'AUDITSUCKTVUPDATEDV', 'AUDITSUCBSUPDATEDT', 
-    'AUDITFAILBSUPDATENV', 'AUDITFAILBSEXECFUNC',
-    'AUDITSUCBSEXECPROC', 'AUDITSUCBSEXECFUNC'
+    'AUDITSUCDPVUPDATEBN',  -- NC1: Điều phối viên cập nhật BENHNHAN thành công
+        'AUDITDPVUPDATEHSBA',   -- NC2: Điều phối viên cập nhật HSBA thành công
+        'AUDITSUCKTVUPDATEDV',  -- NC3: Kỹ thuật viên cập nhật View dịch vụ thành công
+        'AUDITSUCBSUPDATEDT',   -- NC4: Bác sĩ cập nhật ĐƠNTHUỐC thành công
+        'AUDITFAILBSUPDATENV',  -- NC5: Bác sĩ cập nhật/xóa NHANVIEN (Thất bại - Vượt quyền)
+        'AUDITDIEUPHOINHANSU',  -- NC6: Giám sát Điều phối viên thực thi sp_DieuPhoiNhanSu (Mới bổ sung)
+        'AUDITSUCBSEXECPROC',   -- NC7: Bác sĩ thực thi sp_KhoiTaoHSBAKhancap thành công
+        'AUDITSUCBSEXECFUNC'   -- NC8: Bác sĩ thực thi fn_KiemTraDiUngThuoc thành công
 )
-ORDER BY event_timestamp DESC
+ORDER BY event_timestamp DESC;
 
 -- 3. Đọc dữ liệu FGA của tình huống (a) Sửa Đơn Thuốc & (b) Bác sĩ Sửa HSBA hợp pháp
 SELECT event_timestamp, dbusername, fga_policy_name, object_name,

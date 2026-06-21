@@ -107,16 +107,14 @@ BEGIN
            sql_text
     FROM   unified_audit_trail
     WHERE  unified_audit_policies IN (
-                'AUDITSUCDPVUPDATEBN',
-                'AUDITDPVUPDATEHSBA',
-                'AUDITSUCKTVUPDATEDV',
-                'AUDITSUCBSUPDATEDT',
-                'AUDITSUCBSEXECPROC',
-                'AUDITSUCBSEXECFUNC',
-                'AUDITFAILBSUPDATENV',
-                'AUDITFAILBSEXECFUNC',
-                'AUDITILLEGALUPDATEHSBA',
-                'AUDITILLEGALHSBADV'
+                'AUDITSUCDPVUPDATEBN',  -- NC1: Điều phối viên cập nhật BENHNHAN thành công
+                'AUDITDPVUPDATEHSBA',   -- NC2: Điều phối viên cập nhật HSBA thành công
+                'AUDITSUCKTVUPDATEDV',  -- NC3: Kỹ thuật viên cập nhật View dịch vụ thành công
+                'AUDITSUCBSUPDATEDT',   -- NC4: Bác sĩ cập nhật ĐƠNTHUỐC thành công
+                'AUDITFAILBSUPDATENV',  -- NC5: Bác sĩ cập nhật/xóa NHANVIEN (Thất bại - Vượt quyền)
+                'AUDITDIEUPHOINHANSU',  -- NC6: Giám sát Điều phối viên thực thi sp_DieuPhoiNhanSu (Mới bổ sung)
+                'AUDITSUCBSEXECPROC',   -- NC7: Bác sĩ thực thi sp_KhoiTaoHSBAKhancap thành công
+                'AUDITSUCBSEXECFUNC'   -- NC8: Bác sĩ thực thi fn_KiemTraDiUngThuoc thành công
            )
        OR  fga_policy_name IN (
                 'AUDITSUADONTHUOC',

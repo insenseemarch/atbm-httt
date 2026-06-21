@@ -116,6 +116,40 @@ END;
 /
 GRANT EXECUTE ON QLBV.sp_KhoiTaoHSBAKhancap TO PUBLIC;
 
+-- Khởi tạo Procedure sp_DieuPhoiNhanSu (cho audit giám sát ĐPV chuyển khoa bệnh nhân)
+CREATE OR REPLACE PROCEDURE QLBV.sp_DieuPhoiNhanSu (
+    p_mahsba      IN VARCHAR2,
+    p_makhoa_moi  IN VARCHAR2
+)
+AS
+    v_count NUMBER;
+BEGIN
+    -- 1. Kiểm tra hồ sơ bệnh án có tồn tại hay không
+    SELECT COUNT(*) INTO v_count 
+    FROM QLBV.HSBA 
+    WHERE MAHSBA = p_mahsba;
+    
+    IF v_count = 0 THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Hồ sơ bệnh án không tồn tại trên hệ thống.');
+    END IF;
+
+    -- 2. Tiến hành cập nhật chuyển khoa cho bệnh nhân (Cập nhật trên bảng HSBA)
+    UPDATE QLBV.HSBA
+    SET MAKHOA = p_makhoa_moi
+    WHERE MAHSBA = p_mahsba;
+    
+    -- In thông báo xác nhận thành công
+    DBMS_OUTPUT.PUT_LINE('Chuyển khoa thành công cho hồ sơ: ' || p_mahsba || ' sang khoa: ' || p_makhoa_moi);
+    
+    COMMIT;
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE;
+END;
+/
+GRANT EXECUTE ON QLBV.sp_DieuPhoiNhanSu TO ROLE_DPV;
+
 -- Khởi tạo FUNC-B: Hàm kiểm tra dị ứng thuốc nguy kịch của bệnh nhân
 CREATE OR REPLACE FUNCTION QLBV.fn_KiemTraDiUngThuoc(p_mabn VARCHAR2) 
 RETURN NVARCHAR2 AS
@@ -200,6 +234,12 @@ ACTIONS UPDATE ON QLBV.NHANVIEN, DELETE ON QLBV.NHANVIEN
 WHEN 'SYS_CONTEXT(''userenv'', ''client_identifier'') LIKE ''%ROLE_BACSI%''' EVALUATE PER STATEMENT;
 AUDIT POLICY AuditFailBSUpdateNV WHENEVER NOT SUCCESSFUL;
 
+-- Ngữ cảnh 6: [Stored Procedure]: Giám sát ĐIỀU PHỐI VIÊN thực thi thủ tục chuyển khoa bệnh nhân
+CREATE AUDIT POLICY AuditDieuPhoiNhanSu
+ACTIONS EXECUTE ON QLBV.sp_DieuPhoiNhanSu
+WHEN 'SYS_CONTEXT(''userenv'', ''client_identifier'') LIKE ''%ROLE_DPV%''' EVALUATE PER STATEMENT;
+AUDIT POLICY AuditDieuPhoiNhanSu;
+
 -- Ngữ cảnh 7: [Stored Procedure - NGỮ CẢNH MỚI - Thành công]: Bác sĩ thực thi thủ tục "Khởi tạo HSBA khẩn cấp" thành công
 CREATE AUDIT POLICY AuditSucBSExecProc
 ACTIONS EXECUTE ON QLBV.sp_KhoiTaoHSBAKhancap
@@ -276,14 +316,19 @@ FROM   unified_audit_trail
 WHERE  action_name = 'LOGON'
 ORDER  BY event_timestamp DESC;
 
--- 3.4.2: Đọc dữ liệu Standard Audit của 6 ngữ cảnh vai trò chuẩn đã chỉnh sửa
-SELECT event_timestamp, dbusername, action_name, object_schema, object_name,
+-- 3.4.2: Đọc dữ liệu Standard Audit của 8 ngữ cảnh vai trò chuẩn đã chỉnh sửa
+SELECT event_timestamp, dbusername, action_name, object_name,
        return_code, unified_audit_policies
 FROM   unified_audit_trail
 WHERE  unified_audit_policies IN (
-    'AUDITSUCDPVUPDATEBN', 'AUDITDPVUPDATEHSBA', 
-    'AUDITSUCKTVUPDATEDV', 'AUDITSUCBSUPDATEDT', 
-    'AUDITFAILBSUPDATENV', 'AUDITFAILBSEXECFUNC'
+    'AUDITSUCDPVUPDATEBN',  -- NC1: Điều phối viên cập nhật BENHNHAN thành công
+        'AUDITDPVUPDATEHSBA',   -- NC2: Điều phối viên cập nhật HSBA thành công
+        'AUDITSUCKTVUPDATEDV',  -- NC3: Kỹ thuật viên cập nhật View dịch vụ thành công
+        'AUDITSUCBSUPDATEDT',   -- NC4: Bác sĩ cập nhật ĐƠNTHUỐC thành công
+        'AUDITFAILBSUPDATENV',  -- NC5: Bác sĩ cập nhật/xóa NHANVIEN (Thất bại - Vượt quyền)
+        'AUDITDIEUPHOINHANSU',  -- NC6: Giám sát Điều phối viên thực thi sp_DieuPhoiNhanSu (Mới bổ sung)
+        'AUDITSUCBSEXECPROC',   -- NC7: Bác sĩ thực thi sp_KhoiTaoHSBAKhancap thành công
+        'AUDITSUCBSEXECFUNC'   -- NC8: Bác sĩ thực thi fn_KiemTraDiUngThuoc thành công
 )
 ORDER BY event_timestamp DESC;
 
