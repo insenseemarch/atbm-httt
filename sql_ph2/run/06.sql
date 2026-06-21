@@ -306,4 +306,8 @@ SELECT event_timestamp, dbusername, action_name, object_name, return_code,
 FROM   unified_audit_trail
 WHERE  unified_audit_policies IN ('AUDITILLEGALUPDATEHSBA', 'AUDITILLEGALHSBADV')
 ORDER  BY event_timestamp DESC;
+<<<<<<< Updated upstream
 */
+=======
+*/
+>>>>>>> Stashed changes

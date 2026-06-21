@@ -73,6 +73,7 @@ grant update (QUEQUAN, SODT) ON VW_KTV_Xemthongtin TO ROLE_KTV;
 -- Xoá role nếu tồn tại
 begin execute immediate 'drop role ROLE_BENHNHAN'; exception when others then null; end;
 /
+rollback
 -- Tạo role bệnh nhân
 create role ROLE_BENHNHAN;
 -- Bệnh nhân xem thông tin của chính mình 
@@ -146,6 +147,11 @@ begin
     if v_user in ('SYS', 'SYSTEM', 'ADMIN', 'APP_ADMIN', 'QLBV') then
         return '1=1';
     end if;
+    for r in (select CAPBAC from NhanVien where MANV = v_user) loop
+        if r.CAPBAC = N'Ban Giám đốc' then
+            return '1=1';
+        end if;
+    end loop;
     return 'MANV = sys_context(''userenv'', ''session_user'')';
 end;
 /
@@ -159,9 +165,16 @@ create or replace function fn_vpdHSBA(
     v_user   varchar2(100);
 begin
     v_user := sys_context ('userenv', 'session_user');
-    if v_user in ('SYS', 'SYSTEM', 'ADMIN', 'APP_ADMIN') then
+    if v_user in ('SYS', 'SYSTEM', 'ADMIN', 'APP_ADMIN', 'QLBV') then
         return '1=1';
     end if;
+    
+    for r in (select CAPBAC from NhanVien where MANV = v_user) loop
+        if r.CAPBAC = N'Ban Giám đốc' then
+            return '1=1'; 
+        end if;
+    end loop;
+
     select VAITRO into v_vaitro
     from NhanVien
     where MANV = v_user;
@@ -248,6 +261,13 @@ begin
     if v_user in ('SYS', 'SYSTEM', 'ADMIN', 'APP_ADMIN', 'QLBV') then
         return '1=1';
     end if;
+    
+    for r in (select CAPBAC from NhanVien where MANV = v_user) loop
+        if r.CAPBAC = N'Ban Giám đốc' then
+            return '1=1'; 
+        end if;
+    end loop;
+
     select VAITRO into v_vaitro
     from NhanVien
     where MANV = v_user;
@@ -302,41 +322,26 @@ begin
 end;
 /
 
--- Yêu cầu 2: OLS:
--- Cập nhật dữ liệu mẫu để test 
--- tương ứng mô tả u1-u8 trong đề
+-- Cho phép mọi người đọc thông báo (tùy nhãn OLS của mỗi người sẽ thấy dòng khác nhau)
 grant select on THONGBAO to public;
 
--- u1: Giám đốc đọc toàn bộ
-update NHANVIEN set CAPBAC = N'Ban Giám đốc',   MAKHOA = null,  COSO = N'Hồ Chí Minh' 
-where MANV = 'NV0001';
+-- Tạo Role Giám Đốc và cấp full quyền xem
+begin execute immediate 'drop role ROLE_GIAMDOC'; exception when others then null; end;
+/
+create role ROLE_GIAMDOC;
+grant select on NhanVien to ROLE_GIAMDOC;
+grant select on BenhNhan to ROLE_GIAMDOC;
+grant select on HSBA     to ROLE_GIAMDOC;
+grant select on HSBA_DV  to ROLE_GIAMDOC;
+grant select on DonThuoc to ROLE_GIAMDOC;
 
--- u2: Lãnh đạo Khoa tim mạch tại HCM
-update NHANVIEN set CAPBAC = N'Lãnh đạo khoa', MAKHOA = 'K003', COSO = N'Hồ Chí Minh' 
-where MANV = 'NV0002';
+-- Gán Role Giám đốc cho những ai có Cấp bậc là Ban Giám đốc
+begin
+    for nv in (select MANV from NhanVien where CAPBAC = N'Ban Giám đốc') loop
+        execute immediate 'grant ROLE_GIAMDOC to ' || nv.MANV;
+    end loop;
+end;
+/
 
--- u3: Lãnh đạo Khoa thần kinh tại Hà Nội
-update NHANVIEN set CAPBAC = N'Lãnh đạo khoa', MAKHOA = 'K002', COSO = N'Hà Nội'       
-where MANV = 'NV0003';
+commit
 
--- u4: Nhân viên Khoa thần kinh tại HCM
-update NHANVIEN set CAPBAC = N'Nhân viên', MAKHOA = 'K002', COSO = N'Hồ Chí Minh' 
-where MANV = 'NV0004';
-
--- u5: Nhân viên Khoa tim mạch tại HCM
-update NHANVIEN set CAPBAC = N'Nhân viên', MAKHOA = 'K003', COSO = N'Hồ Chí Minh' 
-where MANV = 'NV0005';
-
--- u6: Lãnh đạo phòng đọc thông báo Khoa tim mạch tại HCM
-update NHANVIEN set CAPBAC = N'Lãnh đạo phòng', MAKHOA = 'K003', COSO = N'Hồ Chí Minh' 
-where MANV = 'NV0006';
-
--- u7: Lãnh đạo phòng đọc toàn bộ thông báo cấp lãnh đạo phòng
-update NHANVIEN set CAPBAC = N'Lãnh đạo phòng', MAKHOA = null,   COSO = null             
-where MANV = 'NV0007';
-
--- u8: Nhân viên Khoa tiêu hóa tại Hà Nội
-update NHANVIEN set CAPBAC = N'Nhân viên', MAKHOA = 'K001', COSO = N'Hà Nội'
-where MANV = 'NV0008';
-
-commit;

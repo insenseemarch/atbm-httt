@@ -519,7 +519,7 @@ namespace PhanHe1.Forms
                 }
             };
 
-            tab.Controls.Add(Wrap(dgvDpvHSBA, Toolbar(txtS, btnS, btnAdd, btnRe, btnCalc, Note("Nhấn đúp để phân công BS/Khoa (AuditDPVUpdateHSBA). Chọn dòng → 'Tính Chi Phí' (AuditSucDPVExecFunc)."))));
+            tab.Controls.Add(Wrap(dgvDpvHSBA, Toolbar(txtS, btnS, btnAdd, btnRe, Note("Nhấn đúp để phân công BS/Khoa (AuditDPVUpdateHSBA)."))));
             LoadGrid(dgvDpvHSBA, "SELECT * FROM QLBV.HSBA");
         }
 
@@ -946,7 +946,7 @@ namespace PhanHe1.Forms
             switch (userRole)
             {
                 case UserRole.DPV:   BuildDemo_DpvHsba(subTabs); break;
-                case UserRole.BACSI: BuildDemo_BsChiPhi(subTabs); BuildDemo_BsNhanVien(subTabs); BuildDemo_BsHsbaKhac(subTabs); break;
+                case UserRole.BACSI: BuildDemo_BsNhanVien(subTabs); BuildDemo_BsHsbaKhac(subTabs); break;
                 case UserRole.KTV:   BuildDemo_KtvDonThuoc(subTabs); BuildDemo_KtvBenhNhan(subTabs); BuildDemo_KtvDichVu(subTabs); break;
                 case UserRole.BN:    BuildDemo_BnHsba(subTabs); BuildDemo_BnDichVu(subTabs); BuildDemo_BnCapCuu(subTabs); break;
             }
@@ -3334,7 +3334,7 @@ END;");
         {
             Text = "Thêm Bệnh Nhân Mới"; StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false;
-            ClientSize = new Size(650, 680); BackColor = UiTheme.LightCyan; Font = UiTheme.BodyFont;
+            ClientSize = new Size(650, 570); BackColor = UiTheme.LightCyan; Font = UiTheme.BodyFont;
 
             var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
             var layout = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, Dock = DockStyle.Top, BackColor = UiTheme.JordyBlue, Padding = new Padding(16) };

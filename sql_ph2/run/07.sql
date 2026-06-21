@@ -77,4 +77,8 @@ impdp qlbv/123@localhost:1521/xepdb1 ^
     dumpfile=<ten_file_dump>.dmp ^
     logfile=qlbv_table_import.log ^
     table_exists_action=replace
+<<<<<<< Updated upstream
 */
+=======
+*/
+>>>>>>> Stashed changes
