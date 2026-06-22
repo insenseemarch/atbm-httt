@@ -1,11 +1,7 @@
 -- ============================================================
 -- 07.sql - Yêu cầu 4: Sao lưu và phục hồi bằng Oracle Data Pump
 -- ============================================================
--- Lưu ý:
---   1. Phần tạo directory object phải chạy bằng SYSDBA.
---   2. Phần tạo bảng lịch sử và kiểm tra dữ liệu chạy bằng QLBV.
---   3. Lệnh expdp/impdp không chạy trong SQL Developer; sao chép sang CMD/PowerShell.
---   4. Thư mục C:\oracle_backup phải tồn tại trên máy chạy Oracle Database.
+-- Lưu ý: Phần tạo directory object phải chạy bằng SYSDBA.
 -- ============================================================
 
 SET SERVEROUTPUT ON
@@ -26,6 +22,10 @@ CREATE OR REPLACE DIRECTORY backup_dir AS 'C:\oracle_backup';
 GRANT READ, WRITE ON DIRECTORY backup_dir TO qlbv;
 GRANT READ, WRITE ON DIRECTORY backup_dir TO system;
 
+-- Cấp quyền JOB cho QLBV
+GRANT CREATE JOB TO qlbv;
+GRANT EXECUTE ON sys.dbms_scheduler TO qlbv;
+
 -- Kiểm tra directory object và quyền vừa cấp.
 SELECT directory_name, directory_path
 FROM   dba_directories
@@ -35,99 +35,6 @@ SELECT grantee, privilege
 FROM   dba_tab_privs
 WHERE  table_name = 'BACKUP_DIR'
 ORDER  BY grantee, privilege;
-
-
--- ============================================================
--- [07-QLBV-01] Kết nối: QLBV @ XEPDB1
--- Mục đích: Tạo bảng lịch sử sao lưu và phục hồi.
--- Script có thể chạy lại nhiều lần (tự DROP nếu bảng đã tồn tại).
--- ============================================================
-
-BEGIN
-    EXECUTE IMMEDIATE 'DROP TABLE qlbv.restore_history CASCADE CONSTRAINTS';
-EXCEPTION
-    WHEN OTHERS THEN
-        IF SQLCODE != -942 THEN RAISE; END IF;
-END;
-/
-
-BEGIN
-    EXECUTE IMMEDIATE 'DROP TABLE qlbv.backup_history CASCADE CONSTRAINTS';
-EXCEPTION
-    WHEN OTHERS THEN
-        IF SQLCODE != -942 THEN RAISE; END IF;
-END;
-/
-
-CREATE TABLE qlbv.backup_history (
-    backup_id    NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    backup_name  VARCHAR2(255)   NOT NULL,
-    backup_type  VARCHAR2(30)    NOT NULL,
-    backup_time  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
-    backup_path  VARCHAR2(500),
-    object_scope VARCHAR2(1000),
-    note         NVARCHAR2(1000),
-    CONSTRAINT chk_backup_history_type
-        CHECK (backup_type IN ('schema', 'tables', 'manual', 'auto'))
-);
-
-COMMENT ON TABLE  qlbv.backup_history              IS 'Lịch sử sao lưu Data Pump của schema QLBV';
-COMMENT ON COLUMN qlbv.backup_history.backup_name  IS 'Tên file dump hoặc tên đợt backup';
-COMMENT ON COLUMN qlbv.backup_history.backup_type  IS 'Loại backup: schema | tables | manual | auto';
-COMMENT ON COLUMN qlbv.backup_history.object_scope IS 'Phạm vi backup: QLBV hoặc danh sách bảng quan trọng';
-
-CREATE TABLE qlbv.restore_history (
-    restore_id        NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    restore_time      TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
-    backup_name       VARCHAR2(255)   NOT NULL,
-    restore_object    VARCHAR2(1000),
-    incident_time     TIMESTAMP,
-    incident_user     VARCHAR2(128),
-    incident_action   VARCHAR2(80),
-    audit_object_name VARCHAR2(128),
-    note              NVARCHAR2(1000)
-);
-
-COMMENT ON TABLE  qlbv.restore_history                    IS 'Lịch sử phục hồi dữ liệu dựa trên dump và audit log';
-COMMENT ON COLUMN qlbv.restore_history.incident_time      IS 'Thời điểm sự cố xác định từ audit log';
-COMMENT ON COLUMN qlbv.restore_history.incident_user      IS 'User thực hiện thao tác gây sự cố';
-COMMENT ON COLUMN qlbv.restore_history.incident_action    IS 'Hành động audit, ví dụ UPDATE / DELETE / DROP TABLE';
-COMMENT ON COLUMN qlbv.restore_history.audit_object_name  IS 'Object bị tác động theo audit log';
-
--- Chèn bản ghi mẫu để minh họa cấu trúc bảng.
-INSERT INTO qlbv.backup_history (backup_name, backup_type, backup_path, object_scope, note)
-VALUES (
-    'qlbv_schema_yyyymmdd_hh24mi.dmp',
-    'schema',
-    'C:\oracle_backup',
-    'qlbv',
-    N'Mẫu ghi lịch sử backup schema bằng Data Pump'
-);
-COMMIT;
-
-SELECT * FROM qlbv.backup_history  ORDER BY backup_time  DESC;
-SELECT * FROM qlbv.restore_history ORDER BY restore_time DESC;
-
--- ============================================================
--- [07-QLBV-02] Kết nối: QLBV @ XEPDB1
--- Mục đích: Kiểm tra các bảng nghiệp vụ cần backup/restore.
--- ============================================================
-
--- Danh sách bảng nghiệp vụ (tạo trong 02.sql, phân quyền/VPD trong 03.sql).
-SELECT table_name
-FROM   user_tables
-WHERE  table_name IN ('KHOA','BENHNHAN','NHANVIEN','HSBA','HSBA_DV','DONTHUOC','THONGBAO')
-ORDER  BY table_name;
-
--- Số dòng các bảng ưu tiên backup khi có sự cố nghiệp vụ.
---   BENHNHAN : thông tin bệnh nhân
---   HSBA     : hồ sơ bệnh án
---   HSBA_DV  : dịch vụ và kết quả cận lâm sàng
---   DONTHUOC : đơn thuốc (đang được audit trong 06.sql)
-SELECT 'BENHNHAN' AS table_name, COUNT(*) AS row_count FROM qlbv.benhnhan  UNION ALL
-SELECT 'HSBA',                   COUNT(*)               FROM qlbv.hsba      UNION ALL
-SELECT 'HSBA_DV',                COUNT(*)               FROM qlbv.hsba_dv   UNION ALL
-SELECT 'DONTHUOC',               COUNT(*)               FROM qlbv.donthuoc;
 
 
 -- ============================================================

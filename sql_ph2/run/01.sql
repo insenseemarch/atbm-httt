@@ -16,6 +16,9 @@ create user QLBV identified by 123;
 -- Cấp quyền Quản trị viên
 grant dba to QLBV;
 
+-- Cấp đặc quyền hệ thống cho QLBV
+grant exempt access policy to QLBV;
+
 -- Cấp quyền cho VPD (Yêu cầu 1) 
 grant execute on DBMS_RLS to QLBV;
 

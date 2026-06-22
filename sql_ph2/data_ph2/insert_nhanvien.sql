@@ -1,7 +1,10 @@
 -- ============================================================================
--- INSERT NHANVIEN (20 Dieu phoi vien + 100 Bac si/Y si + 50 Ky thuat vien)
+-- INSERT NHANVIEN (20 Dieu phoi vien + 100 Bac si/Y si + 50 Ky thuat vien + 3 Giam doc)
 -- ============================================================================
 
+INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('GD0001', N'Nguyễn Văn Giám', N'Nam', TO_DATE('1968-01-15', 'YYYY-MM-DD'), '870000000001', N'Hồ Chí Minh', '0940000001', N'Điều phối viên', NULL, N'Ban Giám đốc', 'Hồ Chí Minh');
+INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('GD0002', N'Trần Thị Hằng', N'Nữ', TO_DATE('1970-03-20', 'YYYY-MM-DD'), '870000000002', N'Hải Phòng', '0940000002', N'Điều phối viên', NULL, N'Ban Giám đốc', 'Hải Phòng');
+INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('GD0003', N'Lê Văn Phong', N'Nam', TO_DATE('1972-05-25', 'YYYY-MM-DD'), '870000000003', N'Hà Nội', '0940000003', N'Điều phối viên', NULL, N'Ban Giám đốc', 'Hà Nội');
 INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('NV0001', N'Trần Văn An', N'Nữ', TO_DATE('1976-02-02', 'YYYY-MM-DD'), '880000000001', N'Hải Phòng', '0910000001', N'Điều phối viên', 'K001', N'Lãnh đạo phòng', 'Hồ Chí Minh');
 INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('NV0002', N'Lê Văn An', N'Nam', TO_DATE('1977-03-03', 'YYYY-MM-DD'), '880000000002', N'Hà Nội', '0910000002', N'Điều phối viên', 'K002', N'Lãnh đạo phòng', 'Hải Phòng');
 INSERT INTO NHANVIEN (MANV, HOTEN, PHAI, NGAYSINH, CMND, QUEQUAN, SODT, VAITRO, MAKHOA, CAPBAC, COSO) VALUES ('NV0003', N'Phạm Thị An', N'Nữ', TO_DATE('1978-04-04', 'YYYY-MM-DD'), '880000000003', N'Hồ Chí Minh', '0910000003', N'Điều phối viên', 'K003', N'Lãnh đạo phòng', 'Hà Nội');
