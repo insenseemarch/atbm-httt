@@ -9,9 +9,7 @@
 -- === Executing OLS User Label Assignment ===
 
 DECLARE
-    v_label       VARCHAR2(200);  -- dùng cho NV thường (LDK, LDP, NV...)
-    v_read_label  VARCHAR2(200);  -- riêng cho BGD: đọc full toàn hệ thống
-    v_write_label VARCHAR2(200);  -- riêng cho BGD: ghi mặc định theo chi nhánh (COSO)
+    v_label VARCHAR2(200);
     v_level VARCHAR2(10);
     v_comp  VARCHAR2(10);
     v_grp   VARCHAR2(10);
@@ -42,37 +40,10 @@ BEGIN
         END CASE;
 
         -- 4. Xây dựng chuỗi nhãn OLS phù hợp theo từng trường hợp đặc biệt
-
-        -- TRƯỜNG HỢP ĐẶC BIỆT: Ban Giám đốc — tách riêng nhãn ĐỌC (full) và nhãn GHI mặc định (theo chi nhánh)
         IF nv.CAPBAC = N'Ban Giám đốc' THEN
-            -- Đọc: toàn bộ hệ thống (đáp ứng u1 - GĐ đọc được toàn bộ thông báo)
-            v_read_label := 'BGD:TH,TK,TM:HCM,HP,HN';
-
-            -- Ghi mặc định: chỉ chi nhánh (COSO) của chính giám đốc đó
-            -- Fallback về v_read_label nếu GĐ chưa được gán COSO, tránh tạo nhãn rỗng/lỗi
-            v_write_label := CASE WHEN v_grp IS NOT NULL 
-                                   THEN 'BGD:TH,TK,TM:' || v_grp 
-                                   ELSE v_read_label 
-                              END;
-
-            BEGIN
-                LBACSYS.SA_USER_ADMIN.SET_USER_LABELS(
-                    policy_name     => 'OLS_QLBV_POLICY',
-                    user_name       => nv.MANV,
-                    max_read_label  => v_read_label,
-                    max_write_label => v_read_label,   -- trần ghi cho phép tới full (không hạ thấp năng lực)
-                    def_label       => v_write_label,  -- MẶC ĐỊNH/row_label = đúng nhãn chi nhánh của họ
-                    row_label       => v_write_label
-                );
-            EXCEPTION 
-                WHEN OTHERS THEN NULL;
-            END;
-
-            CONTINUE;  -- bỏ qua phần gán nhãn chung bên dưới cho case BGD
-        END IF;
-
-        -- TRƯỜNG HỢP u7: Lãnh đạo phòng ban tổng thể không giới hạn khoa/cơ sở
-        IF nv.CAPBAC = N'Lãnh đạo phòng' AND nv.MAKHOA IS NULL THEN
+            v_label := 'BGD:TH,TK,TM:HCM,HP,HN';
+        ELSIF nv.CAPBAC = N'Lãnh đạo phòng' AND nv.MAKHOA IS NULL THEN
+            -- Trường hợp u7: Lãnh đạo phòng ban tổng thể không giới hạn khoa/cơ sở
             v_label := 'LDP:TH,TK,TM:HCM,HP,HN';
         ELSIF v_comp IS NOT NULL AND v_grp IS NOT NULL THEN
             v_label := v_level || ':' || v_comp || ':' || v_grp;
@@ -84,15 +55,14 @@ BEGIN
             v_label := v_level;
         END IF;
 
-        -- 5. Gán nhãn cho User tương ứng trong hệ thống OLS (NV / LDK / LDP thường)
+        -- 5. Gán nhãn cho User tương ứng trong hệ thống OLS
         BEGIN
             LBACSYS.SA_USER_ADMIN.SET_USER_LABELS(
-                policy_name     => 'OLS_QLBV_POLICY',
-                user_name       => nv.MANV,
-                max_read_label  => v_label,
-                max_write_label => v_label,   -- cấp quyền INSERT/UPDATE đúng bằng nhãn của họ
-                def_label       => v_label,
-                row_label       => v_label
+                policy_name    => 'OLS_QLBV_POLICY',
+                user_name      => nv.MANV,
+                max_read_label => v_label,
+                def_label      => v_label,
+                row_label      => v_label
             );
         EXCEPTION 
             WHEN OTHERS THEN NULL; -- Tránh ngắt vòng lặp nếu user db chưa được tạo hoàn tất
@@ -100,18 +70,6 @@ BEGIN
     END LOOP;
 END;
 /
-
-DESC DBA_SA_USER_LABELS;
-
-SELECT user_name,
-       max_read_label,
-       max_write_label,
-       min_write_label,
-       default_read_label,
-       default_write_label,
-       default_row_label
-FROM   DBA_SA_USER_LABELS
-WHERE  user_name = 'NV0001'; -- thay bằng MANV của 1 GĐ thật
 
 -- ----------------------------------------------------------------------------
 -- PHẦN II: TÁI CẤU TRÚC HỆ THỐNG KIỂM TOÁN HỢP NHẤT (YÊU CẦU 3)
@@ -146,66 +104,6 @@ BEGIN DBMS_FGA.DROP_POLICY('QLBV', 'HSBA_DV',   'AuditKTVUpdateKetQua');      EX
 -- === Preparing Procedures and Functions for Auditing ===
 
 ALTER SESSION SET CONTAINER = XEPDB1;
-
--- Procedure sp_BGD_ThongBaoOLS: Ban Giám đốc tạo thông báo gửi đến CHI NHÁNH (COSO)
--- mà chính Giám đốc đó phụ trách. Nhãn OLS = cấp BGD, đủ 3 khoa, chỉ 1 group (chi nhánh).
-CREATE OR REPLACE PROCEDURE QLBV.sp_BGD_ThongBaoOLS(
-    p_noidung  IN NVARCHAR2,
-    p_diadiem  IN NVARCHAR2
-) AS
-    v_manv   VARCHAR2(20);
-    v_capbac NVARCHAR2(50);
-    v_coso   NVARCHAR2(50);
-    v_group  VARCHAR2(10);
-    v_label  VARCHAR2(200);
-BEGIN
-    v_manv := SYS_CONTEXT('userenv', 'session_user');
-
-    -- 1. Chỉ Ban Giám đốc (CAPBAC) mới được dùng thủ tục này
-    BEGIN
-        SELECT CAPBAC, COSO INTO v_capbac, v_coso
-        FROM QLBV.NHANVIEN
-        WHERE MANV = v_manv;
-    EXCEPTION
-        WHEN NO_DATA_FOUND THEN
-            RAISE_APPLICATION_ERROR(-20010, 'Tài khoản không tồn tại trong NHANVIEN.');
-    END;
-
-    IF v_capbac IS NULL OR v_capbac != N'Ban Giám đốc' THEN
-        RAISE_APPLICATION_ERROR(-20011, 'Chỉ Ban Giám đốc mới được phép tạo thông báo qua thủ tục này.');
-    END IF;
-
-    IF v_coso IS NULL THEN
-        RAISE_APPLICATION_ERROR(-20012, 'Tài khoản Ban Giám đốc chưa được gán cơ sở (COSO).');
-    END IF;
-
-    -- 2. Xác định GROUP (chi nhánh) đúng theo cơ sở của Giám đốc đăng nhập
-    CASE v_coso
-        WHEN N'Hồ Chí Minh' THEN v_group := 'HCM';
-        WHEN N'Hải Phòng'   THEN v_group := 'HP';
-        WHEN N'Hà Nội'      THEN v_group := 'HN';
-        ELSE RAISE_APPLICATION_ERROR(-20013, 'Cơ sở không hợp lệ: ' || v_coso);
-    END CASE;
-
-    -- 3. Nhãn: LEVEL=BGD, COMPARTMENT=cả 3 khoa, GROUP=chỉ chi nhánh của giám đốc đó
-    v_label := 'BGD:TH,TK,TM:' || v_group;
-
-    INSERT INTO QLBV.THONGBAO (NOIDUNG, NGAYGIO, DIADIEM, OLS_COL)
-    VALUES (
-        p_noidung,
-        SYSTIMESTAMP,
-        p_diadiem,
-        CHAR_TO_LABEL('OLS_QLBV_POLICY', v_label)
-    );
-
-    COMMIT;
-EXCEPTION
-    WHEN OTHERS THEN
-        ROLLBACK;
-        RAISE;
-END;
-/
-GRANT EXECUTE ON QLBV.sp_BGD_ThongBaoOLS TO PUBLIC;
 
 -- Khởi tạo Procedure sp_KhoiTaoHSBAKhancap (nếu chưa có ở các file trước)
 CREATE OR REPLACE PROCEDURE QLBV.sp_KhoiTaoHSBAKhancap(
@@ -266,36 +164,87 @@ END;
 GRANT EXECUTE ON QLBV.fn_KiemTraDiUngThuoc TO PUBLIC;
 
 -- ----------------------------------------------------------------------------
--- 3.0.1: KHỞI TẠO HÀM KIỂM TRA VAI TRÒ NGHIỆP VỤ ĐỘNG
+-- 3.2 (BỔ SUNG): AUDIT POLICY CHO STORED PROCEDURE XEM LỊCH SỬ ĐIỀU TRỊ
+-- Giám đốc truy xuất lịch sử bệnh nhân → audit mọi lần EXECUTE (cả thành công lẫn thất bại)
 -- ----------------------------------------------------------------------------
--- === Creating Role/VaiTro helper function for Unified Audit ===
 
-ALTER SESSION SET CONTAINER = XEPDB1;
-
-CREATE OR REPLACE FUNCTION QLBV.fn_CheckUserVaiTro(p_vaitro NVARCHAR2) 
-RETURN VARCHAR2 AS
-    v_count NUMBER;
+-- Tạo procedure trước (để audit policy bind được object)
+CREATE OR REPLACE PROCEDURE QLBV.SP_XEM_LICHSU_DIEUTRI_BENHNHAN(
+    p_mabn   IN  VARCHAR2,
+    p_cursor OUT SYS_REFCURSOR
+) AS
+    v_ho_ten_bn NVARCHAR2(100);
 BEGIN
-    -- Kiểm tra trực tiếp chức danh/vai trò của tài khoản đang đăng nhập trong bảng NHANVIEN
-    SELECT COUNT(*) INTO v_count 
-    FROM QLBV.NHANVIEN 
-    WHERE MANV = SYS_CONTEXT('userenv', 'session_user') 
-      AND VAITRO = p_vaitro;
-      
-    IF v_count > 0 THEN 
-        RETURN 'TRUE'; 
-    ELSE 
-        RETURN 'FALSE'; 
-    END IF;
-EXCEPTION 
-    WHEN OTHERS THEN RETURN 'FALSE';
+    -- Kiểm tra bệnh nhân tồn tại, lấy tên để in debug
+    BEGIN
+        SELECT TENBN INTO v_ho_ten_bn
+        FROM QLBV.BENHNHAN
+        WHERE MABN = p_mabn;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            DBMS_OUTPUT.PUT_LINE('[SP_LICHSU] Không tìm thấy bệnh nhân: ' || p_mabn);
+            OPEN p_cursor FOR SELECT NULL MABN FROM DUAL WHERE 1=0;
+            RETURN;
+    END;
+
+    DBMS_OUTPUT.PUT_LINE('=== LỊCH SỬ ĐIỀU TRỊ: ' || p_mabn || ' - ' || v_ho_ten_bn || ' ===');
+
+    -- Trả về toàn bộ lịch sử qua REFCURSOR
+    OPEN p_cursor FOR
+        SELECT
+            -- Thông tin bệnh nhân
+            BN.MABN,
+            BN.TENBN,
+            BN.PHAI,
+            BN.NGAYSINH,
+            BN.TIENSUBENH,
+            BN.TIENSUBENHGD,
+            BN.DIUNGTHUOC,
+            -- Thông tin hồ sơ bệnh án
+            HS.MAHSBA,
+            HS.NGAY             AS NGAY_KHAM,
+            HS.CHANDOAN,
+            HS.DIEUTRI,
+            HS.KETLUAN,
+            KH.TENKHOA,
+            -- Bác sĩ phụ trách
+            BS.HOTEN            AS TEN_BACSI,
+            BS.MANV             AS MA_BACSI,
+            -- Dịch vụ cận lâm sàng
+            DV.LOAIDV,
+            DV.NGAYDV,
+            DV.KETQUA           AS KETQUA_DV,
+            KTV.HOTEN           AS TEN_KTV,
+            -- Đơn thuốc
+            DT.NGAYDT,
+            DT.TENTHUOC,
+            DT.LIEUDUNG
+        FROM       QLBV.BENHNHAN  BN
+        JOIN       QLBV.HSBA      HS  ON HS.MABN   = BN.MABN
+        JOIN       QLBV.KHOA      KH  ON KH.MAKHOA = HS.MAKHOA
+        LEFT JOIN  QLBV.NHANVIEN  BS  ON BS.MANV   = HS.MABS
+        LEFT JOIN  QLBV.HSBA_DV   DV  ON DV.MAHSBA = HS.MAHSBA
+        LEFT JOIN  QLBV.NHANVIEN  KTV ON KTV.MANV  = DV.MAKTV
+        LEFT JOIN  QLBV.DONTHUOC  DT  ON DT.MAHSBA = HS.MAHSBA
+        WHERE BN.MABN = p_mabn
+        ORDER BY HS.NGAY DESC, DV.NGAYDV DESC, DT.NGAYDT DESC;
+
+    DBMS_OUTPUT.PUT_LINE('[SP_LICHSU] Đã mở cursor lịch sử cho: ' || p_mabn);
+
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('[SP_LICHSU] Lỗi: ' || SQLERRM);
+        RAISE;
 END;
 /
 
+GRANT EXECUTE ON QLBV.SP_XEM_LICHSU_DIEUTRI_BENHNHAN TO ROLE_DPV;
+
+
 -- ----------------------------------------------------------------------------
--- 3.1: KÍCH HOẠT KIỂM TOÁN HỆ THỐNG (LOGON THẤT BẠI)
+-- 3.0: KÍCH HOẠT KIỂM TOÁN HỆ THỐNG (LOGON THẤT BẠI)
 -- ----------------------------------------------------------------------------
-PROMPT === Creating System Audit Policy (Logon Failures) ===
+-- === Creating System Audit Policy (Logon Failures) ===
 
 CREATE AUDIT POLICY AuditSession ACTIONS LOGON;
 AUDIT POLICY AuditSession WHENEVER NOT SUCCESSFUL;
@@ -342,33 +291,30 @@ ACTIONS EXECUTE ON QLBV.sp_DieuPhoiNhanSu
 WHEN 'SYS_CONTEXT(''userenv'', ''client_identifier'') LIKE ''%ROLE_DPV%''' EVALUATE PER STATEMENT;
 AUDIT POLICY AuditDieuPhoiNhanSu;
 
--- Ngữ cảnh 7: [Stored Procedure - NGỮ CẢNH MỚI - Thành công]: Bác sĩ thực thi thủ tục "Khởi tạo HSBA khẩn cấp" thành công
-CREATE AUDIT POLICY AuditSucBSExecProc
-ACTIONS EXECUTE ON QLBV.sp_KhoiTaoHSBAKhancap
-WHEN 'SYS_CONTEXT(''userenv'', ''client_identifier'') LIKE ''%ROLE_BACSI%''' EVALUATE PER STATEMENT;
-AUDIT POLICY AuditSucBSExecProc WHENEVER SUCCESSFUL;
 
--- Ngữ cảnh 8: [Function - NGỮ CẢNH MỚI - Thành công]: Bác sĩ thực thi hàm "Kiểm tra dị ứng thuốc nguy kịch" thành công
+-- Ngữ cảnh 7: [Function - NGỮ CẢNH MỚI - Thành công]: Bác sĩ thực thi hàm "Kiểm tra dị ứng thuốc nguy kịch" thành công
 CREATE AUDIT POLICY AuditSucBSExecFunc
 ACTIONS EXECUTE ON QLBV.fn_KiemTraDiUngThuoc
 WHEN 'SYS_CONTEXT(''userenv'', ''client_identifier'') LIKE ''%ROLE_BACSI%''' EVALUATE PER STATEMENT;
 AUDIT POLICY AuditSucBSExecFunc WHENEVER SUCCESSFUL;
 
--- Ngữ cảnh 9: [Stored Procedure] Ban Giám đốc tạo thông báo OLS gửi chi nhánh – thành công
-CREATE AUDIT POLICY AuditSucBGDTaoThongBao
-ACTIONS EXECUTE ON QLBV.sp_BGD_ThongBaoOLS;
-AUDIT POLICY AuditSucBGDTaoThongBao WHENEVER SUCCESSFUL;
+-- Ngữ cảnh 8: DPV xem lịch sử khám bệnh của bệnh nhân
+-- Policy 1: Ghi log DPV thực thi thành công
+CREATE AUDIT POLICY AuditDPVXemLichSuBN
+ACTIONS EXECUTE ON QLBV.SP_XEM_LICHSU_DIEUTRI_BENHNHAN
+WHEN 'SYS_CONTEXT(''userenv'', ''client_identifier'') LIKE ''%ROLE_DPV%'''
+EVALUATE PER STATEMENT;
+AUDIT POLICY AuditDPVXemLichSuBN WHENEVER SUCCESSFUL;
 
--- (Tuỳ chọn) Ghi vết cả trường hợp người không phải BGD cố gọi thủ tục nhưng bị chặn
-CREATE AUDIT POLICY AuditFailBGDTaoThongBao
-ACTIONS EXECUTE ON QLBV.sp_BGD_ThongBaoOLS;
-AUDIT POLICY AuditFailBGDTaoThongBao WHENEVER NOT SUCCESSFUL;
-
+-- Policy 2: Ghi log bất kỳ ai gọi thất bại (truy cập trái phép)
+CREATE AUDIT POLICY AuditDPVXemLichSuBN_Fail
+ACTIONS EXECUTE ON QLBV.SP_XEM_LICHSU_DIEUTRI_BENHNHAN;
+AUDIT POLICY AuditDPVXemLichSuBN_Fail WHENEVER NOT SUCCESSFUL;
 
 -- ----------------------------------------------------------------------------
 -- 3.3: TÌNH HUỐNG KIỂM TOÁN NGHIỆP VỤ CHI TIẾT (a, b, c, d)
 -- ----------------------------------------------------------------------------
-PROMPT === Implementing Specific Business Audit Situations (a, b, c, d) ===
+-- === Implementing Specific Business Audit Situations (a, b, c, d) ===
 
 -- [TÌNH HUỐNG a]: Sửa đổi ĐƠN THUỐC trên các cột quy định bởi chính Bác sĩ phụ trách (Dùng FGA)
 -- Đơn thuốc đã lưu vào DB đồng nghĩa đã được chỉ định, mọi hành vi sửa đổi (UPDATE) sẽ bị ghi vết
@@ -440,7 +386,9 @@ WHERE  unified_audit_policies IN (
         'AUDITFAILBSUPDATENV',  -- NC5: Bác sĩ cập nhật/xóa NHANVIEN (Thất bại - Vượt quyền)
         'AUDITDIEUPHOINHANSU',  -- NC6: Giám sát Điều phối viên thực thi sp_DieuPhoiNhanSu (Mới bổ sung)
         'AUDITSUCBSEXECPROC',   -- NC7: Bác sĩ thực thi sp_KhoiTaoHSBAKhancap thành công
-        'AUDITSUCBSEXECFUNC'   -- NC8: Bác sĩ thực thi fn_KiemTraDiUngThuoc thành công
+        'AUDITSUCBSEXECFUNC,   -- NC8: Bác sĩ thực thi fn_KiemTraDiUngThuoc thành công
+        'AuditDPVXemLichSuBN',  -- NC9: DPV Xem lịch sử khám bệnh - TC
+        'AuditDPVXemLichSuBN_Fail' --NC9: Role khác xem lịch sử khám bệnh thất bại
 )
 ORDER BY event_timestamp DESC;
 

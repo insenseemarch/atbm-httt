@@ -106,37 +106,9 @@ SET    COSO = N'Hà Nội'
 WHERE  MANV = 'NV0001';
 
 
--- ----------------------------------------------------------------------------
--- [09-BACSI-03] Ngữ cảnh 6: Bác sĩ cố tình thực thi hàm tính tổng chi phí trái phép
--- CONNECTION: BS0001 (Tài khoản Bác sĩ) - Mật khẩu: nv123
--- POLICY KÍCH HOẠT: AuditFailBSExecFunc
--- KẾT QUẢ MONG ĐỢI: THẤT BẠI (Bị chặn không cho phép thực thi và ghi log)
--- ----------------------------------------------------------------------------
-EXEC DBMS_SESSION.SET_IDENTIFIER('ROLE_BACSI');
-
--- Bác sĩ cố chạy hàm nghiệp vụ của Điều phối viên (Sẽ báo lỗi ORA-00904 hoặc ORA-01031)
-SELECT QLBV.fn_CheckUserVaiTro(N'Điều phối viên') FROM DUAL;
 
 -- ----------------------------------------------------------------------------
--- [09-BACSI-PROC-NEW] Ngữ cảnh 7 (Mới): Bác sĩ gọi thủ tục tạo HSBA khẩn cấp thành công
--- CONNECTION: BS0001 (Tài khoản Bác sĩ) - Mật khẩu: nv123
--- POLICY KÍCH HOẠT: AuditSucBSExecProc
--- ----------------------------------------------------------------------------
-EXEC DBMS_SESSION.SET_IDENTIFIER('ROLE_BACSI');
-
-BEGIN
-    QLBV.sp_KhoiTaoHSBAKhancap(
-        p_mahsba => 'HS_KC_99991',
-        p_mabn   => 'BN000001',
-        p_mabs   => USER,
-        p_makhoa => 'K001'
-    );
-END;
-/
-COMMIT;
-
--- ----------------------------------------------------------------------------
--- [09-BACSI-FUNC-NEW] Ngữ cảnh 8 (Mới): Bác sĩ gọi hàm kiểm tra dị ứng thuốc thành công
+-- [09-BACSI-FUNC-NEW] Ngữ cảnh 6 (Mới): Bác sĩ gọi hàm kiểm tra dị ứng thuốc thành công
 -- CONNECTION: BS0001 (Tài khoản Bác sĩ) - Mật khẩu: nv123
 -- POLICY KÍCH HOẠT: AuditSucBSExecFunc
 -- ----------------------------------------------------------------------------
@@ -147,35 +119,6 @@ DECLARE
 BEGIN
     v_result := QLBV.fn_KiemTraDiUngThuoc('BN000001');
     DBMS_OUTPUT.PUT_LINE('Kết quả dị ứng của BN: ' || v_result);
-END;
-/
-
--- ----------------------------------------------------------------------------
--- [09-BGD-01] Ngữ cảnh 9: Giám đốc tạo thông báo cho chi nhánh mình phụ trách
--- CONNECTION: (Tài khoản NHANVIEN có CAPBAC = 'Ban Giám đốc')
--- POLICY KÍCH HOẠT: AuditSucBGDTaoThongBao
--- KẾT QUẢ MONG ĐỢI: THÀNH CÔNG (chỉ gửi cho group/COSO của chính giám đốc đó)
--- Nếu connect xong chạy lần đầu bị lỗi, đừng lo lắng, hãy: DISCONNET xong CONECT lại !!!
--- ----------------------------------------------------------------------------
-BEGIN
-    QLBV.sp_BGD_ThongBaoOLS(
-        p_noidung => N'[BGD] Thông báo họp khẩn chi nhánh',
-        p_diadiem => N'Phòng họp Ban Giám đốc'
-    );
-END;
-/
-
--- ----------------------------------------------------------------------------
--- [09-BGD-02] Ngữ cảnh 9b: Người KHÔNG phải Ban Giám đốc cố gọi thủ tục (vượt quyền)
--- CONNECTION: bất kỳ NHANVIEN có CAPBAC khác 'Ban Giám đốc'
--- POLICY KÍCH HOẠT: AuditFailBGDTaoThongBao
--- KẾT QUẢ MONG ĐỢI: THẤT BẠI (RAISE_APPLICATION_ERROR -20011)
--- ----------------------------------------------------------------------------
-BEGIN
-    QLBV.sp_BGD_ThongBaoOLS(
-        p_noidung => N'Thử tạo thông báo trái phép',
-        p_diadiem => N'N/A'
-    );
 END;
 /
 
@@ -224,15 +167,31 @@ SET    CHANDOAN = CHANDOAN
 WHERE  MAHSBA = 'HS0001';
 
 ROLLBACK;
+
+-- ============================================================================
+-- PHẦN V: DEMO SP_XEM_LICHSU_DIEUTRI_BENHNHAN (BỔ SUNG)
+-- ============================================================================
+
 -- ----------------------------------------------------------------------------
--- [09-UNIFIED-SITU-D] Tình huống d: Thêm/Xóa/Sửa BẤT HỢP PHÁP trên bảng HSBA_DV
--- CONNECTION: BN000001 (Hoặc tài khoản không có đặc quyền như Bệnh nhân/Nhân viên thường)
--- POLICY KÍCH HOẠT: AuditIllegalHSBADV (Unified Audit - WHENEVER NOT SUCCESSFUL)
--- KẾT QUẢ MONG ĐỢI: THẤT BẠI (Bị Oracle từ chối hoặc VPD chặn, sinh log lỗi)
+-- [09-DPV-01] DPV xem lịch sử điều trị khi có đơn khiếu nại
+-- CONNECTION: NV0001 (hoặc QLBV) - Mật khẩu: nv123
+-- POLICY KÍCH HOẠT: AuditGDXemLichSuBN
+-- KẾT QUẢ MONG ĐỢI: THÀNH CÔNG + sinh audit log
 -- ----------------------------------------------------------------------------
--- Đối tượng cố tình can thiệp xóa dữ liệu sử dụng dịch vụ bệnh án
-DELETE FROM QLBV.HSBA_DV 
-WHERE  MAHSBA = 'HS0001';
+
+EXEC DBMS_SESSION.SET_IDENTIFIER('ROLE_DPV');
+
+-- Gọi procedure để sinh log
+DECLARE
+    v_cur SYS_REFCURSOR;
+BEGIN
+    QLBV.SP_XEM_LICHSU_DIEUTRI_BENHNHAN(
+        p_mabn   => 'BN000001',
+        p_cursor => v_cur
+    );
+    CLOSE v_cur;
+END;
+/
 
 
 -- ============================================================================
@@ -263,9 +222,9 @@ WHERE  unified_audit_policies IN (
         'AUDITDIEUPHOINHANSU',  -- NC6: Giám sát Điều phối viên thực thi sp_DieuPhoiNhanSu (Mới bổ sung)
         'AUDITSUCBSEXECPROC',   -- NC7: Bác sĩ thực thi sp_KhoiTaoHSBAKhancap thành công
         'AUDITSUCBSEXECFUNC',   -- NC8: Bác sĩ thực thi fn_KiemTraDiUngThuoc thành công
-        'AUDITSUCBGDTAOTHONGBAO',  -- NC9: Ban Giám đốc tạo thông báo OLS theo chi nhánh
-        'AUDITFAILBGDTAOTHONGBAO'  -- NC9b: Người không phải BGD cố tạo thông báo (Thất bại)
-)
+        'AUDITDPVXEMLICHSUBN',   -- NC9: Thành công
+        'AUDITDPVXEMLICHSUBN_FAIL' -- NC9: Thất bại
+        )
 ORDER BY event_timestamp DESC;
 
 -- 3. Đọc dữ liệu FGA của tình huống (a) Sửa Đơn Thuốc & (b) Bác sĩ Sửa HSBA hợp pháp

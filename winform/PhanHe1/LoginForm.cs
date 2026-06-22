@@ -198,7 +198,7 @@ namespace PhanHe1
             menu.Items.Add("GD0003 / nv123", null, (s2, args) => SetTestAccount("GD0003", "nv123"));
 
             menu.Items.Add("── Điều phối viên ──", null, null).Enabled = false;
-            menu.Items.Add("NV0001 / nv123 (09.sql)", null, (s2, args) => SetTestAccount("NV0001", "nv123"));
+            menu.Items.Add("NV0001 / nv123", null, (s2, args) => SetTestAccount("NV0001", "nv123"));
             menu.Items.Add("NV0002 / nv123", null, (s2, args) => SetTestAccount("NV0002", "nv123"));
 
             menu.Items.Add("── Bác sĩ ──", null, null).Enabled = false;
