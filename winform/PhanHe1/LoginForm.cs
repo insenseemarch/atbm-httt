@@ -21,7 +21,7 @@ namespace PhanHe1
         private RadioButton rdoPh2;
 
         public OracleAdminService AuthenticatedService { get; private set; }
-        /// <summary>1 = Phân Hệ 1 (Quản Trị Oracle), 2 = Phân Hệ 2 (Hệ Thống Bệnh Viện)</summary>
+        /// <summary>1 = Quản trị Oracle, 2 = Hệ thống bệnh viện DocCare</summary>
         public int SelectedPhase { get; private set; } = 2;
 
         public LoginForm()
@@ -31,7 +31,7 @@ namespace PhanHe1
 
         private void BuildUi()
         {
-            Text = "Đăng nhập Admin BỆNH VIỆN";
+            Text = "Đăng nhập — DocCare";
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
@@ -84,7 +84,7 @@ namespace PhanHe1
             // ── Lựa chọn phân hệ (row 6)
             rdoPh1 = new RadioButton
             {
-                Text = "Phân Hệ 1 — Quản Trị Oracle",
+                Text = "Quản Trị Oracle",
                 AutoSize = true, Checked = false,
                 Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
                 ForeColor = UiTheme.DeepBlue,
@@ -92,7 +92,7 @@ namespace PhanHe1
             };
             rdoPh2 = new RadioButton
             {
-                Text = "Phân Hệ 2 — Hệ Thống Bệnh Viện",
+                Text = "Hệ Thống Bệnh Viện",
                 AutoSize = true, Checked = true,
                 Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(20, 140, 80),
@@ -110,7 +110,7 @@ namespace PhanHe1
                 Padding = new Padding(6, 4, 0, 4),
                 Height = 36
             };
-            phasePanel.Controls.Add(new Label { Text = "Vào phân hệ:", AutoSize = true, Font = new Font("Segoe UI", 9.5F), ForeColor = Color.Gray, Margin = new Padding(0, 7, 10, 0) });
+            phasePanel.Controls.Add(new Label { Text = "Chế độ:", AutoSize = true, Font = new Font("Segoe UI", 9.5F), ForeColor = Color.Gray, Margin = new Padding(0, 7, 10, 0) });
             phasePanel.Controls.Add(rdoPh1);
             phasePanel.Controls.Add(rdoPh2);
 
@@ -130,7 +130,7 @@ namespace PhanHe1
             {
                 Dock = DockStyle.Fill,
                 ForeColor = UiTheme.DeepBlue,
-                Text = "app_admin → Phân Hệ 1.  NV0002/BS0001/KTV001/BN000001 → Phân Hệ 2 (09.sql).",
+                Text = "app_admin → Quản Trị Oracle.  Tài khoản NV/BS/KTV/BN → Hệ Thống Bệnh Viện.",
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
                 AutoSize = true
             };
@@ -156,7 +156,7 @@ namespace PhanHe1
             EnhanceButtonDepth(btnLogin, Color.FromArgb(40, 180, 70));
             btnLogin.Click += btnLogin_Click;
 
-            var btnTestAcc = new Button { Text = "Tài khoản test", Width = 140, Height = 40 };
+            var btnTestAcc = new Button { Text = "Tài khoản mẫu", Width = 140, Height = 40 };
             btnTestAcc.FlatStyle = FlatStyle.Flat;
             btnTestAcc.FlatAppearance.BorderSize = 0;
             btnTestAcc.BackColor = Color.FromArgb(255, 193, 7);

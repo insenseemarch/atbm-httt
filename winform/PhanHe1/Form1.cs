@@ -80,7 +80,7 @@ namespace PhanHe1
 
         private void BuildUi()
         {
-            Text = "PHÂN HỆ 1 - QUẢN TRỊ ORACLE BỆNH VIỆN";
+            Text = "DocCare — Quản Trị Oracle";
             StartPosition = FormStartPosition.CenterScreen;
             MinimumSize = new Size(1200, 720);
             Font = UiTheme.BodyFont;
