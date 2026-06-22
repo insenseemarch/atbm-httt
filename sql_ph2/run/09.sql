@@ -1,543 +1,299 @@
--- ============================================================
--- 09.sql - Kịch bản chạy thử (lưu vết mẫu) cho TOÀN BỘ audit
---           policy đã cài đặt trong 06.sql
--- ============================================================
--- Mục đích:
---   06.sql chỉ TẠO ra các audit policy (Standard Audit + FGA),
---   chưa có thao tác nào thực sự được audit. File 09.sql này
---   thực thi LẦN LƯỢT từng ngữ cảnh (thành công + thất bại) đã
---   khai báo trong 06.sql để sinh bản ghi vào UNIFIED_AUDIT_TRAIL
---   (và DBA_FGA_AUDIT_TRAIL cho phần FGA), phục vụ minh họa /
---   demo cho Yêu cầu 3 và làm dữ liệu đầu vào cho [07-AUDIT-01].
---
--- File này chạy SAU:
---   01.sql -> 02.sql -> 03.sql -> 04.sql -> 05.sql -> 06.sql
---
--- Nguyên tắc đặt tên section: [09-<ROLE>-<STT>]
--- Mỗi section ghi rõ:
---   - Kết nối (user/role) cần dùng trong SQL Developer
---   - Policy (06.sql) mà thao tác bên dưới dự kiến kích hoạt
---   - Kết quả mong đợi: THÀNH CÔNG hay THẤT BẠI
---
--- LƯU Ý QUAN TRỌNG:
---   1. Phải mở MỖI section bằng một kết nối (connection/worksheet)
---      đúng với user được ghi trong tiêu đề section đó. Không
---      chạy toàn bộ file bằng 1 connection duy nhất, vì
---      sys_context('userenv','session_user') trong predicate
---      của từng audit policy ở 06.sql chính là điều kiện kích
---      hoạt audit.
---   2. Tên cột / PK của DONTHUOC, HSBA_DV... được giả định theo
---      ngữ cảnh xuất hiện trong 02.sql/06.sql/07.sql. Nếu schema
---      thực tế đặt tên khác, chỉnh lại giá trị cột cho khớp.
---   3. Các UPDATE/INSERT thành công đều ROLLBACK ngay sau khi
---      thực thi (trừ khi ghi chú khác) để không làm bẩn dữ liệu
---      demo — bản ghi audit vẫn được ghi nhận tại thời điểm câu
---      lệnh thực thi, không phụ thuộc COMMIT/ROLLBACK.
---   4. Sau khi chạy xong toàn bộ section, dùng lại các query ở
---      mục 3.4 của 06.sql (hoặc [09-VERIFY] cuối file) để xem
---      log.
--- ============================================================
+-- ============================================================================
+-- 09.sql - Kịch bản thực thi giả lập sinh Nhật ký Kiểm toán (Demo)
+-- Bám sát cấu hình chính sách kiểm toán trong 06.sql
+-- ============================================================================
+-- Hướng dẫn chạy:
+--   1. Đảm bảo đã thực thi chuỗi file từ 01.sql -> 06.sql thành công.
+--   2. Mở từng kết nối tương ứng với chỉ dẫn "CONNECTION" ở mỗi mục.
+--   3. Copy và chạy các câu lệnh nghiệp vụ để sinh log.
+-- ============================================================================
 
-SET SERVEROUTPUT ON
-SET LINESIZE 260
-SET PAGESIZE 100
+SET SERVEROUTPUT ON;
+SET LINESIZE 200;
+
+-- ============================================================================
+-- PHẦN I: GIẢ LẬP KIỂM TOÁN HỆ THỐNG (MỤC 3.1 TRONG 06.SQL)
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- [09-SYSTEM-01] Thử nghiệm Đăng nhập THẤT BẠI (Logon Failure)
+-- CONNECTION: Hãy cố tình kết nối bằng một User bất kỳ nhưng gõ SAI mật khẩu
+-- Ví dụ trên CMD hoặc SQL*Plus: sqlplus QLBV/sai_mat_khau@localhost:1521/XEPDB1
+-- KẾT QUẢ MONG ĐỢI: Hệ thống từ chối đăng nhập và âm thầm ghi vết lỗi ORA-01017.
+-- ----------------------------------------------------------------------------
 
 
--- ============================================================
--- [09-LOGON-01] Kết nối: dùng CMD/SQL*Plus, đăng nhập SAI mật khẩu
--- Policy kích hoạt: AuditSession (logon thất bại)
--- Kết quả mong đợi: THẤT BẠI (ORA-01017 invalid username/password)
--- ============================================================
--- Không thể tạo lỗi đăng nhập bằng 1 script đang chạy trong 1
--- session đã kết nối thành công, nên thao tác này thực hiện
--- THỦ CÔNG ngoài SQL Developer (terminal CMD/PowerShell):
---
---   sqlplus bs0001/sai_mat_khau@localhost:1521/xepdb1
---
--- Hoặc trong SQL Developer: tạo 1 connection mới với mật khẩu
--- sai cho bất kỳ user nghiệp vụ nào (vd BS0001, NV0001, KTV001,
--- BN000001...) rồi bấm Connect/Test, sẽ phát sinh 1 bản ghi
--- LOGON whenever not successful.
+-- ============================================================================
+-- PHẦN II: STANDARD AUDIT - NGỮ CẢNH VAI TRÒ CHUẨN (MỤC 3.2 TRONG 06.SQL)
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- [09-DPV-01] Ngữ cảnh 1: Điều phối viên cập nhật thông tin BENHNHAN thành công
+-- CONNECTION: NV0001 (Tài khoản Điều phối viên) - Mật khẩu: nv123
+-- POLICY KÍCH HOẠT: AuditSucDPVUpdateBN
+-- KẾT QUẢ MONG ĐỢI: THÀNH CÔNG (Ghi log thành công)
+-- ----------------------------------------------------------------------------
+-- Giả lập ứng dụng WinForm kích hoạt định danh vai trò của Session
+EXEC DBMS_SESSION.SET_IDENTIFIER('ROLE_DPV');
+
+-- Thực hiện cập nhật thông tin bệnh nhân (cập nhật số nhà thành chính nó)
+UPDATE QLBV.BENHNHAN 
+SET    SONHA = SONHA 
+WHERE  MABN = 'BN000001';
+
+COMMIT;
 
 
--- ============================================================
--- [TC1: Điều phối viên cập nhật thông tin bệnh nhân] 
--- Kết nối: NV0001 (hoặc NV0007) @ XEPDB1
--- Policy kích hoạt: AuditSucDPVUpdateBN
--- Kết quả mong đợi: THÀNH CÔNG
--- ============================================================
-UPDATE QLBV.BENHNHAN
-SET    SONHA = SONHA
-WHERE  ROWNUM = 1;
+-- ----------------------------------------------------------------------------
+-- [09-DPV-02] Ngữ cảnh 2: Điều phối viên cập nhật thông tin trên HSBA thành công
+-- CONNECTION: NV0001 (Tài khoản Điều phối viên) - Mật khẩu: nv123
+-- POLICY KÍCH HOẠT: AuditDPVUpdateHSBA
+-- KẾT QUẢ MONG ĐỢI: THÀNH CÔNG (Ghi log thành công)
+-- ----------------------------------------------------------------------------
+EXEC DBMS_SESSION.SET_IDENTIFIER('ROLE_DPV');
 
-ROLLBACK;
+-- Điều phối viên thực hiện quyền phân công Khoa điều trị trên Hồ sơ bệnh án
+UPDATE QLBV.HSBA 
+SET    MAKHOA = MAKHOA 
+WHERE  MAHSBA = 'HS000001';
 
-
--- ============================================================
--- [TC2: Bác sĩ xem view báo cáo điều trị] 
--- Kết nối: BS0001 (hoặc BS0002) @ XEPDB1
--- Policy kích hoạt: AuditSucBSSelectView
--- Kết quả mong đợi: THÀNH CÔNG
--- ============================================================
-SELECT *
-FROM   QLBV.VW_BaoCaoDieuTri
-WHERE  ROWNUM <= 5;
+COMMIT;
 
 
--- ============================================================
--- [TC3: Bác sĩ thực thi stored procedure khởi tạo HSBA khẩn cấp] 
--- Kết nối: BS0001 (hoặc BS0002) @ XEPDB1
--- Policy kích hoạt: AuditSucBSExecProc
--- Kết quả mong đợi: THÀNH CÔNG
--- ============================================================
--- Đổi mã hồ sơ (p_mahsba)/bệnh nhân (p_mabn)/khoa (p_makhoa)
--- nếu trùng dữ liệu sẵn có, để tránh lỗi PRIMARY KEY/FOREIGN KEY.
-DECLARE
-    v_mabn   QLBV.BENHNHAN.MABN%TYPE;
-    v_makhoa QLBV.NHANVIEN.MAKHOA%TYPE;
+-- ----------------------------------------------------------------------------
+-- [09-KTV-01] Ngữ cảnh 3: Kỹ thuật viên cập nhật dịch vụ qua View thành công
+-- CONNECTION: KTV001 (Tài khoản Kỹ thuật viên khoa TK) - Mật khẩu: nv123
+-- POLICY KÍCH HOẠT: AuditSucKTVUpdateDV
+-- KẾT QUẢ MONG ĐỢI: THÀNH CÔNG (Ghi log thành công)
+-- ----------------------------------------------------------------------------
+EXEC DBMS_SESSION.SET_IDENTIFIER('ROLE_KTV');
+
+-- Kỹ thuật viên cập nhật kết quả dịch vụ cận lâm sàng thông qua View được phép
+UPDATE QLBV.VW_KTV_XemHSBADV 
+SET    KETQUA = KETQUA 
+WHERE  MAHSBA = 'HS000001';
+
+COMMIT;
+
+
+-- ----------------------------------------------------------------------------
+-- [09-BACSI-01] Ngữ cảnh 4: Bác sĩ cập nhật đơn thuốc của mình thành công
+-- CONNECTION: BS0001 (Bác sĩ điều trị) - Mật khẩu: nv123
+-- POLICY KÍCH HOẠT: AuditSucBSUpdateDT
+-- KẾT QUẢ MONG ĐỢI: THÀNH CÔNG (Ghi log thành công)
+-- ----------------------------------------------------------------------------
+EXEC DBMS_SESSION.SET_IDENTIFIER('ROLE_BACSI');
+
+-- Bác sĩ cập nhật liều dùng đơn thuốc do mình phụ trách
+UPDATE QLBV.DONTHUOC 
+SET    LIEUDUNG = LIEUDUNG 
+WHERE  MAHSBA = 'HS000001';
+
+COMMIT;
+
+
+-- ----------------------------------------------------------------------------
+-- [09-BACSI-02] Ngữ cảnh 5: Bác sĩ cố tình cập nhật/xóa thông tin nhân viên
+-- CONNECTION: BS0001 (Tài khoản Bác sĩ) - Mật khẩu: nv123
+-- POLICY KÍCH HOẠT: AuditFailBSUpdateNV
+-- KẾT QUẢ MONG ĐỢI: THẤT BẠI (Bị chặn do thiếu đặc quyền ORA-01031 và ghi log)
+-- ----------------------------------------------------------------------------
+EXEC DBMS_SESSION.SET_IDENTIFIER('ROLE_BACSI');
+
+-- Bác sĩ cố tình sửa thông tin cơ sở của đồng nghiệp (Hành vi vượt quyền)
+UPDATE QLBV.NHANVIEN 
+SET    COSO = N'Hà Nội' 
+WHERE  MANV = 'NV0001';
+
+
+-- ----------------------------------------------------------------------------
+-- [09-BACSI-03] Ngữ cảnh 6: Bác sĩ cố tình thực thi hàm tính tổng chi phí trái phép
+-- CONNECTION: BS0001 (Tài khoản Bác sĩ) - Mật khẩu: nv123
+-- POLICY KÍCH HOẠT: AuditFailBSExecFunc
+-- KẾT QUẢ MONG ĐỢI: THẤT BẠI (Bị chặn không cho phép thực thi và ghi log)
+-- ----------------------------------------------------------------------------
+EXEC DBMS_SESSION.SET_IDENTIFIER('ROLE_BACSI');
+
+-- Bác sĩ cố chạy hàm nghiệp vụ của Điều phối viên (Sẽ báo lỗi ORA-00904 hoặc ORA-01031)
+SELECT QLBV.fn_CheckUserVaiTro(N'Điều phối viên') FROM DUAL;
+
+-- ----------------------------------------------------------------------------
+-- [09-BACSI-PROC-NEW] Ngữ cảnh 7 (Mới): Bác sĩ gọi thủ tục tạo HSBA khẩn cấp thành công
+-- CONNECTION: BS0001 (Tài khoản Bác sĩ) - Mật khẩu: nv123
+-- POLICY KÍCH HOẠT: AuditSucBSExecProc
+-- ----------------------------------------------------------------------------
+EXEC DBMS_SESSION.SET_IDENTIFIER('ROLE_BACSI');
+
 BEGIN
-    SELECT MABN
-    INTO v_mabn
-    FROM QLBV.BENHNHAN
-    WHERE ROWNUM = 1;
-
-    SELECT MAKHOA
-    INTO v_makhoa
-    FROM QLBV.NHANVIEN
-    WHERE MANV = USER;
-
     QLBV.sp_KhoiTaoHSBAKhancap(
-        p_mahsba => 'HS_DEMO09_BS',
-        p_mabn   => v_mabn,
+        p_mahsba => 'HS_KC_99991',
+        p_mabn   => 'BN000001',
         p_mabs   => USER,
-        p_makhoa => v_makhoa
+        p_makhoa => 'K001'
     );
 END;
 /
+COMMIT;
 
-ROLLBACK;
+-- ----------------------------------------------------------------------------
+-- [09-BACSI-FUNC-NEW] Ngữ cảnh 8 (Mới): Bác sĩ gọi hàm kiểm tra dị ứng thuốc thành công
+-- CONNECTION: BS0001 (Tài khoản Bác sĩ) - Mật khẩu: nv123
+-- POLICY KÍCH HOẠT: AuditSucBSExecFunc
+-- ----------------------------------------------------------------------------
+EXEC DBMS_SESSION.SET_IDENTIFIER('ROLE_BACSI');
 
-
--- ============================================================
--- [TC4: Điều phối viên thực thi function tính tổng chi phí điều trị]
--- Kết nối: NV0001 (hoặc NV0002) @ XEPDB1
--- Policy kích hoạt: AuditSucDPVExecFunc
--- Kết quả mong đợi: THÀNH CÔNG
--- ============================================================
 DECLARE
-    v_total  NUMBER;
-    v_mahsba QLBV.HSBA.MAHSBA%TYPE;
+    v_result NVARCHAR2(500);
 BEGIN
-    SELECT MAHSBA
-    INTO v_mahsba
-    FROM QLBV.HSBA
-    WHERE ROWNUM = 1;
-
-    v_total := QLBV.fn_TinhTongChiPhiDieuTri(
-        p_mahsba => v_mahsba
-    );
-
-    DBMS_OUTPUT.PUT_LINE('Tong dich vu: ' || v_total);
+    v_result := QLBV.fn_KiemTraDiUngThuoc('BN000001');
+    DBMS_OUTPUT.PUT_LINE('Kết quả dị ứng của BN: ' || v_result);
 END;
 /
 
--- ============================================================
--- [TC4.5: Điều phối viên cập nhật phân công Khoa/Bác sĩ điều trị trên HSBA]
--- Kết nối: NV0001 (hoặc NV0002) @ XEPDB1
--- Policy kích hoạt: AuditDPVUpdateHSBA
--- Kết quả mong đợi: THÀNH CÔNG
--- ============================================================
-UPDATE QLBV.HSBA
-SET    MAKHOA = MAKHOA
-WHERE  ROWNUM = 1;
 
-ROLLBACK;
+-- ============================================================================
+-- PHẦN III: TÌNH HUỐNG KIỂM TOÁN NGHIỆP VỤ CHI TIẾT (MỤC 3.3 TRONG 06.SQL)
+-- ============================================================================
 
-
--- ============================================================
--- [TC5: Kỹ thuật viên cập nhật kết quả dịch vụ trong HSBA_DV]
--- Kết nối: KTV001 (hoặc KTV002) @ XEPDB1
--- Policy kích hoạt: AuditSucKTVUpdateDV
--- FGA kích hoạt thêm: AuditKTVUpdateKetQua (audit_column = KETQUA)
--- Kết quả mong đợi: THÀNH CÔNG
--- ============================================================
-UPDATE QLBV.VW_KTV_XemHSBADV
-SET    KETQUA = KETQUA
-WHERE  ROWNUM = 1;
-
-ROLLBACK;
-
-
--- ============================================================
--- [TC6: Bác sĩ cập nhật đơn thuốc thuộc HSBA mình điều trị] 
--- Kết nối: BS0001 (hoặc BS0002) @ XEPDB1
--- Policy kích hoạt: AuditSucBSUpdateDT
--- FGA kích hoạt thêm: AuditSuaDonThuoc, Unified AuditDonThuocUpdate
--- Kết quả mong đợi: THÀNH CÔNG
--- ============================================================
-UPDATE QLBV.DONTHUOC
+-- ----------------------------------------------------------------------------
+-- [09-FGA-SITU-A] Tình huống a: Sửa đổi ĐƠN THUỐC sau khi đã được tạo xong
+-- CONNECTION: NV0006 (Bác sĩ phụ trách đơn thuốc này) - Mật khẩu: nv123
+-- POLICY KÍCH HOẠT: AuditSuaDonThuoc (FGA Policy)
+-- KẾT QUẢ MONG ĐỢI: THÀNH CÔNG chuyên môn nhưng sinh nhật ký FGA chi tiết
+-- ----------------------------------------------------------------------------
+-- Sửa đổi trường liều dùng lâm sàng của một đơn thuốc có sẵn
+UPDATE QLBV.DONTHUOC 
 SET    LIEUDUNG = LIEUDUNG
-WHERE  MAHSBA IN (SELECT MAHSBA FROM QLBV.HSBA WHERE MABS = USER)
-AND    ROWNUM = 1;
+WHERE  MAHSBA = 'HS000001';
+
+COMMIT;
+
+
+-- ----------------------------------------------------------------------------
+-- [09-FGA-SITU-B] Tình huống b: Bác sĩ cập nhật hợp pháp trường lâm sàng trên HSBA
+-- CONNECTION: BS0001 (Bác sĩ được phân công điều trị hồ sơ HS0001) - Mật khẩu: nv123
+-- POLICY KÍCH HOẠT: AuditBSUpdateHSBA_HopPhap (FGA Policy)
+-- KẾT QUẢ MONG ĐỢI: THÀNH CÔNG nghiệp vụ và ghi nhận log kiểm toán chi tiết
+-- ----------------------------------------------------------------------------
+-- Bác sĩ cập nhật diễn tiến bệnh án lâm sàng
+UPDATE QLBV.HSBA 
+SET    CHANDOAN = CHANDOAN 
+WHERE  MAHSBA = 'HS000001' AND MABS = SYS_CONTEXT('USERENV', 'SESSION_USER');
+
+COMMIT;
+
+
+-- ----------------------------------------------------------------------------
+-- [09-UNIFIED-SITU-C] Tình huống c: Cập nhật BẤT HỢP PHÁP trường y khoa lâm sàng
+-- CONNECTION: NV0001 (Tài khoản Điều phối viên) - Mật khẩu: nv123
+-- POLICY KÍCH HOẠT: AuditIllegalUpdateHSBA (Unified Audit - WHENEVER NOT SUCCESSFUL)
+-- KẾT QUẢ MONG ĐỢI: THẤT BẠI (Bị chính sách VPD chặn đứng, câu lệnh báo lỗi và ghi log)
+-- ----------------------------------------------------------------------------
+-- Nhân viên hành chính điều phối cố tình can thiệp sửa đổi Chẩn đoán y khoa
+UPDATE QLBV.HSBA 
+SET    CHANDOAN = CHANDOAN
+WHERE  MAHSBA = 'HS0001';
 
 ROLLBACK;
+-- ----------------------------------------------------------------------------
+-- [09-UNIFIED-SITU-D] Tình huống d: Thêm/Xóa/Sửa BẤT HỢP PHÁP trên bảng HSBA_DV
+-- CONNECTION: BN000001 (Hoặc tài khoản không có đặc quyền như Bệnh nhân/Nhân viên thường)
+-- POLICY KÍCH HOẠT: AuditIllegalHSBADV (Unified Audit - WHENEVER NOT SUCCESSFUL)
+-- KẾT QUẢ MONG ĐỢI: THẤT BẠI (Bị Oracle từ chối hoặc VPD chặn, sinh log lỗi)
+-- ----------------------------------------------------------------------------
+-- Đối tượng cố tình can thiệp xóa dữ liệu sử dụng dịch vụ bệnh án
+DELETE FROM QLBV.HSBA_DV 
+WHERE  MAHSBA = 'HS0001';
 
+-- ============================================================================
+-- PHẦN V: DEMO SP_XEM_LICHSU_DIEUTRI_BENHNHAN (BỔ SUNG)
+-- ============================================================================
 
--- ============================================================
--- [TC7: Bệnh nhân xem thông tin cá nhân qua view được cấp quyền]
--- Kết nối: BN000001 (hoặc BN000002) @ XEPDB1
--- Policy kích hoạt: AuditBonusBNSelectInfo
--- Kết quả mong đợi: THÀNH CÔNG
--- ============================================================
-SELECT *
-FROM   QLBV.VW_BenhNhan_Xemthongtin
-WHERE  ROWNUM <= 5;
+-- ----------------------------------------------------------------------------
+-- [09-DPV-01] DPV xem lịch sử điều trị khi có đơn khiếu nại
+-- CONNECTION: NV0001 (hoặc QLBV) - Mật khẩu: nv123
+-- POLICY KÍCH HOẠT: AuditGDXemLichSuBN
+-- KẾT QUẢ MONG ĐỢI: THÀNH CÔNG + sinh audit log
+-- ----------------------------------------------------------------------------
 
+EXEC DBMS_SESSION.SET_IDENTIFIER('ROLE_DPV');
 
--- ============================================================
--- [3.3.a+: Unified Audit ghi nhận INSERT/UPDATE ĐƠNTHUỐC, không dùng cột trạng thái]
--- Kết nối: BS0001 (hoặc BS0002) @ XEPDB1
--- Policy kích hoạt: Unified AuditDonThuocInsert
--- Kết quả mong đợi: THÀNH CÔNG
--- (Điều chỉnh tên cột PK/NGAYDT/TENTHUOC/LIEUDUNG theo đúng 02.sql
---  nếu cấu trúc bảng DONTHUOC khác với giả định bên dưới.)
--- ============================================================
-INSERT INTO QLBV.DONTHUOC (MAHSBA, NGAYDT, TENTHUOC, LIEUDUNG)
-VALUES (
-    (SELECT MAHSBA FROM QLBV.HSBA WHERE MABS = USER AND ROWNUM = 1),
-    SYSDATE,
-    N'Thuoc demo audit 09',
-    N'Theo chi dinh - lieu mau demo'
-);
-
-ROLLBACK;
-
-
--- ============================================================
--- [TBx: Bác sĩ cố tình thực thi function tính tổng chi phí điều trị]
--- Kết nối: BS0001 (hoặc BS0002) @ XEPDB1
--- Policy kích hoạt: AuditFailBSExecFunc
--- Kết quả mong đợi: THẤT BẠI (không có quyền EXECUTE)
--- ============================================================
-SET SERVEROUTPUT ON;
+-- Gọi procedure để sinh log
 DECLARE
-    v_total NUMBER;
+    v_cur SYS_REFCURSOR;
 BEGIN
-    -- Sử dụng Dynamic SQL để đẩy việc kiểm tra quyền xuống Runtime
-    EXECUTE IMMEDIATE 'BEGIN :1 := QLBV.fn_TinhTongChiPhiDieuTri(''HS_DEMO''); END;' 
-    USING OUT v_total;
-    
-    DBMS_OUTPUT.PUT_LINE('Thành công (Lỗi kịch bản - Bác sĩ không nên chạy được hàm này)');
-EXCEPTION
-    WHEN OTHERS THEN
-        -- Lúc này ORA-06550/PLS-00201 hoặc ORA-00942 sẽ bị bắt tại đây
-        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] EXEC fn_TinhTongChiPhiDieuTri: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
+    QLBV.SP_XEM_LICHSU_DIEUTRI_BENHNHAN(
+        p_mabn   => 'BN000001',
+        p_cursor => v_cur
+    );
+    CLOSE v_cur;
 END;
 /
 
--- ============================================================
--- [TB1: Bác sĩ cố cập nhật/xóa thông tin nhân viên]
--- Kết nối: BS0001 AuditFailBSUpdateNV(hoặc BS0002) @ XEPDB1
--- Policy kích hoạt: AuditFailBSUpdateNV
--- Kết quả mong đợi: THẤT BẠI (không có quyền UPDATE/DELETE NHANVIEN)
--- ============================================================
-SET SERVEROUTPUT ON;
+-- ----------------------------------------------------------------------------
+-- [09-DPV-01] DPV xem lịch sử điều trị khi có đơn khiếu nại
+-- CONNECTION: BS0001 (hoặc QLBV) - Mật khẩu: nv123
+-- POLICY KÍCH HOẠT: AuditGDXemLichSuBN_Fail
+-- KẾT QUẢ MONG ĐỢI: Thất bại + sinh audit log
+-- ----------------------------------------------------------------------------
 
--- Khối test UPDATE NHANVIEN
-BEGIN
-    -- Sử dụng SQL động để ép Oracle kiểm tra quyền ở thời điểm Runtime
-    EXECUTE IMMEDIATE 'UPDATE QLBV.NHANVIEN SET COSO = COSO WHERE ROWNUM = 1';
-    
-    DBMS_OUTPUT.PUT_LINE('Thành công (Lỗi kịch bản - User không được phép UPDATE bảng này)');
-EXCEPTION
-    WHEN OTHERS THEN
-        -- Khối này bây giờ sẽ bắt gọn lỗi thiếu quyền tại Runtime và in ra đúng kịch bản
-        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] UPDATE NHANVIEN: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
-END;
-/
+EXEC DBMS_SESSION.SET_IDENTIFIER('ROLE_BACSI');
 
--- Khối test DELETE NHANVIEN
-BEGIN
-    -- Sử dụng SQL động để ép Oracle kiểm tra quyền ở thời điểm Runtime
-    EXECUTE IMMEDIATE 'DELETE FROM QLBV.NHANVIEN WHERE ROWNUM = 1';
-    
-    DBMS_OUTPUT.PUT_LINE('Thành công (Lỗi kịch bản - User không được phép DELETE bảng này)');
-EXCEPTION
-    WHEN OTHERS THEN
-        -- Khối này bây giờ sẽ bắt gọn lỗi thiếu quyền tại Runtime và in ra đúng kịch bản
-        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] DELETE NHANVIEN: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
-END;
-/
-
-
--- ============================================================
--- [TB2: Bệnh nhân cố xóa hồ sơ bệnh án]
--- Kết nối: BN000001 (hoặc BN000002) @ XEPDB1
--- Policy kích hoạt: AuditFailBNDeleteHSBA
--- Kết quả mong đợi: THẤT BẠI (không có quyền DELETE HSBA)
--- ============================================================
-SET SERVEROUTPUT ON;
-
-BEGIN
-    -- Sử dụng SQL động để ép Oracle kiểm tra quyền ở thời điểm Runtime
-    EXECUTE IMMEDIATE 'DELETE FROM QLBV.HSBA WHERE ROWNUM = 1';
-    
-    DBMS_OUTPUT.PUT_LINE('Thành công (Lỗi kịch bản - User không được phép DELETE bảng này)');
-EXCEPTION
-    WHEN OTHERS THEN
-        -- Khối này bây giờ sẽ bắt gọn lỗi thiếu quyền tại Runtime và in ra đúng kịch bản
-        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] DELETE HSBA: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
-END;
-/
-
-
--- ============================================================
--- [TB3: Kỹ thuật viên cố xóa đơn thuốc]
--- Kết nối: KTV001 (hoặc KTV002) @ XEPDB1
--- Policy kích hoạt: AuditFailKTVDeleteDT
--- Kết quả mong đợi: THẤT BẠI (không có quyền DELETE DONTHUOC)
--- ============================================================
-SET SERVEROUTPUT ON;
-
-BEGIN
-    -- Sử dụng SQL động để ép Oracle kiểm tra quyền ở thời điểm Runtime
-    EXECUTE IMMEDIATE 'DELETE FROM QLBV.DONTHUOC WHERE ROWNUM = 1';
-    
-    DBMS_OUTPUT.PUT_LINE('Thành công (Lỗi kịch bản - User không được phép DELETE bảng này)');
-EXCEPTION
-    WHEN OTHERS THEN
-        -- Khối này bây giờ sẽ bắt gọn lỗi thiếu quyền tại Runtime và in ra đúng kịch bản
-        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] DELETE DONTHUOC: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
-END;
-/
-
-
--- ============================================================
--- [TB4: Điều phối viên cố xóa hồ sơ bệnh án]
--- Kết nối: NV0001 (hoặc NV0002) @ XEPDB1
--- Policy kích hoạt: AuditFailDPVDeleteHSBA
--- Kết quả mong đợi: THẤT BẠI (không có quyền DELETE HSBA)
--- ============================================================
-SET SERVEROUTPUT ON;
-
-BEGIN
-    -- Sử dụng SQL động để ép Oracle kiểm tra quyền ở thời điểm Runtime
-    EXECUTE IMMEDIATE 'DELETE FROM QLBV.HSBA WHERE ROWNUM = 1';
-    
-    DBMS_OUTPUT.PUT_LINE('Thành công (Lỗi kịch bản - User không được phép DELETE bảng này)');
-EXCEPTION
-    WHEN OTHERS THEN
-        -- Khối này bây giờ sẽ bắt gọn lỗi thiếu quyền tại Runtime và in ra đúng kịch bản
-        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] DELETE HSBA: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
-END;
-/
-
-
--- ============================================================
--- [TB5: Bệnh nhân cố cập nhật kết quả dịch vụ HSBA_DV]
--- Kết nối: BN000001 (hoặc BN000002) @ XEPDB1
--- Policy kích hoạt: AuditFailBNUpdateDV
--- Kết quả mong đợi: THẤT BẠI (không có quyền UPDATE HSBA_DV)
--- ============================================================
-SET SERVEROUTPUT ON;
-
-BEGIN
-    -- Sử dụng SQL động để ép Oracle kiểm tra quyền ở thời điểm Runtime
-    EXECUTE IMMEDIATE 'UPDATE QLBV.HSBA_DV SET KETQUA = KETQUA WHERE ROWNUM = 1';
-    
-    DBMS_OUTPUT.PUT_LINE('Thành công (Lỗi kịch bản - User không được phép UPDATE bảng này)');
-EXCEPTION
-    WHEN OTHERS THEN
-        -- Khối này bây giờ sẽ bắt gọn lỗi thiếu quyền tại Runtime và in ra đúng kịch bản
-        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] UPDATE HSBA_DV: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
-END;
-/
-
-
--- ============================================================
--- [TB6: Kỹ thuật viên cố xem bảng BENHNHAN trực tiếp]
--- Kết nối: KTV001 (hoặc KTV002) @ XEPDB1
--- Policy kích hoạt: AuditFailKTVSelectBN
--- Kết quả mong đợi: THẤT BẠI (không có quyền SELECT trực tiếp BENHNHAN)
--- ============================================================
-SET SERVEROUTPUT ON;
-
+-- Gọi procedure để sinh log
 DECLARE
-    -- Khai báo một con trỏ động (Ref Cursor)
-    type cur_type is ref cursor;
-    c cur_type;
-    
-    -- Khai báo một biến tạm để hứng dữ liệu (chỉ cần lấy 1 cột đại diện để test quyền)
-    v_dummy VARCHAR2(1); 
+    v_cur SYS_REFCURSOR;
 BEGIN
-    -- Sử dụng SQL động để ép Oracle kiểm tra quyền ở thời điểm Runtime
-    OPEN c FOR 'SELECT ''X'' FROM QLBV.BENHNHAN WHERE ROWNUM = 1';
-    FETCH c INTO v_dummy;
-    CLOSE c;
-    
-    DBMS_OUTPUT.PUT_LINE('Thành công (Lỗi kịch bản - User không được phép xem bảng này)');
-EXCEPTION
-    WHEN OTHERS THEN
-        -- Khối này bây giờ sẽ bắt gọn lỗi ORA-00942 tại Runtime
-        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] SELECT BENHNHAN: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
-        
-        -- Đảm bảo đóng con trỏ nếu nó đang mở để tránh rò rỉ bộ nhớ
-        IF c%ISOPEN THEN 
-            CLOSE c; 
-        END IF;
+    QLBV.SP_XEM_LICHSU_DIEUTRI_BENHNHAN(
+        p_mabn   => 'BN000001',
+        p_cursor => v_cur
+    );
+    CLOSE v_cur;
 END;
 /
 
+-- ============================================================================
+-- PHẦN IV: TRUY VẤN KIỂM TRA NHẬT KÝ KIỂM TOÁN (MỤC 3.4 TRONG 06.SQL)
+-- ============================================================================
+-- CONNECTION: QLBV (Có quyền SELECT ANY DICTIONARY) hoặc SYSDBA
+-- ============================================================================
 
--- ============================================================
--- [TB7: Bệnh nhân cố thực thi stored procedure dành cho bác sĩ]
--- Kết nối: BN000001 (hoặc BN000002) @ XEPDB1
--- Policy kích hoạt: AuditBonusBNExecProc
--- Kết quả mong đợi: THẤT BẠI (không có quyền EXECUTE - chỉ
---                    ROLE_BACSI mới được grant execute proc này)
--- ============================================================
+PROMPT === Querying Unified Audit Trail Results ===
 
-SET SERVEROUTPUT ON;
-DECLARE
-    v_mahsba VARCHAR2(50) := 'HS_DEMO09_BN_FAIL';
-    v_mabn   VARCHAR2(50) := USER;
-    v_mabs   VARCHAR2(50) := 'BS0001';
-    v_makhoa VARCHAR2(50) := 'K001';
-BEGIN
-    -- Sử dụng Dynamic SQL để đẩy việc check quyền xuống Runtime
-    EXECUTE IMMEDIATE 
-        'BEGIN QLBV.sp_KhoiTaoHSBAKhancap(:1, :2, :3, :4); END;'
-    USING v_mahsba, v_mabn, v_mabs, v_makhoa;
-
-    DBMS_OUTPUT.PUT_LINE('Thành công (Lỗi kịch bản - User không được phép chạy thủ tục này)');
-EXCEPTION
-    WHEN OTHERS THEN
-        -- Khối này bây giờ sẽ bắt gọn lỗi PLS-00201 / ORA-06550 tại Runtime
-        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] EXEC sp_KhoiTaoHSBAKhancap: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
-END;
-/
-
-
--- ============================================================
--- [3.3.b: BS update CHANDOAN/DIEUTRI/KETLUAN hợp pháp (FGA)]
--- Kết nối: BS0001 (hoặc BS0002) @ XEPDB1
--- Policy kích hoạt: AuditBSUpdateHSBA (FGA)
--- Điều kiện: chỉ ghi vết khi MABS = session_user (đúng bác sĩ
---            điều trị hồ sơ), tức UPDATE hợp pháp.
--- Kết quả mong đợi: THÀNH CÔNG
--- ============================================================
-UPDATE QLBV.HSBA
-SET    KETLUAN = KETLUAN
-WHERE  MABS = USER
-AND    ROWNUM = 1;
-
-ROLLBACK;
-
-
--- ============================================================
--- [3.3.c: UPDATE CHANDOAN/DIEUTRI/KETLUAN bất hợp pháp (Unified Audit - whenever not successful)
--- Không dùng FGA vì VPD chặn trước, FGA không kích hoạt được] 
--- Kết nối: BS0001 (hoặc BS0002) @ XEPDB1
--- Policy kích hoạt: AuditIllegalUpdateHSBA (Unified, whenever not successful)
--- Bối cảnh: VPD (03.sql/04.sql) chỉ cho BS thấy/sửa hồ sơ do
---           chính mình điều trị (MABS = session_user). Cố tình
---           UPDATE 1 hồ sơ KHÔNG thuộc về mình sẽ bị VPD chặn
---           và phát sinh lỗi (vd ORA-28115 nếu policy dạng
---           UPDATE_CHECK, hoặc 0 dòng nếu policy chỉ lọc SELECT
---           - tùy cấu hình VPD ở 03.sql/04.sql).
--- Kết quả mong đợi: THẤT BẠI
--- ============================================================
-BEGIN
-    UPDATE QLBV.HSBA
-    SET    CHANDOAN = CHANDOAN
-    WHERE  MABS != USER
-    AND    ROWNUM = 1;
-    
-    IF SQL%ROWCOUNT = 0 THEN
-        DBMS_OUTPUT.PUT_LINE('[Mong doi loi - VPD chan] UPDATE HSBA: Cap nhat 0 dong do VPD an du lieu.');
-    END IF;
-EXCEPTION
-    WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('[Mong doi loi - VPD chan] UPDATE HSBA: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
-END;
-/
-
-
--- ============================================================
--- [3.3.d: INSERT/UPDATE/DELETE bất hợp pháp trên HSBA_DV (Unified Audit - whenever not successful)]
--- Kết nối: KTV001 (hoặc KTV002) @ XEPDB1
--- Policy kích hoạt: AuditIllegalHSBADV (Unified, whenever not successful)
--- Bối cảnh: KTV không thuộc khoa quản lý hồ sơ, hoặc thao tác
---           ngoài phạm vi dịch vụ được phân công, bị VPD/role
---           chặn khi INSERT/UPDATE/DELETE HSBA_DV.
--- Kết quả mong đợi: THẤT BẠI
--- ============================================================
-SET SERVEROUTPUT ON;
-
--- Khối test DELETE
-BEGIN
-    -- Chuyển sang SQL động để tránh lỗi biên dịch nếu thiếu quyền
-    EXECUTE IMMEDIATE 'DELETE FROM QLBV.VW_KTV_XemHSBADV WHERE ROWNUM = 1';
-    
-    IF SQL%ROWCOUNT = 0 THEN
-        DBMS_OUTPUT.PUT_LINE('[Mong doi loi - VPD chan] DELETE VW_KTV_XemHSBADV: Cap nhat 0 dong.');
-    END IF;
-EXCEPTION
-    WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] DELETE VW_KTV_XemHSBADV: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
-END;
-/
-
--- Khối test INSERT
-BEGIN
-    -- Chuyển sang SQL động để đẩy lỗi ORA-01031 xuống Runtime và bẫy bằng EXCEPTION
-    EXECUTE IMMEDIATE 'INSERT INTO QLBV.VW_KTV_XemHSBADV (MAHSBA, KETQUA) VALUES (:1, :2)' 
-    USING 'HS_KHONG_TON_TAI_HOAC_NGOAI_PHAM_VI', N'Demo loi VPD';
-    
-EXCEPTION
-    WHEN OTHERS THEN
-        -- Khối này sẽ bắt được lỗi ORA-01031 hoặc các lỗi chính sách VPD chặn
-        DBMS_OUTPUT.PUT_LINE('[Mong doi loi] INSERT VW_KTV_XemHSBADV: (Loi ' || SQLCODE || ' - dung ky vong) ' || SQLERRM);
-END;
-/
-
-
--- ============================================================
--- [09-VERIFY] Kết nối: SYSDBA - XEPDB1
--- Mục đích: Kiểm tra nhanh các bản ghi vừa sinh ra ở các section
---           trên đã được ghi vào audit trail hay chưa.
---           (Tham khảo đầy đủ hơn ở mục 3.4 của 06.sql)
--- ============================================================
-
--- Toàn bộ log liên quan QLBV, mới nhất trước (nếu ae chạy nhiều lần trong khoảng thời gian ngắn, 
---                                              bỏ cái comment ở AND)
-SELECT event_timestamp, dbusername, action_name,
-       object_schema, object_name, return_code,
-       unified_audit_policies, fga_policy_name
-FROM   unified_audit_trail
-WHERE  object_schema = 'QLBV'
---AND    event_timestamp >= SYSTIMESTAMP - INTERVAL '1' HOUR
-ORDER  BY event_timestamp DESC
-FETCH FIRST 30 ROWS ONLY;
-
--- Riêng các lần đăng nhập thất bại vừa thực hiện ở [09-LOGON-01] (nếu ae chạy nhiều lần trong khoảng thời gian 
---                                                                  ngắn, bỏ cái comment ở AND)
-SELECT event_timestamp, dbusername, return_code
+-- 1. Xem nhật ký Đăng nhập thất bại (Hệ thống)
+SELECT event_timestamp, dbusername, return_code, os_username, userhost
 FROM   unified_audit_trail
 WHERE  action_name = 'LOGON'
-AND    event_timestamp >= SYSTIMESTAMP - INTERVAL '1' HOUR
 ORDER  BY event_timestamp DESC
-FETCH FIRST 30 ROWS ONLY;
+FETCH FIRST 10 ROWS ONLY;
 
--- Riêng FGA (đơn thuốc, hồ sơ bệnh án hợp pháp, kết quả KTV).
-SELECT event_timestamp, dbusername, fga_policy_name,
-       object_schema, object_name, sql_text, return_code
+-- 2. Đọc dữ liệu Standard Audit của 6 ngữ cảnh vai trò chuẩn đã kiểm thử
+SELECT event_timestamp, dbusername, action_name, object_name,
+       return_code, unified_audit_policies
 FROM   unified_audit_trail
-WHERE  fga_policy_name IN (
-           'AUDITSUADONTHUOC',
-           'AUDITBSUPDATEHSBA',
-           'AUDITKTVUPDATEKETQUA'
-       )
-AND    event_timestamp >= SYSTIMESTAMP - INTERVAL '1' HOUR
-ORDER  BY event_timestamp DESC
-FETCH FIRST 30 ROWS ONLY;
+WHERE  unified_audit_policies IN (
+    'AUDITSUCDPVUPDATEBN',  -- NC1: Điều phối viên cập nhật BENHNHAN thành công
+        'AUDITDPVUPDATEHSBA',   -- NC2: Điều phối viên cập nhật HSBA thành công
+        'AUDITSUCKTVUPDATEDV',  -- NC3: Kỹ thuật viên cập nhật View dịch vụ thành công
+        'AUDITSUCBSUPDATEDT',   -- NC4: Bác sĩ cập nhật ĐƠNTHUỐC thành công
+        'AUDITFAILBSUPDATENV',  -- NC5: Bác sĩ cập nhật/xóa NHANVIEN (Thất bại - Vượt quyền)
+        'AUDITDIEUPHOINHANSU',  -- NC6: Giám sát Điều phối viên thực thi sp_DieuPhoiNhanSu (Mới bổ sung)
+        'AUDITSUCBSEXECPROC',   -- NC7: Bác sĩ thực thi sp_KhoiTaoHSBAKhancap thành công
+        'AUDITSUCBSEXECFUNC',   -- NC8: Bác sĩ thực thi fn_KiemTraDiUngThuoc thành công
+        'AUDITDPVXEMLICHSUBN',   -- NC9: Thành công
+        'AUDITDPVXEMLICHSUBN_FAIL' -- NC9: Thất bại
+        )
+ORDER BY event_timestamp DESC;
+
+-- 3. Đọc dữ liệu FGA của tình huống (a) Sửa Đơn Thuốc & (b) Bác sĩ Sửa HSBA hợp pháp
+SELECT event_timestamp, dbusername, fga_policy_name, object_name,
+       sql_text, return_code
+FROM   unified_audit_trail
+WHERE  fga_policy_name IN ('AUDITSUADONTHUOC', 'AUDITBSUPDATEHSBA_HOPPHAP')
+ORDER  BY event_timestamp DESC;
+
+-- 4. Đọc dữ liệu lỗi của tình huống (c) Sửa HSBA trái phép & (d) Can thiệp trái phép bảng HSBA_DV
+SELECT event_timestamp, dbusername, action_name, object_name, return_code,
+       unified_audit_policies, sql_text
+FROM   unified_audit_trail
+WHERE  unified_audit_policies IN ('AUDITILLEGALUPDATEHSBA', 'AUDITILLEGALHSBADV')
+ORDER  BY event_timestamp DESC;
