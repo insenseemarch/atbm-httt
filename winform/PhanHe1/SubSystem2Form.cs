@@ -959,9 +959,11 @@ namespace PhanHe1.Forms
             var tHSBA = MakeTab("Hồ Sơ Bệnh Án");
             var tDV = MakeTab("Điều Phối Dịch Vụ");
             var tTB = MakeTab("Thông Báo");
+            var tDemo = MakeTab("Chức Năng Mở Rộng");
             BuildNV_Info(tInfo); 
             BuildDPV_BN(tBN, tabs); BuildDPV_HSBA(tHSBA, tabs); BuildDPV_DV(tDV, tabs); BuildThongBaoTab(tTB, tabs, ThongBaoSendMode.ViewOnly);
-            tabs.TabPages.AddRange(new[] { tInfo, tBN, tHSBA, tDV, tTB });
+            BuildAuditDemoTab(tDemo);
+            tabs.TabPages.AddRange(new[] { tInfo, tBN, tHSBA, tDV, tTB, tDemo });
             parent.Controls.Add(tabs);
         }
 
@@ -1196,10 +1198,12 @@ namespace PhanHe1.Forms
             var tDV = MakeTab("Dịch Vụ (HSBA_DV)");
             var tDT = MakeTab("Đơn Thuốc");
             var tTB = MakeTab("Thông Báo");
+            var tDemo = MakeTab("Chức Năng Mở Rộng");
             BuildNV_Info(tInfo);
             BuildBs_HSBA(tHSBA, tabs); BuildBs_BN(tBN, tabs); BuildBs_DV(tDV, tabs); BuildBs_DT(tDT, tabs);
             BuildThongBaoTab(tTB, tabs, ThongBaoSendMode.ViewOnly);
-            tabs.TabPages.AddRange(new[] { tInfo, tHSBA, tBN, tDV, tDT, tTB });
+            BuildAuditDemoTab(tDemo);
+            tabs.TabPages.AddRange(new[] { tInfo, tHSBA, tBN, tDV, tDT, tTB, tDemo });
             parent.Controls.Add(tabs);
         }
 
@@ -1426,6 +1430,636 @@ namespace PhanHe1.Forms
             if (n > 0) { Ok($"Đã lưu {n} thay đổi."); LoadBsDonThuocGrid(dgvBsDT); } else Ok("Không có thay đổi nào.");
         }
 
+        //  CHỨC NĂNG MỞ RỘNG — UI nghiệp vụ bình thường, thao tác bị chặn → audit (09.sql)
+        // ═══════════════════════════════════════════════════════════════════
+
+        private void HandleDemoAction(string code, string policy, string category, Action action)
+        {
+            try
+            {
+                action();
+                MessageBox.Show(
+                    $"Thao tác đã gửi nhưng có thể không có hiệu lực hoặc bị từ chối.",
+                    "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            catch (Exception ex)
+            {
+                string friendly = MapAuditDemoError(ex, category);
+                MessageBox.Show(
+                    friendly,
+                    "Không thể thực hiện", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private string MapAuditDemoError(Exception ex, string category)
+        {
+            string msg = ex?.Message ?? "";
+            if (msg.IndexOf("ORA-01031", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "Bạn không có quyền thực hiện thao tác này (insufficient privileges). Hệ thống đã ghi nhận audit.";
+            if (msg.IndexOf("ORA-00942", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "Không thể truy cập dữ liệu — bảng/view không khả dụng với tài khoản của bạn.";
+            if (msg.IndexOf("ORA-28115", StringComparison.OrdinalIgnoreCase) >= 0
+                || msg.IndexOf("ORA-28113", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "VPD đã chặn: dữ liệu ngoài phạm vi bạn được phép thao tác.";
+            if (msg.IndexOf("ORA-01403", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "Không tìm thấy dữ liệu phù hợp — có thể do VPD ẩn bản ghi.";
+            if (msg.IndexOf("ORA-06564", StringComparison.OrdinalIgnoreCase) >= 0
+                || msg.IndexOf("ORA-06550", StringComparison.OrdinalIgnoreCase) >= 0
+                || msg.IndexOf("ORA-06553", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "Bạn không có quyền chạy chức năng / procedure này.";
+            if (msg.IndexOf("ORA-02291", StringComparison.OrdinalIgnoreCase) >= 0
+                || msg.IndexOf("ORA-02292", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "Thao tác bị chặn bởi ràng buộc dữ liệu.";
+            if (msg.IndexOf("VPD", StringComparison.OrdinalIgnoreCase) >= 0
+                || msg.IndexOf("0 dòng", StringComparison.OrdinalIgnoreCase) >= 0
+                || msg.IndexOf("-20001", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "Không thể cập nhật — hồ sơ ngoài phạm vi điều trị của bạn (VPD).";
+            return $"{category}: {msg}";
+        }
+
+        private void BuildAuditDemoTab(TabPage tab)
+        {
+            if (userRole == UserRole.ADMIN || userRole == UserRole.GIAMDOC || userRole == UserRole.Unknown)
+            {
+                tab.Controls.Add(new Label
+                {
+                    Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter,
+                    Text = "Chức năng mở rộng dành cho tài khoản nghiệp vụ.\n\n" +
+                           "Vui lòng đăng nhập bằng tài khoản điều phối viên, bác sĩ hoặc kỹ thuật viên.",
+                    Font = new Font("Segoe UI", 10F), ForeColor = UiTheme.DeepBlue
+                });
+                return;
+            }
+
+            var subTabs = new TabControl { Dock = DockStyle.Fill };
+            switch (userRole)
+            {
+                case UserRole.DPV: BuildDemo_DpvHsba(subTabs); BuildDemo_DpvLichSu(subTabs); break;
+                case UserRole.BACSI: BuildDemo_BsChiPhi(subTabs); BuildDemo_BsNhanVien(subTabs); BuildDemo_BsHsbaKhac(subTabs); break;
+                case UserRole.KTV: BuildDemo_KtvDichVu(subTabs); break;
+                case UserRole.BN: break;
+            }
+            tab.Controls.Add(subTabs);
+        }
+
+        // [TB4] DPV — quản lý HSBA có nút xóa (không được phép DELETE)
+        private void BuildDemo_DpvHsba(TabControl parent)
+        {
+            var page = MakeTab("Hồ Sơ Bệnh Án");
+            var grid = MakeGrid(true);
+            var txtS = SearchBox("Tìm mã HSBA...", 200);
+            var btnS = QuickBtn("Tìm", UiTheme.DeepBlue, UiTheme.WhiteText, 80);
+            var btnRe = QuickBtn("Tải Lại", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 90);
+            var btnDel = QuickBtn("Sửa Chẩn Đoán", Color.FromArgb(206, 17, 38), UiTheme.WhiteText, 130);
+
+            void Reload(string kw = "")
+            {
+                LoadGrid(grid, DpvHsbaSql(string.IsNullOrEmpty(kw) ? null : kw));
+            }
+
+            btnS.Click += (s, e) => Reload(Val(txtS, "Tìm mã HSBA..."));
+            btnRe.Click += (s, e) => Reload();
+            btnDel.Click += (s, e) =>
+            {
+                if (grid.CurrentRow == null) { Err("Chọn một hồ sơ bệnh án."); return; }
+                string ma = grid.CurrentRow.Cells["MAHSBA"].Value?.ToString();
+                if (MessageBox.Show($"Cập nhật chẩn đoán trái phép cho '{ma}'?", "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+                HandleDemoAction("09-DPV-02", "AuditIllegalUpdateHSBA", "Vượt quyền UPDATE HSBA",
+                    () => service.ExecuteNonQuery($"UPDATE QLBV.HSBA SET CHANDOAN=N'Demo trai phep' WHERE MAHSBA='{Esc(ma)}'"));
+            };
+
+            page.Controls.Add(Wrap(grid, Toolbar(txtS, btnS, btnRe, btnDel,
+                Note("DPV chỉ được cập nhật MABS/MAKHOA — sửa chẩn đoán sẽ bị từ chối."))));
+            parent.TabPages.Add(page);
+            Reload();
+        }
+
+
+        private void BuildDemo_DpvLichSu(TabControl parent)
+        {
+            var page = MakeTab("Lịch Sử Điều Trị");
+            var grid = MakeGrid(true);
+
+            // ComboBox tìm kiếm và lọc BN
+            var cboBenhNhan = new ComboBox
+            {
+                Width = 280,
+                DropDownStyle = ComboBoxStyle.DropDown,
+                AutoCompleteMode = AutoCompleteMode.SuggestAppend,
+                AutoCompleteSource = AutoCompleteSource.ListItems
+            };
+
+            var btnTraCuu = QuickBtn("Tra Cứu", UiTheme.PastelGreen, UiTheme.DeepBlue, 100);
+
+            // Tải danh sách Bệnh nhân vào Dropdown
+            try
+            {
+                var dtBN = service.Query("SELECT MABN, MABN || ' - ' || TENBN AS INFO FROM QLBV.BENHNHAN");
+                cboBenhNhan.DataSource = dtBN;
+                cboBenhNhan.DisplayMember = "INFO";
+                cboBenhNhan.ValueMember = "MABN";
+            }
+            catch { }
+
+            btnTraCuu.Click += (s, e) =>
+            {
+                if (cboBenhNhan.SelectedValue == null) { Err("Vui lòng chọn một bệnh nhân."); return; }
+                string maBN = cboBenhNhan.SelectedValue.ToString();
+
+                try
+                {
+                    // Lấy REFCURSOR từ Procedure và đẩy thẳng về C# qua DBMS_SQL (Bypass lỗi thiếu quyền SELECT trên DONTHUOC)
+                    string sqlRunSP = $@"
+                        DECLARE 
+                            v_cur SYS_REFCURSOR; 
+                        BEGIN 
+                            QLBV.SP_XEM_LICHSU_DIEUTRI_BENHNHAN('{Esc(maBN)}', v_cur); 
+                            DBMS_SQL.RETURN_RESULT(v_cur); 
+                        END;";
+
+                    var dtResult = service.Query(sqlRunSP);
+                    grid.DataSource = dtResult;
+                    UiTheme.StyleGrid(grid);
+
+                    // --- ẨN CỘT THỪA & ĐỔI TÊN HEADER CHO ĐẸP DÁNG ---
+                    string[] hideCols = { "MABN", "TENBN", "PHAI", "NGAYSINH", "TIENSUBENH", "TIENSUBENHGD", "DIUNGTHUOC", "DIEUTRI", "KETLUAN", "MA_BACSI", "KETQUA_DV", "LIEUDUNG", "TEN_KTV", "NGAYDT" };
+                    foreach (var col in hideCols)
+                        if (grid.Columns.Contains(col)) grid.Columns[col].Visible = false;
+
+                    if (grid.Columns.Contains("MAHSBA")) grid.Columns["MAHSBA"].HeaderText = "Mã HSBA";
+                    if (grid.Columns.Contains("NGAY_KHAM")) grid.Columns["NGAY_KHAM"].HeaderText = "Ngày Khám";
+                    if (grid.Columns.Contains("CHANDOAN")) grid.Columns["CHANDOAN"].HeaderText = "Chẩn Đoán";
+                    if (grid.Columns.Contains("TENKHOA")) grid.Columns["TENKHOA"].HeaderText = "Khoa";
+                    if (grid.Columns.Contains("TEN_BACSI")) grid.Columns["TEN_BACSI"].HeaderText = "Bác Sĩ";
+                    if (grid.Columns.Contains("LOAIDV")) grid.Columns["LOAIDV"].HeaderText = "Dịch Vụ";
+                    if (grid.Columns.Contains("NGAYDV")) grid.Columns["NGAYDV"].HeaderText = "Ngày DV";
+                    if (grid.Columns.Contains("TENTHUOC")) grid.Columns["TENTHUOC"].HeaderText = "Thuốc";
+
+                    if (dtResult.Rows.Count > 0)
+                        Ok($"Tra cứu thành công!\n👉 Nhấn đúp (double-click) vào dòng bất kỳ trên lưới để xem thông tin chi tiết.");
+                    else
+                        MessageBox.Show("Bệnh nhân này chưa có lịch sử điều trị nào.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                catch (Exception ex)
+                {
+                    HandleDemoAction("DPV-LichSu", "AuditDPVXemLichSuBN_Fail", "Truy xuất lịch sử", () => { throw ex; });
+                }
+            };
+
+            grid.CellDoubleClick += (senderGrid, ev) =>
+            {
+                if (ev.RowIndex < 0) return;
+                var r = grid.Rows[ev.RowIndex];
+
+                string Get(string col)
+                {
+                    if (!grid.Columns.Contains(col)) return "Không có";
+                    var val = r.Cells[col].Value;
+                    if (val == null || val == DBNull.Value) return "Không có";
+
+                    if (val is DateTime d) return d.ToString("dd/MM/yyyy");
+
+                    string s = val.ToString().Trim();
+                    if (s.EndsWith(" 12:00:00 AM")) s = s.Replace(" 12:00:00 AM", "");
+                    if (s.EndsWith(" 12:00:00 SA")) s = s.Replace(" 12:00:00 SA", "");
+
+                    return string.IsNullOrWhiteSpace(s) ? "Không có" : s;
+                }
+
+                // 1. Tạo cửa sổ Form mới
+                var f = new Form
+                {
+                    Text = $"Chi Tiết Lịch Sử Điều Trị - {Get("TENBN")}",
+                    Size = new Size(550, 700),
+                    StartPosition = FormStartPosition.CenterParent,
+                    FormBorderStyle = FormBorderStyle.FixedDialog,
+                    MaximizeBox = false,
+                    BackColor = UiTheme.LightCyan,
+                    Font = UiTheme.BodyFont
+                };
+
+                // 2. Tạo Layout chuẩn của hệ thống (2 cột)
+                var layout = new TableLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    ColumnCount = 2,
+                    Padding = new Padding(15, 5, 25, 15),
+                    BackColor = UiTheme.JordyBlue,
+                    AutoScroll = true
+                };
+                layout.ColumnStyles.Clear();
+                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130F));
+                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+
+                int row = 0;
+
+                void AddHeader(string text)
+                {
+                    layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                    var lbl = new Label { Text = text, Font = UiTheme.HeaderFont, ForeColor = Color.DarkRed, AutoSize = true, Margin = new Padding(0, 15, 0, 5) };
+                    layout.Controls.Add(lbl, 0, row); layout.SetColumnSpan(lbl, 2); row++;
+                }
+
+                void AddRow(string label, string val)
+                {
+                    layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                    var lbl = new Label { Text = label, Font = new Font(UiTheme.BodyFont, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, AutoSize = true, Anchor = AnchorStyles.Right | AnchorStyles.Top, Margin = new Padding(3, 7, 3, 3) };
+
+                    var txt = new TextBox { Text = val, Dock = DockStyle.Fill, ReadOnly = true, BackColor = Color.White, Multiline = true };
+                    int lines = val.Split('\n').Length + (val.Length / 45);
+                    txt.Height = Math.Max(28, (lines + 1) * 22);
+
+                    layout.Controls.Add(lbl, 0, row); layout.Controls.Add(txt, 1, row); row++;
+                }
+
+                // 3. Đổ dữ liệu vào Form
+                AddHeader("👤 THÔNG TIN BỆNH NHÂN");
+                AddRow("Họ tên:", Get("TENBN"));
+                AddRow("Giới tính:", Get("PHAI"));
+                AddRow("Ngày sinh:", Get("NGAYSINH"));
+                AddRow("Tiền sử bệnh:", Get("TIENSUBENH"));
+                AddRow("Dị ứng thuốc:", Get("DIUNGTHUOC"));
+
+                AddHeader($"🏥 LÂM SÀNG (Mã HSBA: {Get("MAHSBA")})");
+                AddRow("Ngày khám:", Get("NGAY_KHAM"));
+                AddRow("Phụ trách:", $"BS. {Get("TEN_BACSI")} ({Get("TENKHOA")})");
+                AddRow("Chẩn đoán:", Get("CHANDOAN"));
+                AddRow("Điều trị:", Get("DIEUTRI"));
+                AddRow("Kết luận:", Get("KETLUAN"));
+
+                AddHeader("🔬 DỊCH VỤ");
+                AddRow("Dịch vụ:", $"{Get("LOAIDV")} (Ngày: {Get("NGAYDV")})");
+                AddRow("KTV thực hiện:", Get("TEN_KTV"));
+                AddRow("Kết quả:", Get("KETQUA_DV"));
+
+                AddHeader("💊 ĐƠN THUỐC");
+                AddRow("Thuốc:", $"{Get("TENTHUOC")} (Kê ngày: {Get("NGAYDT")})");
+                AddRow("Liều dùng:", Get("LIEUDUNG"));
+
+                // 4. Nút Đóng Form
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 60F));
+                var pnlBtn = new Panel { Dock = DockStyle.Fill };
+                var btnClose = new Button { Text = "Đóng", Width = 120, Height = 36, BackColor = UiTheme.BrandeisBlue, ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+                btnClose.FlatAppearance.BorderSize = 0;
+                btnClose.Location = new Point(190, 10);
+                btnClose.Click += (sender, args) => f.Close();
+                pnlBtn.Controls.Add(btnClose);
+
+                layout.Controls.Add(pnlBtn, 0, row); layout.SetColumnSpan(pnlBtn, 2);
+
+                f.Controls.Add(layout);
+                f.ShowDialog();
+            };
+
+            page.Controls.Add(Wrap(grid, Toolbar(new Label { Text = "Chọn Bệnh Nhân:", AutoSize = true, Margin = new Padding(0, 10, 5, 0), Font = UiTheme.HeaderFont, ForeColor = UiTheme.DeepBlue }, cboBenhNhan, btnTraCuu)));
+            parent.TabPages.Add(page);
+        }
+        // run/09.sql + 06.sql: fn_KiemTraDiUngThuoc → AuditSucBSExecFunc
+        private void BuildDemo_BsChiPhi(TabControl parent)
+        {
+            var page = MakeTab("Dị Ứng Thuốc");
+            var grid = MakeGrid(true);
+            var btnRe = QuickBtn("Tải Lại", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 100);
+            var btnCalc = QuickBtn("Kiểm Tra Dị Ứng", Color.FromArgb(255, 200, 0), UiTheme.DeepBlue, 155);
+
+            btnRe.Click += (s, e) => LoadGrid(grid, "SELECT MAHSBA, MABN, CHANDOAN FROM QLBV.HSBA WHERE MABS = USER");
+            btnCalc.Click += (s, e) =>
+            {
+                if (grid.CurrentRow == null) { Err("Chọn một HSBA trên lưới."); return; }
+                string mabn = grid.CurrentRow.Cells["MABN"].Value?.ToString();
+                if (string.IsNullOrEmpty(mabn)) { Err("Không có MABN."); return; }
+                try
+                {
+                    var dt = service.Query($"SELECT QLBV.fn_KiemTraDiUngThuoc('{Esc(mabn)}') AS DIUNGTHUOC FROM DUAL");
+                    object raw = dt.Rows.Count > 0 ? dt.Rows[0]["DIUNGTHUOC"] : null;
+                    string diung = (raw == null || raw == DBNull.Value)
+                        ? "Chưa khai báo"
+                        : raw.ToString().Trim();
+                    if (string.IsNullOrEmpty(diung)) diung = "Chưa khai báo";
+                    Ok($"Mã BN: {mabn}\n\nDị ứng thuốc: {diung}");
+                }
+                catch (Exception ex)
+                {
+                    HandleDemoAction("09-BS-func", "AuditSucBSExecFunc", "EXECUTE function", () => { throw ex; });
+                }
+            };
+
+            page.Controls.Add(Wrap(grid, Toolbar(btnRe, btnCalc,
+                Note("Chọn hồ sơ → Kiểm tra dị ứng thuốc."))));
+            parent.TabPages.Add(page);
+            try { LoadGrid(grid, "SELECT MAHSBA, MABN, CHANDOAN FROM QLBV.HSBA WHERE MABS = USER"); } catch { }
+        }
+
+        // run/06.sql NC9b: sp_BGD_ThongBaoOLS khi không phải BGD → AuditFailBGDTaoThongBao
+        private void BuildDemo_BsBgdThongBao(TabControl parent)
+        {
+            var page = MakeTab("BGD Thông Báo (NC9b)");
+            var pnl = new Panel { Dock = DockStyle.Fill, Padding = new Padding(24, 20, 24, 20), BackColor = Color.White };
+            var lbl = new Label
+            {
+                Text = "Tạo thông báo cấp Ban Giám đốc (chỉ dành cho tài khoản BGD).",
+                AutoSize = true, MaximumSize = new Size(700, 0), Font = new Font("Segoe UI", 10F), ForeColor = UiTheme.DeepBlue
+            };
+            var txNd = new TextBox { Width = 420, Multiline = true, Height = 80, Text = "[Demo] Bác sĩ cố tạo thông báo BGD" };
+            var txDd = new TextBox { Width = 420, Text = "Phòng họp A" };
+            var tbl = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, Location = new Point(0, 50), Padding = new Padding(0, 12, 0, 0) };
+            tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
+            tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 430));
+            tbl.Controls.Add(new Label { Text = "Nội dung:", AutoSize = true, Margin = new Padding(0, 8, 0, 0) }, 0, 0);
+            tbl.Controls.Add(txNd, 1, 0);
+            tbl.Controls.Add(new Label { Text = "Địa điểm:", AutoSize = true, Margin = new Padding(0, 8, 0, 0) }, 0, 1);
+            tbl.Controls.Add(txDd, 1, 1);
+            var btnRun = QuickBtn("Gọi sp_BGD_ThongBaoOLS", Color.FromArgb(206, 17, 38), UiTheme.WhiteText, 210, 40);
+            btnRun.Location = new Point(120, 180);
+            btnRun.Click += (s, e) =>
+            {
+                HandleDemoAction("NC9b", "AuditFailBGDTaoThongBao", "EXECUTE procedure",
+                    () => service.ExecuteNonQuery(
+                        $"BEGIN QLBV.sp_BGD_ThongBaoOLS(N'{Esc(txNd.Text)}', N'{Esc(txDd.Text)}'); END;"));
+            };
+            pnl.Controls.Add(btnRun);
+            pnl.Controls.Add(tbl);
+            pnl.Controls.Add(lbl);
+            page.Controls.Add(pnl);
+            parent.TabPages.Add(page);
+        }
+
+        // run/09.sql [09-BACSI-03]: fn_CheckUserVaiTro — helper kiểm tra vai trò động
+        private void BuildDemo_BsVaiTro(TabControl parent)
+        {
+            var page = MakeTab("Kiểm Tra Vai Trò");
+            var pnl = new Panel { Dock = DockStyle.Fill, Padding = new Padding(24, 20, 24, 20), BackColor = Color.White };
+
+            var lbl = new Label
+            {
+                Text = "Kiểm tra vai trò nghiệp vụ của tài khoản đang đăng nhập",
+                AutoSize = true, MaximumSize = new Size(700, 0), Font = new Font("Segoe UI", 10F), ForeColor = UiTheme.DeepBlue
+            };
+            var cmb = new ComboBox { Width = 320, DropDownStyle = ComboBoxStyle.DropDownList };
+            cmb.Items.AddRange(new object[] { "Điều phối viên", "Bác sĩ", "Kỹ thuật viên", "Ban Giám đốc" });
+            cmb.SelectedIndex = 0;
+            cmb.Location = new Point(0, 50);
+
+            var btnCheck = QuickBtn("Kiểm Tra", UiTheme.BrandeisBlue, UiTheme.WhiteText, 140, 38);
+            btnCheck.Location = new Point(330, 48);
+            btnCheck.Click += (s, e) =>
+            {
+                string vt = cmb.SelectedItem?.ToString() ?? "";
+                try
+                {
+                    var dt = service.Query($"SELECT QLBV.fn_CheckUserVaiTro(N'{Esc(vt)}') AS KETQUA FROM DUAL");
+                    string kq = dt.Rows[0]["KETQUA"]?.ToString() ?? "";
+                    Ok($"fn_CheckUserVaiTro('{vt}') = {kq}\n\nTài khoản hiện tại: {service.CurrentUser}");
+                }
+                catch (Exception ex) { Err(ex.Message); }
+            };
+
+            pnl.Controls.Add(btnCheck);
+            pnl.Controls.Add(cmb);
+            pnl.Controls.Add(lbl);
+            page.Controls.Add(pnl);
+            parent.TabPages.Add(page);
+        }
+
+        // [TB1] BS — quản lý nhân viên (UPDATE/DELETE bị chặn)
+        private void BuildDemo_BsNhanVien(TabControl parent)
+        {
+            var page = MakeTab("Nhân Viên");
+            var grid = MakeGrid(true);
+            var btnRe = QuickBtn("Tải Lại", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 90);
+            var btnDel = QuickBtn("Xóa Nhân Viên", Color.FromArgb(206, 17, 38), UiTheme.WhiteText, 130);
+
+            btnRe.Click += (s, e) =>
+            {
+                try { LoadGrid(grid, "SELECT MANV, HOTEN, CAPBAC, MAKHOA, COSO FROM QLBV.NHANVIEN WHERE ROWNUM <= 50"); }
+                catch (Exception ex) { Err("Không thể tải danh sách nhân viên: " + ex.Message); }
+            };
+
+            grid.CellDoubleClick += (s, e) =>
+            {
+                if (e.RowIndex < 0) return;
+                var r = grid.Rows[e.RowIndex];
+                string manv = r.Cells["MANV"].Value?.ToString();
+                var fields = new Dictionary<string, string> { { "COSO", r.Cells["COSO"].Value?.ToString() } };
+                using (var f = new EditRowForm($"Cập nhật nhân viên: {manv}", fields))
+                {
+                    if (f.ShowDialog(this) != DialogResult.OK) return;
+                    HandleDemoAction("TB1", "AuditFailBSUpdateNV", "Vượt quyền UPDATE",
+                        () => service.ExecuteNonQuery($"UPDATE QLBV.NHANVIEN SET COSO=N'{Esc(f.NewValues["COSO"])}' WHERE MANV='{Esc(manv)}'"));
+                }
+            };
+
+            btnDel.Click += (s, e) =>
+            {
+                if (grid.CurrentRow == null) { Err("Chọn nhân viên cần xóa."); return; }
+                string manv = grid.CurrentRow.Cells["MANV"].Value?.ToString();
+                if (MessageBox.Show($"Xóa nhân viên '{manv}'?", "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+                HandleDemoAction("TB1b", "AuditFailBSUpdateNV", "Vượt quyền DELETE",
+                    () => service.ExecuteNonQuery($"DELETE FROM QLBV.NHANVIEN WHERE MANV='{Esc(manv)}'"));
+            };
+
+            page.Controls.Add(Wrap(grid, Toolbar(btnRe, btnDel,
+                Note("Nhấp đúp để sửa thông tin, hoặc chọn dòng → Xóa Nhân Viên."))));
+            parent.TabPages.Add(page);
+        }
+
+        // [3.3.c] BS — sửa HSBA của bác sĩ khác (VPD)
+        private void BuildDemo_BsHsbaKhac(TabControl parent)
+        {
+            var page = MakeTab("Hồ Sơ Bác Sĩ Khác");
+            var pnl = new Panel { Dock = DockStyle.Fill, Padding = new Padding(24, 20, 24, 20), BackColor = Color.White };
+
+            var lbl = new Label
+            {
+                Text = "Nhập mã HSBA của bác sĩ khác để cập nhật chẩn đoán (thao tác ngoài phạm vi VPD).",
+                AutoSize = true, MaximumSize = new Size(700, 0), Font = new Font("Segoe UI", 10F), ForeColor = UiTheme.DeepBlue
+            };
+            var tbl = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, Location = new Point(0, 40), Padding = new Padding(0, 12, 0, 0) };
+            tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
+            tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 400));
+
+            var txtMa = new TextBox { Width = 280, Text = "HS010001" };
+            var txtCd = new TextBox { Width = 400, Multiline = true, Height = 72 };
+            tbl.Controls.Add(new Label { Text = "Mã HSBA:", AutoSize = true, Margin = new Padding(0, 8, 0, 0) }, 0, 0);
+            tbl.Controls.Add(txtMa, 1, 0);
+            tbl.Controls.Add(new Label { Text = "Chẩn đoán:", AutoSize = true, Margin = new Padding(0, 8, 0, 0) }, 0, 1);
+            tbl.Controls.Add(txtCd, 1, 1);
+
+            var btnSave = QuickBtn("Lưu Chẩn Đoán", UiTheme.PastelGreen, UiTheme.DeepBlue, 150, 40);
+            btnSave.Location = new Point(140, 200);
+            btnSave.Click += (s, e) =>
+            {
+                string ma = txtMa.Text.Trim();
+                if (string.IsNullOrEmpty(ma)) { Err("Nhập mã HSBA."); return; }
+                HandleDemoAction("3.3.c", "AuditIllegalUpdateHSBA", "VPD chặn",
+                    () => service.ExecuteNonQuery(
+                        $"BEGIN UPDATE QLBV.HSBA SET CHANDOAN=N'{Esc(txtCd.Text)}' WHERE MAHSBA='{Esc(ma)}' AND MABS != USER; " +
+                        "IF SQL%ROWCOUNT = 0 THEN RAISE_APPLICATION_ERROR(-20001, 'VPD: Cap nhat 0 dong'); END IF; END;"));
+            };
+
+            pnl.Controls.Add(btnSave);
+            pnl.Controls.Add(tbl);
+            pnl.Controls.Add(lbl);
+            page.Controls.Add(pnl);
+            parent.TabPages.Add(page);
+        }
+
+        // [TB3] KTV — đơn thuốc
+        private void BuildDemo_KtvDonThuoc(TabControl parent)
+        {
+            var page = MakeTab("Đơn Thuốc");
+            var grid = MakeGrid(true);
+            var btnRe = QuickBtn("Tải Lại", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 90);
+            var btnDel = QuickBtn("Xóa Đơn Thuốc", Color.FromArgb(206, 17, 38), UiTheme.WhiteText, 140);
+
+            btnRe.Click += (s, e) =>
+            {
+                try { LoadGrid(grid, "SELECT * FROM QLBV.DONTHUOC WHERE ROWNUM <= 30"); }
+                catch (Exception ex) { HandleDemoAction("TB3-load", "AuditIllegalHSBADV", "Vượt quyền", () => { throw ex; }); }
+            };
+            btnDel.Click += (s, e) =>
+            {
+                if (grid.CurrentRow == null) { Err("Chọn đơn thuốc cần xóa."); return; }
+                string ma = grid.CurrentRow.Cells["MAHSBA"].Value?.ToString();
+                string tn = grid.CurrentRow.Cells["TENTHUOC"].Value?.ToString();
+                if (MessageBox.Show($"Xóa thuốc '{tn}'?", "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+                HandleDemoAction("TB3", "AuditIllegalHSBADV", "Vượt quyền DELETE",
+                    () => service.ExecuteNonQuery($"DELETE FROM QLBV.DONTHUOC WHERE MAHSBA='{Esc(ma)}' AND TENTHUOC=N'{Esc(tn)}'"));
+            };
+
+            page.Controls.Add(Wrap(grid, Toolbar(btnRe, btnDel,
+                Note("Chọn đơn thuốc trên lưới → Xóa Đơn Thuốc."))));
+            parent.TabPages.Add(page);
+        }
+
+        // [TB6] KTV — tra cứu bệnh nhân trực tiếp
+        private void BuildDemo_KtvBenhNhan(TabControl parent)
+        {
+            var page = MakeTab("Tra Cứu Bệnh Nhân");
+            var grid = MakeGrid(true);
+            var txtS = SearchBox("Tìm mã BN...", 180);
+            var btnS = QuickBtn("Tìm", UiTheme.DeepBlue, UiTheme.WhiteText, 80);
+            var btnRe = QuickBtn("Tải Danh Sách", UiTheme.BrandeisBlue, UiTheme.WhiteText, 130);
+
+            void Search(string kw)
+            {
+                string sql = string.IsNullOrEmpty(kw)
+                    ? "SELECT * FROM QLBV.BENHNHAN WHERE ROWNUM <= 30"
+                    : $"SELECT * FROM QLBV.BENHNHAN WHERE MABN LIKE '%{Esc(kw)}%'";
+                HandleDemoAction("TB6", "ORA-01031", "Vượt quyền SELECT",
+                    () => { grid.DataSource = service.Query(sql); UiTheme.StyleGrid(grid); });
+            }
+
+            btnRe.Click += (s, e) => Search("");
+            btnS.Click += (s, e) => Search(Val(txtS, "Tìm mã BN..."));
+
+            page.Controls.Add(Wrap(grid, Toolbar(txtS, btnS, btnRe,
+                Note("Tra cứu danh sách bệnh nhân toàn viện."))));
+            parent.TabPages.Add(page);
+        }
+
+        // [3.3.d] KTV — thêm/xóa DV ngoài phạm vi
+        private void BuildDemo_KtvDichVu(TabControl parent)
+        {
+            var page = MakeTab("Dịch Vụ Mở Rộng");
+            var grid = MakeGrid(true);
+            var btnRe = QuickBtn("Tải Lại", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 90);
+            var btnAdd = QuickBtn("+ Thêm Dịch Vụ", UiTheme.PastelGreen, UiTheme.DeepBlue, 140);
+            var btnDel = QuickBtn("Xóa Dòng", Color.FromArgb(206, 17, 38), UiTheme.WhiteText, 100);
+
+            btnRe.Click += (s, e) => LoadGrid(grid, "SELECT * FROM QLBV.VW_KTV_XemHSBADV");
+            btnAdd.Click += (s, e) =>
+            {
+                using (var f = new HsbaDvAddForm())
+                {
+                    if (f.ShowDialog(this) != DialogResult.OK) return;
+                    HandleDemoAction("3.3.d+", "AuditIllegalHSBADV", "VPD chặn",
+                        () => service.ExecuteNonQuery(
+                            $"INSERT INTO QLBV.VW_KTV_XemHSBADV(MAHSBA,LOAIDV,NGAYDV,MAKTV,KETQUA) " +
+                            $"VALUES('{Esc(f.MaHSBA)}',N'{Esc(f.LoaiDV)}',TO_DATE('{f.NgayDV:dd/MM/yyyy}','DD/MM/YYYY'),'{Esc(f.MaKTV)}',N'Demo')"));
+                }
+            };
+            btnDel.Click += (s, e) =>
+            {
+                if (grid.CurrentRow == null) { Err("Chọn dòng dịch vụ."); return; }
+                string ma = grid.CurrentRow.Cells["MAHSBA"].Value?.ToString();
+                string dv = grid.CurrentRow.Cells["LOAIDV"].Value?.ToString();
+                string ngay = Convert.ToDateTime(grid.CurrentRow.Cells["NGAYDV"].Value).ToString("dd/MM/yyyy");
+                if (MessageBox.Show($"Xóa dịch vụ '{dv}'?", "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+                HandleDemoAction("3.3.d", "AuditIllegalHSBADV", "VPD chặn",
+                    () => service.ExecuteNonQuery(
+                        $"DELETE FROM QLBV.VW_KTV_XemHSBADV WHERE MAHSBA='{Esc(ma)}' AND LOAIDV=N'{Esc(dv)}' AND NGAYDV=TO_DATE('{ngay}','DD/MM/YYYY')"));
+            };
+
+            page.Controls.Add(Wrap(grid, Toolbar(btnRe, btnAdd, btnDel,
+                Note("Thêm hoặc xóa dịch vụ được phân công."))));
+            parent.TabPages.Add(page);
+            try { LoadGrid(grid, "SELECT * FROM QLBV.VW_KTV_XemHSBADV"); } catch { }
+        }
+
+        // [TB2] BN — xóa HSBA
+        private void BuildDemo_BnHsba(TabControl parent)
+        {
+            var page = MakeTab("Hồ Sơ Bệnh Án");
+            var grid = MakeGrid(true);
+            var btnRe = QuickBtn("Tải Lại", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 90);
+            var btnDel = QuickBtn("Xóa Hồ Sơ", Color.FromArgb(206, 17, 38), UiTheme.WhiteText, 110);
+
+            btnRe.Click += (s, e) =>
+            {
+                try { LoadGrid(grid, "SELECT * FROM QLBV.HSBA WHERE ROWNUM <= 20"); }
+                catch (Exception ex) { HandleDemoAction("TB2-load", "AuditIllegalUpdateHSBA", "Vượt quyền", () => { throw ex; }); }
+            };
+            btnDel.Click += (s, e) =>
+            {
+                if (grid.CurrentRow == null) { Err("Chọn hồ sơ cần xóa."); return; }
+                string ma = grid.CurrentRow.Cells["MAHSBA"].Value?.ToString();
+                if (MessageBox.Show($"Xóa hồ sơ '{ma}'?", "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+                HandleDemoAction("TB2", "AuditIllegalUpdateHSBA", "Vượt quyền DELETE",
+                    () => service.ExecuteNonQuery($"DELETE FROM QLBV.HSBA WHERE MAHSBA='{Esc(ma)}'"));
+            };
+
+            page.Controls.Add(Wrap(grid, Toolbar(btnRe, btnDel,
+                Note("Chọn hồ sơ → Xóa Hồ Sơ."))));
+            parent.TabPages.Add(page);
+        }
+
+        // [TB5] BN — sửa kết quả dịch vụ
+        private void BuildDemo_BnDichVu(TabControl parent)
+        {
+            var page = MakeTab("Kết Quả Dịch Vụ");
+            var grid = MakeGrid(true);
+            var btnRe = QuickBtn("Tải Lại", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 90);
+
+            btnRe.Click += (s, e) =>
+            {
+                try { LoadGrid(grid, "SELECT * FROM QLBV.HSBA_DV WHERE ROWNUM <= 30"); }
+                catch (Exception ex) { HandleDemoAction("TB5-load", "AuditIllegalHSBADV", "Vượt quyền", () => { throw ex; }); }
+            };
+
+            grid.CellDoubleClick += (s, e) =>
+            {
+                if (e.RowIndex < 0) return;
+                var r = grid.Rows[e.RowIndex];
+                string ma = r.Cells["MAHSBA"].Value?.ToString();
+                string dv = r.Cells["LOAIDV"].Value?.ToString();
+                string ngay = Convert.ToDateTime(r.Cells["NGAYDV"].Value).ToString("dd/MM/yyyy");
+                var fields = new Dictionary<string, string> { { "KETQUA", r.Cells["KETQUA"].Value?.ToString() } };
+                using (var f = new EditRowForm($"Cập nhật kết quả: {dv}", fields))
+                {
+                    if (f.ShowDialog(this) != DialogResult.OK) return;
+                    HandleDemoAction("TB5", "AuditIllegalHSBADV", "Vượt quyền UPDATE",
+                        () => service.ExecuteNonQuery(
+                            $"UPDATE QLBV.HSBA_DV SET KETQUA=N'{Esc(f.NewValues["KETQUA"])}' " +
+                            $"WHERE MAHSBA='{Esc(ma)}' AND LOAIDV=N'{Esc(dv)}' AND NGAYDV=TO_DATE('{ngay}','DD/MM/YYYY')"));
+                }
+            };
+
+            page.Controls.Add(Wrap(grid, Toolbar(btnRe,
+                Note("Nhấp đúp vào dòng để cập nhật kết quả dịch vụ."))));
+            parent.TabPages.Add(page);
+        }
+
         // ═══════════════════════════════════════════════════════════════════
         //  KỸ THUẬT VIÊN
         // ═══════════════════════════════════════════════════════════════════
@@ -1438,9 +2072,11 @@ namespace PhanHe1.Forms
             var tInfo = MakeTab("Thông Tin Cá Nhân"); 
             var tDV = MakeTab("Dịch Vụ Được Giao");
             var tTB = MakeTab("Thông Báo");
+            var tDemo = MakeTab("Chức Năng Mở Rộng");
             BuildNV_Info(tInfo);
             BuildKTV_DV(tDV); BuildThongBaoTab(tTB, tabs, ThongBaoSendMode.ViewOnly);
-            tabs.TabPages.AddRange(new[] { tInfo, tDV, tTB });
+            BuildAuditDemoTab(tDemo);
+            tabs.TabPages.AddRange(new[] { tInfo, tDV, tTB, tDemo });
             parent.Controls.Add(tabs);
         }
 
