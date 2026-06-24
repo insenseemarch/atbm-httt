@@ -49,6 +49,23 @@ namespace PhanHe1
             return realService;
         }
 
+        /// <summary>
+        /// Login specifically as SYS with SYSDBA privilege. Caller must supply SYS password.
+        /// </summary>
+        public static OracleAdminService LoginAsSys(string host, string port, string serviceName, string sysPassword)
+        {
+            if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(port) || string.IsNullOrWhiteSpace(serviceName)
+                || string.IsNullOrWhiteSpace(sysPassword))
+            {
+                throw new InvalidOperationException("Bạn cần nhập đầy đủ thông tin kết nối và mật khẩu SYS.");
+            }
+
+            string connStr = BuildSysConnectionString(host, port, serviceName, "sys", sysPassword);
+            var realService = new OracleAdminService(connStr, host, port, serviceName, "SYS", sysPassword);
+            realService.ValidateAdminSession();
+            return realService;
+        }
+
         public static OracleAdminService LoginAsAdmin(string host, string port, string serviceName, string userName, string password)
         {
             var service = Login(host, port, serviceName, userName, password);
@@ -549,6 +566,7 @@ namespace PhanHe1
             var roles = GetCurrentRolesInternal();
             IsAdminSession = string.Equals(CurrentUser, "APP_ADMIN", StringComparison.OrdinalIgnoreCase)
                              || string.Equals(CurrentUser, "ADMIN", StringComparison.OrdinalIgnoreCase)
+                             || string.Equals(CurrentUser, "SYS", StringComparison.OrdinalIgnoreCase)
                              || roles.Contains("DBA")
                              || roles.Contains("ROLE_ADMIN");
         }
@@ -787,6 +805,17 @@ namespace PhanHe1
         {
             return string.Format(
                 "User Id={0};Password={1};Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST={2})(PORT={3}))(CONNECT_DATA=(SERVICE_NAME={4})));",
+                userName,
+                password,
+                host,
+                port,
+                serviceName);
+        }
+
+        private static string BuildSysConnectionString(string host, string port, string serviceName, string userName, string password)
+        {
+            return string.Format(
+                "User Id={0};Password={1};Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST={2})(PORT={3}))(CONNECT_DATA=(SERVICE_NAME={4})));DBA Privilege=SYSDBA;",
                 userName,
                 password,
                 host,

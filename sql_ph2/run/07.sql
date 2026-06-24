@@ -62,12 +62,12 @@ expdp qlbv/123@localhost:1521/xepdb1 ^
 rem --- PHỤC HỒI DỮ LIỆU ---
 rem Thay <ten_file_dump> bằng tên file .dmp tương ứng (theo ngày tháng nếu dùng %date%).
 
-rem 3. Restore toàn schema QLBV (table_exists_action=replace sẽ ghi đè dữ liệu hiện tại):
+rem 3. Restore an toàn các bảng quan trọng từ file dump:
 impdp qlbv/123@localhost:1521/xepdb1 ^
-    schemas=qlbv ^
+    tables=qlbv.benhnhan,qlbv.hsba,qlbv.hsba_dv,qlbv.donthuoc ^
     directory=backup_dir ^
     dumpfile=<ten_file_dump>.dmp ^
-    logfile=qlbv_schema_import.log ^
+    logfile=qlbv_safe_restore.log ^
     table_exists_action=replace
 
 rem 4. Restore một bảng cụ thể (xác định từ audit log ở [07-AUDIT-01]):

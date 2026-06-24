@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Data;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -23,6 +24,7 @@ namespace PhanHe1
         private Button btnRefreshAll;
         private Button btnCreateUser;
         private Button btnCreateRole;
+        private Button btnRestoreSchema;
         private Button btnSubsystem2;
 
         private TabControl tabMain;
@@ -74,7 +76,11 @@ namespace PhanHe1
             this.service = service;
             InitializeComponent();
             BuildUi();
-            LoadInitialData();
+            // Only load full initial data when we built the full UI (not SYS-only minimal UI)
+            if (!string.Equals(service.CurrentUser?.Trim(), "SYS", StringComparison.OrdinalIgnoreCase))
+            {
+                LoadInitialData();
+            }
             DialogResult = DialogResult.OK;
         }
 
@@ -85,6 +91,13 @@ namespace PhanHe1
             MinimumSize = new Size(1200, 720);
             Font = UiTheme.BodyFont;
             BackColor = colorPageBackground;
+
+            // If logged in as SYS, present a minimal UI that only exposes Restore Schema
+            if (string.Equals(service.CurrentUser?.Trim(), "SYS", StringComparison.OrdinalIgnoreCase))
+            {
+                BuildUiForSysOnly();
+                return;
+            }
 
             var topPanel = new Panel
             {
@@ -146,6 +159,14 @@ namespace PhanHe1
             StylePrimaryButton(btnCreateRole);
             btnCreateRole.Click += btnCreateRole_Click;
 
+            btnRestoreSchema = new Button { Text = "Restore Schema", Width = 132, Height = 40, Margin = new Padding(0, 0, 8, 0) };
+            StyleSecondaryButton(btnRestoreSchema);
+            btnRestoreSchema.Click += BtnRestoreSchema_Click;
+
+            btnSubsystem2 = new Button { Text = "Phân hệ 2", Width = 110, Height = 40, Margin = new Padding(0, 0, 8, 0) };
+            StylePrimaryButton(btnSubsystem2);
+            btnSubsystem2.Click += BtnSubsystem2_Click;
+
 
             var btnLogout = new Button { Text = "Đăng xuất", Width = 110, Height = 40, Margin = new Padding(0, 0, 0, 0) };
             StylePrimaryButton(btnLogout);
@@ -154,7 +175,11 @@ namespace PhanHe1
             buttonPanel.Controls.Add(btnRefreshAll);
             buttonPanel.Controls.Add(btnCreateUser);
             buttonPanel.Controls.Add(btnCreateRole);
-            buttonPanel.Controls.Add(btnSubsystem2);
+            // Hide top-level Restore Schema and "Phân hệ 2" for APP_ADMIN accounts
+            if (!string.Equals(service.CurrentUser?.Trim(), "APP_ADMIN", StringComparison.OrdinalIgnoreCase))
+                buttonPanel.Controls.Add(btnRestoreSchema);
+            if (!string.Equals(service.CurrentUser?.Trim(), "APP_ADMIN", StringComparison.OrdinalIgnoreCase))
+                buttonPanel.Controls.Add(btnSubsystem2);
             buttonPanel.Controls.Add(btnLogout);
 
             var headerLayout = new TableLayoutPanel
@@ -191,6 +216,86 @@ namespace PhanHe1
             BuildAdvancedGrantTab();
 
             Controls.Add(tabMain);
+            Controls.Add(topPanel);
+        }
+
+        private void BuildUiForSysOnly()
+        {
+            // Minimal header
+            var topPanel = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 76,
+                BackColor = colorPanelBackground,
+                Padding = new Padding(12, 10, 12, 10)
+            };
+
+            var headerLeft = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                Padding = new Padding(0, 6, 0, 0),
+                BackColor = Color.Transparent
+            };
+
+            var picHeaderLogo = new PictureBox
+            {
+                Width = 170,
+                Height = 46,
+                SizeMode = PictureBoxSizeMode.Zoom,
+                Image = CreateHeaderLogoImage(170, 46),
+                Margin = new Padding(0, 0, 10, 0)
+            };
+
+            lblHeader = new Label
+            {
+                AutoSize = true,
+                TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = UiTheme.WhiteText,
+                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+                Text = "Xin chào: @" + service.CurrentUser,
+                Margin = new Padding(0, 10, 0, 0)
+            };
+
+            headerLeft.Controls.Add(picHeaderLogo);
+            headerLeft.Controls.Add(lblHeader);
+
+            var buttonPanel = new FlowLayoutPanel
+            {
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowOnly,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                Padding = new Padding(0, 6, 0, 0)
+            };
+
+            // Single big Restore button centered at bottom
+            btnRestoreSchema = new Button { Text = "Restore Full Schema - Dùng khi cần khôi phục dữ liệu", Width = 360, Height = 64, AutoSize = false };
+            StyleSecondaryButton(btnRestoreSchema);
+            btnRestoreSchema.Click += BtnRestoreSchema_Click;
+
+            var tip = new ToolTip();
+            tip.SetToolTip(btnRestoreSchema, "Cảnh báo: thao tác này sẽ xóa và khôi phục toàn bộ schema QLBV. Chỉ dùng khi thực sự cần.");
+
+            // Create a centered layout for the restore button
+            var wrapper = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 3 };
+            wrapper.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            wrapper.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            wrapper.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            wrapper.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+            wrapper.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            wrapper.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+
+            var btnHolder = new Panel { AutoSize = true, Dock = DockStyle.Fill };
+            btnHolder.Controls.Add(btnRestoreSchema);
+            btnRestoreSchema.Anchor = AnchorStyles.None;
+            wrapper.Controls.Add(btnHolder, 1, 1);
+
+            topPanel.Controls.Add(headerLeft);
+            topPanel.Controls.Add(buttonPanel);
+
+            Controls.Add(wrapper);
             Controls.Add(topPanel);
         }
 
@@ -905,6 +1010,34 @@ namespace PhanHe1
 
         private void LoadUserGrid()
         {
+            // Ensure dgvUsers exists (guard against initialization order issues)
+            if (dgvUsers == null)
+            {
+                dgvUsers = CreateUserGrid();
+                try
+                {
+                    // try to find existing group box inside tabManage -> SplitContainer.Panel1
+                    var split = tabManage?.Controls.OfType<SplitContainer>().FirstOrDefault();
+                    if (split != null)
+                    {
+                        var grp = split.Panel1.Controls.OfType<GroupBox>().FirstOrDefault();
+                        if (grp != null)
+                        {
+                            grp.Controls.Add(dgvUsers);
+                        }
+                        else
+                        {
+                            split.Panel1.Controls.Add(dgvUsers);
+                        }
+                    }
+                    else
+                    {
+                        tabManage?.Controls.Add(dgvUsers);
+                    }
+                }
+                catch { /* best-effort attach */ }
+            }
+
             dgvUsers.Rows.Clear();
             DataTable users = service.GetUsers();
             foreach (DataRow row in users.Rows)
@@ -940,6 +1073,33 @@ namespace PhanHe1
         }
         private void LoadRoleGrid()
         {
+            // Ensure dgvRoles exists (guard against initialization order issues)
+            if (dgvRoles == null)
+            {
+                dgvRoles = CreateRoleGrid();
+                try
+                {
+                    var split = tabManage?.Controls.OfType<SplitContainer>().FirstOrDefault();
+                    if (split != null)
+                    {
+                        var grp = split.Panel2.Controls.OfType<GroupBox>().FirstOrDefault();
+                        if (grp != null)
+                        {
+                            grp.Controls.Add(dgvRoles);
+                        }
+                        else
+                        {
+                            split.Panel2.Controls.Add(dgvRoles);
+                        }
+                    }
+                    else
+                    {
+                        tabManage?.Controls.Add(dgvRoles);
+                    }
+                }
+                catch { }
+            }
+
             dgvRoles.Rows.Clear();
             DataTable roles = service.GetRoles();
             foreach (DataRow row in roles.Rows)
@@ -995,7 +1155,9 @@ namespace PhanHe1
 
         private void FillCombo(ComboBox combo, List<string> values)
         {
+            if (combo == null) return;
             combo.Items.Clear();
+            if (values == null) return;
             foreach (string value in values)
             {
                 combo.Items.Add(value);
@@ -1205,6 +1367,20 @@ namespace PhanHe1
         private void BtnSubsystem2_Click(object sender, EventArgs e)
         {
             using (var subsystem2 = new SubSystem2Form(service))
+            {
+                subsystem2.ShowDialog(this);
+            }
+        }
+
+        private void BtnRestoreSchema_Click(object sender, EventArgs e)
+        {
+            if (!service.IsAdminSession)
+            {
+                MessageBox.Show("Restore schema chỉ dành cho tài khoản admin/DBA.", "Không đủ quyền", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            using (var subsystem2 = new SubSystem2Form(service, true))
             {
                 subsystem2.ShowDialog(this);
             }

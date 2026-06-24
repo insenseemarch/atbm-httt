@@ -8,6 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
+using Oracle.ManagedDataAccess.Client;
 
 namespace PhanHe1.Forms
 {
@@ -68,10 +69,13 @@ namespace PhanHe1.Forms
         private TextBox txtBnSonha, txtBnDuong, txtBnQuan, txtBnTinh;
         private TextBox txtBnMedicalHistory, txtBnFamilyHistory, txtBnDrugAllergies;
         private TextBox txtNvFullName, txtNvGender, txtNvDob, txtNvCmnd, txtNvRole, txtNvDept, txtNvCoSo, txtNvAddress, txtNvPhone;
+        private readonly bool autoTriggerFullRestore;
+        private Button btnRestoreFull;
 
-        public SubSystem2Form(OracleAdminService service)
+        public SubSystem2Form(OracleAdminService service, bool autoTriggerFullRestore = false)
         {
             this.service = service ?? throw new ArgumentNullException(nameof(service));
+            this.autoTriggerFullRestore = autoTriggerFullRestore;
             currentUser = service.CurrentUser ?? string.Empty;
             currentRoles = service.GetCurrentRoles() ?? new List<string>();
             userRole = DetermineUserRole();
@@ -83,6 +87,17 @@ namespace PhanHe1.Forms
             Font = UiTheme.BodyFont;
             BackColor = UiTheme.LightCyan;
             BuildUi();
+
+            if (this.autoTriggerFullRestore)
+            {
+                Shown += (s, e) => BeginInvoke((Action)delegate
+                {
+                    if (btnRestoreFull != null && btnRestoreFull.Visible && btnRestoreFull.Enabled)
+                    {
+                        btnRestoreFull.PerformClick();
+                    }
+                });
+            }
         }
 
         private static void SafeBalanceHorizontalSplit(SplitContainer split, double topRatio = 0.5, int minTop = 60, int minBottom = 60)
@@ -107,7 +122,8 @@ namespace PhanHe1.Forms
         private UserRole DetermineUserRole()
         {
             if (currentRoles.Contains("DBA") || string.Equals(currentUser, "APP_ADMIN", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(currentUser, "QLBV", StringComparison.OrdinalIgnoreCase))
+                || string.Equals(currentUser, "QLBV", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(currentUser, "SYS", StringComparison.OrdinalIgnoreCase))
                 return UserRole.ADMIN;
 
             // Giám đốc trước DPV — CAPBAC 'Ban Giám đốc' (insert_nhanvien.sql GD0001–GD0003)
@@ -745,6 +761,62 @@ namespace PhanHe1.Forms
                     BeginInvoke(new Action(() =>
                         log.AppendText($"[LỖI]: {ex.Message}\r\n   Kiểm tra: Oracle Client đã cài? {tool}.exe có trong PATH hoặc ORACLE_HOME\\bin?\r\n")));
                     return -1;
+                }
+            });
+        }
+
+        private async System.Threading.Tasks.Task<int> RunDataPumpCliViaCmdAsync(string tool, string args, TextBox log)
+        {
+            // Build full command with quoted exe path to let cmd.exe handle quoting/escaping
+            string exe = ResolveDataPumpExe(tool);
+            var displayArgs = Regex.Replace(args, @"/[^/@\s""']+@", "/***@");
+            log.AppendText($"[INFO] Thử chạy qua cmd.exe bằng batch tạm: {tool} {displayArgs}\r\n");
+            return await System.Threading.Tasks.Task.Run(() =>
+            {
+                string tempBat = null;
+                try
+                {
+                    tempBat = Path.Combine(Path.GetTempPath(), $"run_datapump_{Guid.NewGuid():N}.bat");
+                    // Create batch content; ensure percent signs are escaped by doubling
+                    string safeArgs = args.Replace("%", "%%");
+                    string line = '"' + exe + '"' + " " + safeArgs;
+                    File.WriteAllText(tempBat, "@echo off\r\n" + line + "\r\nexit /b %ERRORLEVEL%", Encoding.Default);
+
+                    using (var proc = new Process())
+                    {
+                        proc.StartInfo.FileName = "cmd.exe";
+                        proc.StartInfo.Arguments = "/C " + QuoteCliArg(tempBat);
+                        proc.StartInfo.UseShellExecute = false;
+                        proc.StartInfo.RedirectStandardOutput = true;
+                        proc.StartInfo.RedirectStandardError = true;
+                        proc.StartInfo.CreateNoWindow = true;
+
+                        proc.OutputDataReceived += (s, e) =>
+                        {
+                            if (!string.IsNullOrEmpty(e.Data))
+                                BeginInvoke(new Action(() => { log.AppendText(e.Data + "\r\n"); log.ScrollToCaret(); }));
+                        };
+                        proc.ErrorDataReceived += (s, e) =>
+                        {
+                            if (!string.IsNullOrEmpty(e.Data))
+                                BeginInvoke(new Action(() => { log.AppendText(e.Data + "\r\n"); log.ScrollToCaret(); }));
+                        };
+
+                        proc.Start();
+                        proc.BeginOutputReadLine();
+                        proc.BeginErrorReadLine();
+                        proc.WaitForExit();
+                        return proc.ExitCode;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    BeginInvoke(new Action(() => log.AppendText($"[LỖI CMD]: {ex.Message}\r\n")));
+                    return -1;
+                }
+                finally
+                {
+                    try { if (tempBat != null && File.Exists(tempBat)) File.Delete(tempBat); } catch { }
                 }
             });
         }
@@ -2600,14 +2672,15 @@ namespace PhanHe1.Forms
 
             var btnBackupSchema  = QuickBtn("Backup Schema QLBV",     UiTheme.BrandeisBlue,       UiTheme.WhiteText, 192, 38);
             var btnBackupTables  = QuickBtn("Backup Bảng Quan Trọng", Color.FromArgb(0, 140, 200), UiTheme.WhiteText, 200, 38);
-            var btnRestoreSchema = QuickBtn("Restore Schema (impdp)", Color.FromArgb(206, 17, 38), UiTheme.WhiteText, 188, 38);
+            var btnRestoreSchema = QuickBtn("Restore An Toàn", Color.FromArgb(206, 17, 38), UiTheme.WhiteText, 188, 38);
+            btnRestoreFull = QuickBtn("Restore Full Schema", Color.FromArgb(150, 45, 45), UiTheme.WhiteText, 172, 38);
             var btnRestoreTable  = QuickBtn("Restore 1 Bảng (impdp)", Color.FromArgb(180, 60, 40), UiTheme.WhiteText, 178, 38);
             var btnCheckDir      = QuickBtn("Kiểm Tra BACKUP_DIR",    Color.FromArgb(80, 80, 120), UiTheme.WhiteText, 161, 38);
             var btnTableList     = QuickBtn("Liệt Kê Bảng NV",      Color.FromArgb(100, 120, 180), UiTheme.WhiteText, 155, 38);
             var btnRowCount      = QuickBtn("Đếm Số Dòng Bảng",      Color.FromArgb(50, 150, 80), UiTheme.WhiteText, 154, 38);
 
             var flowBtn = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 138, FlowDirection = FlowDirection.LeftToRight, WrapContents = true, Padding = new Padding(0, 6, 0, 4), BackColor = Color.White };
-            foreach (var b in new Control[] { btnBackupSchema, btnBackupTables, btnRestoreSchema, btnRestoreTable, btnCheckDir, btnTableList, btnRowCount })
+            foreach (var b in new Control[] { btnBackupSchema, btnBackupTables, btnRestoreSchema, btnRestoreFull, btnRestoreTable, btnCheckDir, btnTableList, btnRowCount })
                 flowBtn.Controls.Add(b);
 
             var lblHist  = new Label { Text = "Lịch Sử Sao Lưu — QLBV.BACKUP_HISTORY", Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 24 };
@@ -2755,7 +2828,73 @@ namespace PhanHe1.Forms
 
             btnRestoreSchema.Click += async (s, e) =>
             {
-                if (MessageBox.Show("CẢNH BÁO: Sẽ ghi đè toàn bộ schema QLBV.\nBạn có chắc chắn?", "Phục Hồi Schema", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+                if (MessageBox.Show("CẢNH BÁO: Chế độ này chỉ phục hồi các bảng quan trọng bằng impdp tables.\nNó không nạp lại toàn bộ schema để tránh xung đột object đang tồn tại.\nBạn có chắc chắn?", "Phục Hồi An Toàn", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+
+                string defaultDump = "qlbv_important_tables.dmp";
+                try
+                {
+                    var dtDump = service.Query("SELECT FILE_NAME FROM QLBV.BACKUP_HISTORY WHERE BACKUP_TYPE IN ('FULL','SCHEMA_QLBV') AND STATUS IN ('SUCCESS','PARTIAL') ORDER BY BACKUP_TIME DESC FETCH FIRST 1 ROW ONLY");
+                    if (dtDump.Rows.Count > 0 && dtDump.Rows[0][0] != DBNull.Value)
+                        defaultDump = dtDump.Rows[0][0].ToString();
+                }
+                catch { }
+
+                string df = PromptText("Phục Hồi An Toàn", "Tên file .dmp trong backup_dir:", defaultDump);
+                if (df == null) return;
+
+                SetDataPumpButtonsEnabled(flowBtn, false);
+                try
+                {
+                    string conn = QuoteCliArg(service.GetDataPumpConnectString());
+                    string tablesList = string.Join(",", DataPumpImportantTables);
+                    string args = $"{conn} tables={tablesList} directory=backup_dir dumpfile={df} logfile=qlbv_safe_restore.log table_exists_action=replace";
+                    int code = await RunDataPumpCliAsync("impdp", args, txtLog);
+                    if (code == 0)
+                    {
+                        txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Restore an toàn thành công (exit 0). File: {df}\r\n");
+                        try
+                        {
+                            service.ExecuteNonQuery(
+                                $"INSERT INTO QLBV.RESTORE_HISTORY (RESTORE_TYPE, FILE_SRC, STATUS) VALUES ('IMPDP_SAFE_TABLES', '{Esc(df)}|{Esc(tablesList)}', 'SUCCESS')");
+                            service.ExecuteNonQuery("COMMIT");
+                            txtLog.AppendText("   => Đã ghi nhận vào QLBV.RESTORE_HISTORY.\r\n");
+                        }
+                        catch (Exception exHist)
+                        {
+                            txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Không ghi được RESTORE_HISTORY: {exHist.Message}\r\n");
+                        }
+                        Ok($"Đã phục hồi an toàn các bảng quan trọng từ {df}");
+                    }
+                    else
+                    {
+                        txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Restore an toàn thất bại (exit {code}).\r\n");
+                        Err($"impdp thất bại (mã thoát {code}). Xem log phía trên.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    txtLog.AppendText($"[LỖI]: {ex.Message}\r\n");
+                    Err(ex.Message);
+                }
+                finally { SetDataPumpButtonsEnabled(flowBtn, true); }
+            };
+
+            btnRestoreFull.Click += async (s, e) =>
+            {
+                if (!service.IsAdminSession)
+                {
+                    Err("Phục hồi full schema cần đăng nhập bằng tài khoản admin/DBA.");
+                    return;
+                }
+
+                if (string.Equals(service.CurrentUser, "QLBV", StringComparison.OrdinalIgnoreCase))
+                {
+                    Err("Không thể drop user QLBV khi đang đăng nhập trực tiếp bằng QLBV. Hãy đăng nhập bằng app_admin/SYSDBA rồi thử lại.");
+                    return;
+                }
+
+                if (MessageBox.Show("CẢNH BÁO: Thao tác này sẽ DROP USER QLBV (xóa mọi dữ liệu) rồi restore toàn bộ schema từ file dump.\nBạn có chắc chắn?", "Restore Full Schema (SYS)", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+                    return;
 
                 string defaultDump = "qlbv_schema_latest.dmp";
                 try
@@ -2766,20 +2905,117 @@ namespace PhanHe1.Forms
                 }
                 catch { }
 
-                string df = PromptText("Phục Hồi Schema", "Tên file .dmp trong backup_dir:", defaultDump);
+                string df = PromptText("Restore Full Schema (SYS)", "Tên file .dmp trong backup_dir:", defaultDump);
                 if (df == null) return;
+
+                // prompt for SYS password
+                string sysPwd = null;
+                using (var dlg = new Form())
+                {
+                    dlg.Text = "SYS Credentials";
+                    dlg.FormBorderStyle = FormBorderStyle.FixedDialog;
+                    dlg.StartPosition = FormStartPosition.CenterParent;
+                    dlg.ClientSize = new Size(420, 120);
+                    dlg.MaximizeBox = false;
+                    dlg.MinimizeBox = false;
+
+                    var lbl = new Label { Text = "Enter SYS password:", Left = 12, Top = 12, AutoSize = true };
+                    var txt = new TextBox { Left = 12, Top = 36, Width = 384, UseSystemPasswordChar = true };
+                    var btnOk = new Button { Text = "OK", DialogResult = DialogResult.OK, Left = 228, Width = 80, Top = 72 };
+                    var btnCancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, Left = 320, Width = 80, Top = 72 };
+
+                    dlg.Controls.AddRange(new Control[] { lbl, txt, btnOk, btnCancel });
+                    dlg.AcceptButton = btnOk; dlg.CancelButton = btnCancel;
+                    if (dlg.ShowDialog(this) != DialogResult.OK) return;
+                    sysPwd = txt.Text;
+                }
 
                 SetDataPumpButtonsEnabled(flowBtn, false);
                 try
                 {
-                    string conn = QuoteCliArg(service.GetDataPumpConnectString());
-                    string args = $"{conn} schemas=qlbv directory=backup_dir dumpfile={df} logfile=qlbv_schema_import.log table_exists_action=replace";
+                    txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Bắt đầu DROP user QLBV bằng SYSDBA...\r\n");
+
+                    // get host descriptor like host:port/service
+                    SplitDataPumpConnect(out _, out string hostDescriptor);
+
+                    // Drop user QLBV using SYSDBA
+                    try
+                    {
+                        var connStr = $"User Id=sys;Password={sysPwd};Data Source={hostDescriptor};DBA Privilege=SYSDBA";
+                        using (var conn = new OracleConnection(connStr))
+                        {
+                            conn.Open();
+                            using (var cmd = conn.CreateCommand())
+                            {
+                                cmd.CommandText = "BEGIN EXECUTE IMMEDIATE 'DROP USER QLBV CASCADE'; EXCEPTION WHEN OTHERS THEN NULL; END;";
+                                cmd.CommandType = CommandType.Text;
+                                cmd.ExecuteNonQuery();
+                            }
+                        }
+                        txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] OK: Drop user QLBV\r\n");
+                    }
+                    catch (Exception exDrop)
+                    {
+                        txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] LỖI: Không thể drop user QLBV: {exDrop.Message}\r\n");
+                        throw;
+                    }
+
+                    // Run impdp as SYSDBA using userid= and proper quoting
+                    var connectValue = $"sys/{sysPwd}@{hostDescriptor} AS SYSDBA";
+                    var connectArg = "userid=" + QuoteCliArg(connectValue);
+                    var logFile = "qlbv_schema_import_full.log";
+                    var args = $"{connectArg} schemas=qlbv directory=backup_dir dumpfile={df} logfile={logFile} content=ALL table_exists_action=replace";
+
+                    txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Đang chạy impdp AS SYSDBA...\r\n");
                     int code = await RunDataPumpCliAsync("impdp", args, txtLog);
+
+                    if (code != 0)
+                    {
+                        txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Lệnh impdp trả mã {code}. Thử fallback chạy qua cmd.exe để xử lý quoting...\r\n");
+                        int fallback = await RunDataPumpCliViaCmdAsync("impdp", args, txtLog);
+                        if (fallback == 0)
+                        {
+                            txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Fallback qua cmd.exe thành công (exit 0).\r\n");
+                            code = 0;
+                        }
+                        else
+                        {
+                            txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Fallback qua cmd.exe thất bại (exit {fallback}).\r\n");
+                            // Try alternate quoting: use single quotes around userid value (some impdp versions accept this)
+                            txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Thử lại với single-quote quanh userid...\r\n");
+                            var altConnectArg = "userid='" + connectValue + "'";
+                            var altArgs = $"{altConnectArg} schemas=qlbv directory=backup_dir dumpfile={df} logfile={logFile} content=ALL table_exists_action=replace";
+                            int alt = await RunDataPumpCliViaCmdAsync("impdp", altArgs, txtLog);
+                            if (alt == 0)
+                            {
+                                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Thử single-quote thành công (exit 0).\r\n");
+                                code = 0;
+                            }
+                            else
+                            {
+                                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Thử single-quote thất bại (exit {alt}).\r\n");
+                            }
+                        }
+                    }
+
                     if (code == 0)
-                        txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Import thành công (exit 0). File: {df}\r\n");
+                    {
+                        txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Full schema restore thành công (exit 0). File: {df}\r\n");
+                        try
+                        {
+                            service.ExecuteNonQuery($"INSERT INTO QLBV.RESTORE_HISTORY (RESTORE_TYPE, FILE_SRC, STATUS) VALUES ('IMPDP_SCHEMA_FULL', '{Esc(df)}', 'SUCCESS')");
+                            service.ExecuteNonQuery("COMMIT");
+                            txtLog.AppendText("   => Đã ghi nhận vào QLBV.RESTORE_HISTORY.\r\n");
+                        }
+                        catch (Exception exHist)
+                        {
+                            txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Không ghi được RESTORE_HISTORY: {exHist.Message}\r\n");
+                        }
+                        Ok($"Đã restore full schema từ {df}");
+                    }
                     else
                     {
-                        txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Import thất bại (exit {code}).\r\n");
+                        txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Full schema restore thất bại (exit {code}).\r\n");
                         Err($"impdp thất bại (mã thoát {code}). Xem log phía trên.");
                     }
                 }
@@ -2891,8 +3127,9 @@ namespace PhanHe1.Forms
             cmbCmd.Items.AddRange(new object[] {
                 "1. Backup toàn Schema QLBV (expdp schemas)",
                 "2. Backup Bảng Quan Trọng (expdp tables)",
-                "3. Restore toàn Schema QLBV (impdp schemas)",
-                "4. Restore Một Bảng cụ thể (impdp tables)"
+                "3. Restore an toàn (impdp tables)",
+                "4. Restore full schema (auto clean)",
+                "5. Restore Một Bảng cụ thể (impdp tables)"
             });
             cmbCmd.SelectedIndex = 0;
 
@@ -2948,14 +3185,15 @@ namespace PhanHe1.Forms
                 {
                     case 0: return DataPumpDumpListKind.ExportSchema;
                     case 1: return DataPumpDumpListKind.ExportTables;
-                    case 2: return DataPumpDumpListKind.ImportSchema;
+                    case 2: return DataPumpDumpListKind.ImportTable;
+                    case 3: return DataPumpDumpListKind.ImportSchema;
                     default: return DataPumpDumpListKind.ImportTable;
                 }
             }
 
             void SyncFieldState()
             {
-                bool tableMode = cmbCmd.SelectedIndex == 3;
+                bool tableMode = cmbCmd.SelectedIndex == 4;
                 cmbTbl.Enabled = tableMode;
                 btnRefreshDump.Enabled = cmbCmd.SelectedIndex >= 2;
                 PopulateDataPumpDumpCombo(cmbDump, CurrentDumpKind(), cmbDump.SelectedItem?.ToString());
@@ -2984,8 +3222,9 @@ namespace PhanHe1.Forms
                 {
                     case 0: return $"expdp {cred}@{host} ^\r\n    schemas=qlbv ^\r\n    directory=backup_dir ^\r\n    dumpfile={dump} ^\r\n    logfile=qlbv_schema_export.log";
                     case 1: return $"expdp {cred}@{host} ^\r\n    tables={tablesList} ^\r\n    directory=backup_dir ^\r\n    dumpfile={dump} ^\r\n    logfile=qlbv_important_tables_export.log";
-                    case 2: return $"impdp {cred}@{host} ^\r\n    schemas=qlbv ^\r\n    directory=backup_dir ^\r\n    dumpfile={dump} ^\r\n    logfile=qlbv_schema_import.log ^\r\n    table_exists_action=replace";
-                    case 3: return $"impdp {cred}@{host} ^\r\n    tables={tbl} ^\r\n    directory=backup_dir ^\r\n    dumpfile={dump} ^\r\n    logfile=qlbv_table_import.log ^\r\n    table_exists_action=replace";
+                    case 2: return $"impdp {cred}@{host} ^\r\n    tables={tablesList} ^\r\n    directory=backup_dir ^\r\n    dumpfile={dump} ^\r\n    logfile=qlbv_safe_restore.log ^\r\n    table_exists_action=replace";
+                    case 3: return $"impdp {cred}@{host} ^\r\n    schemas=qlbv ^\r\n    directory=backup_dir ^\r\n    dumpfile={dump} ^\r\n    logfile=qlbv_schema_import.log ^\r\n    table_exists_action=replace";
+                    case 4: return $"impdp {cred}@{host} ^\r\n    tables={tbl} ^\r\n    directory=backup_dir ^\r\n    dumpfile={dump} ^\r\n    logfile=qlbv_table_import.log ^\r\n    table_exists_action=replace";
                     default: return "";
                 }
             }
