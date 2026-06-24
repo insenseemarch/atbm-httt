@@ -2468,14 +2468,28 @@ namespace PhanHe1.Forms
                 string sql = $@"
                     SELECT
                         TO_CHAR(EVENT_TIMESTAMP, 'DD/MM/YYYY HH24:MI:SS') AS ""THỜI GIAN"",
-                        DBUSERNAME          AS ""NGƯỜI DÙNG"",
-                        FGA_POLICY_NAME     AS ""FGA POLICY"",
-                        OBJECT_NAME         AS ""ĐỐI TƯỢNG"",
-                        RETURN_CODE         AS ""MÃ KQ"",
-                        SQL_TEXT            AS ""CÂU SQL""
+                        TO_CHAR(DBUSERNAME)         AS ""NGƯỜI DÙNG"",
+                        TO_CHAR(FGA_POLICY_NAME)    AS ""FGA POLICY"",
+                        TO_CHAR(OBJECT_NAME)        AS ""ĐỐI TƯỢNG"",
+                        TO_CHAR(RETURN_CODE)        AS ""MÃ KQ"",
+                        TO_CHAR(SQL_TEXT)           AS ""CÂU SQL""
                     FROM UNIFIED_AUDIT_TRAIL
                     WHERE UPPER(FGA_POLICY_NAME) IN ({AuditFgaPolicyInList})
-                    ORDER BY EVENT_TIMESTAMP DESC
+
+                    UNION ALL
+
+                    SELECT
+                        TO_CHAR(TIMESTAMP, 'DD/MM/YYYY HH24:MI:SS'),
+                        TO_CHAR(DB_USER),
+                        TO_CHAR(UPPER(POLICY_NAME)),
+                        TO_CHAR(OBJECT_NAME),
+                        '0', 
+                        TO_CHAR(SQL_TEXT)
+                    FROM DBA_FGA_AUDIT_TRAIL
+                    WHERE OBJECT_SCHEMA = 'QLBV'
+                    AND UPPER(POLICY_NAME) IN ({AuditFgaPolicyInList})
+
+                    ORDER BY 1 DESC 
                     FETCH FIRST 200 ROWS ONLY";
                 grid.DataSource = service.Query(sql);
                 UiTheme.StyleGrid(grid);

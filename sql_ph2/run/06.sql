@@ -324,8 +324,8 @@ BEGIN
         object_name     => 'DONTHUOC',
         policy_name     => 'AuditSuaDonThuoc',
         audit_column    => 'MAHSBA,NGAYDT,TENTHUOC,LIEUDUNG',
-        -- Điều kiện: Hồ sơ này nằm trong nhóm do chính bác sĩ hiện tại phụ trách điều trị
-        audit_condition => 'SYS_CONTEXT(''USERENV'', ''CLIENT_IDENTIFIER'') LIKE ''%ROLE_BACSI%''',
+
+        audit_condition => NULL,
         statement_types => 'UPDATE'
     );
 END;
