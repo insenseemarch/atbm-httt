@@ -387,7 +387,7 @@ WHERE  unified_audit_policies IN (
         'AUDITFAILBSUPDATENV',  -- NC5: Bác sĩ cập nhật/xóa NHANVIEN (Thất bại - Vượt quyền)
         'AUDITDIEUPHOINHANSU',  -- NC6: Giám sát Điều phối viên thực thi sp_DieuPhoiNhanSu (Mới bổ sung)
         'AUDITSUCBSEXECPROC',   -- NC7: Bác sĩ thực thi sp_KhoiTaoHSBAKhancap thành công
-        'AUDITSUCBSEXECFUNC,   -- NC8: Bác sĩ thực thi fn_KiemTraDiUngThuoc thành công
+        'AUDITSUCBSEXECFUNC',   -- NC8: Bác sĩ thực thi fn_KiemTraDiUngThuoc thành công
         'AuditDPVXemLichSuBN',  -- NC9: DPV Xem lịch sử khám bệnh - TC
         'AuditDPVXemLichSuBN_Fail' --NC9: Role khác xem lịch sử khám bệnh thất bại
 )
