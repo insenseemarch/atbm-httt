@@ -2,8 +2,9 @@
 -- ============================================================================
 -- 06.sql - Yêu cầu 2 (OLS User Labels) & Yêu cầu 3 (Hệ thống Kiểm toán Toàn diện)
 -- ============================================================================
-
--- ----------------------------------------------------------------------------
+SELECT POLICY_NAME, POLICY_COLUMN, ENABLED 
+FROM DBA_AUDIT_POLICIES 
+WHERE OBJECT_NAME = 'DONTHUOC';-- ----------------------------------------------------------------------------
 -- PHẦN I: GÁN NHÃN BẢO MẬT OLS CHO NGƯỜI DÙNG (YÊU CẦU 2)
 -- ----------------------------------------------------------------------------
 -- === Executing OLS User Label Assignment ===
@@ -324,8 +325,8 @@ BEGIN
         object_name     => 'DONTHUOC',
         policy_name     => 'AuditSuaDonThuoc',
         audit_column    => 'MAHSBA,NGAYDT,TENTHUOC,LIEUDUNG',
-
-        audit_condition => NULL,
+        -- Điều kiện: Hồ sơ này nằm trong nhóm do chính bác sĩ hiện tại phụ trách điều trị
+        audit_condition => 'SYS_CONTEXT(''USERENV'', ''SESSION_USER'') LIKE ''BS%''',
         statement_types => 'UPDATE'
     );
 END;
