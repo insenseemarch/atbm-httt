@@ -24,7 +24,6 @@ begin
 end;
 /
 -- Bệnh nhân
-/*
 begin
     for bn in (select MABN from BENHNHAN) loop
         -- xoá bệnh nhân nếu đã tồn tại
@@ -44,7 +43,6 @@ begin
     end loop;
 end;
 /
-*/
 
 -- Câu 2: Chính sách bảo mật liên quan vai trò và "Kỹ thuật viên" và "Bệnh nhân"
 -- TC#4: Kỹ thuật viên
@@ -73,10 +71,10 @@ grant update (QUEQUAN, SODT) ON VW_KTV_Xemthongtin TO ROLE_KTV;
 
 -- TC#5 Bệnh nhân:
 -- Xoá role nếu tồn tại
-/* begin execute immediate 'drop role ROLE_BENHNHAN'; exception when others then null; end;
+begin execute immediate 'drop role ROLE_BENHNHAN'; exception when others then null; end;
 /
 -- Tạo role bệnh nhân
-create role ROLE_BENHNHAN; */
+create role ROLE_BENHNHAN;
 -- Bệnh nhân xem thông tin của chính mình 
 create or replace view VW_BenhNhan_Xemthongtin as
 select *
@@ -91,9 +89,9 @@ begin
     for nv in (select MANV from NhanVien where VAITRO = N'Kỹ thuật viên') loop
         execute immediate 'grant ROLE_KTV to ' || nv.MANV;
     end loop;
-    /* for bn in (select MABN from BenhNhan) loop
+    for bn in (select MABN from BenhNhan) loop
         execute immediate 'grant ROLE_BENHNHAN to ' || bn.MABN;
-    end loop;*/
+    end loop;
 end;
 /
 

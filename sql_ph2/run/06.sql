@@ -2,8 +2,9 @@
 -- ============================================================================
 -- 06.sql - Yêu cầu 2 (OLS User Labels) & Yêu cầu 3 (Hệ thống Kiểm toán Toàn diện)
 -- ============================================================================
-
--- ----------------------------------------------------------------------------
+SELECT POLICY_NAME, POLICY_COLUMN, ENABLED 
+FROM DBA_AUDIT_POLICIES 
+WHERE OBJECT_NAME = 'DONTHUOC';-- ----------------------------------------------------------------------------
 -- PHẦN I: GÁN NHÃN BẢO MẬT OLS CHO NGƯỜI DÙNG (YÊU CẦU 2)
 -- ----------------------------------------------------------------------------
 -- === Executing OLS User Label Assignment ===
@@ -325,7 +326,7 @@ BEGIN
         policy_name     => 'AuditSuaDonThuoc',
         audit_column    => 'MAHSBA,NGAYDT,TENTHUOC,LIEUDUNG',
         -- Điều kiện: Hồ sơ này nằm trong nhóm do chính bác sĩ hiện tại phụ trách điều trị
-        audit_condition => 'SYS_CONTEXT(''USERENV'', ''CLIENT_IDENTIFIER'') LIKE ''%ROLE_BACSI%''',
+        audit_condition => 'SYS_CONTEXT(''USERENV'', ''SESSION_USER'') LIKE ''BS%''',
         statement_types => 'UPDATE'
     );
 END;
@@ -386,7 +387,7 @@ WHERE  unified_audit_policies IN (
         'AUDITFAILBSUPDATENV',  -- NC5: Bác sĩ cập nhật/xóa NHANVIEN (Thất bại - Vượt quyền)
         'AUDITDIEUPHOINHANSU',  -- NC6: Giám sát Điều phối viên thực thi sp_DieuPhoiNhanSu (Mới bổ sung)
         'AUDITSUCBSEXECPROC',   -- NC7: Bác sĩ thực thi sp_KhoiTaoHSBAKhancap thành công
-        'AUDITSUCBSEXECFUNC,   -- NC8: Bác sĩ thực thi fn_KiemTraDiUngThuoc thành công
+        'AUDITSUCBSEXECFUNC',   -- NC8: Bác sĩ thực thi fn_KiemTraDiUngThuoc thành công
         'AuditDPVXemLichSuBN',  -- NC9: DPV Xem lịch sử khám bệnh - TC
         'AuditDPVXemLichSuBN_Fail' --NC9: Role khác xem lịch sử khám bệnh thất bại
 )

@@ -81,7 +81,7 @@ namespace PhanHe1.Forms
             userRole = DetermineUserRole();
             ApplyAuditClientIdentifier();
 
-            Text = $"PHÂN HỆ 2 - {GetRoleTitle()}";
+            Text = $"DocCare — {GetRoleTitle()}";
             StartPosition = FormStartPosition.CenterScreen;
             MinimumSize = new Size(1100, 700);
             Font = UiTheme.BodyFont;
@@ -402,7 +402,7 @@ namespace PhanHe1.Forms
             {
                 grid.DataSource = null;
                 Err("Không thể tải QLBV.BACKUP_HISTORY:\n" + ex.Message +
-                    "\n\nGợi ý: chạy lại sql_ph2/run/08.sql (bảng mới dùng cột file_name, không còn backup_name).");
+                    "\n\nGợi ý: kiểm tra bảng BACKUP_HISTORY đã được tạo trên schema QLBV.");
             }
         }
 
@@ -417,7 +417,7 @@ namespace PhanHe1.Forms
             {
                 grid.DataSource = null;
                 Err("Không thể tải QLBV.RESTORE_HISTORY:\n" + ex.Message +
-                    "\n\nGợi ý: chạy lại sql_ph2/run/08.sql (bảng mới dùng restore_type, file_src).");
+                    "\n\nGợi ý: kiểm tra bảng RESTORE_HISTORY đã được tạo trên schema QLBV.");
             }
         }
 
@@ -546,8 +546,8 @@ namespace PhanHe1.Forms
                     int eligible = QueryEligibleAuditArchiveCount();
                     if (archived == 0 && eligible == 0)
                         MessageBox.Show(
-                            "AUDIT_ARCHIVE_LOG đang trống.\n\nChưa có log audit eligible trong UNIFIED_AUDIT_TRAIL.\n" +
-                            "Hãy demo nghiệp vụ (NC1–NC9 / FGA) rồi chạy archive tại Backup → Scheduler.",
+                            "AUDIT_ARCHIVE_LOG đang trống.\n\nChưa có nhật ký audit đủ điều kiện archive.\n" +
+                            "Thực hiện nghiệp vụ trên hệ thống rồi chạy archive tại Sao Lưu → Scheduler.",
                             "Archive Log", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     else if (archived == 0 && eligible > 0)
                         MessageBox.Show(
@@ -564,7 +564,7 @@ namespace PhanHe1.Forms
             {
                 grid.DataSource = null;
                 Err("Không thể tải QLBV.AUDIT_ARCHIVE_LOG:\n" + ex.Message +
-                    "\n\nGợi ý: chạy 08.sql hoặc Backup → Scheduler → Chạy Archive Ngay.");
+                    "\n\nGợi ý: Sao Lưu → Scheduler → Chạy Archive Ngay.");
             }
         }
 
@@ -615,7 +615,7 @@ namespace PhanHe1.Forms
                 }
                 if (!hasTbl || !hasProc)
                 {
-                    error = "Thiếu object archive. Chạy sql_ph2/run/08.sql [08-QLBV-01, 08-QLBV-02] trước.";
+                    error = "Thiếu procedure hoặc bảng archive. Liên hệ quản trị viên để cài đặt PR_AUTO_ARCHIVE_AUDIT_LOG và AUDIT_ARCHIVE_LOG.";
                     return false;
                 }
                 return true;
@@ -948,7 +948,7 @@ namespace PhanHe1.Forms
         {
             using (var dlg = new Form())
             {
-                dlg.Text = "Phục Hồi Một Bảng (impdp) — 07.sql case 4";
+                dlg.Text = "Phục Hồi Một Bảng (impdp)";
                 dlg.FormBorderStyle = FormBorderStyle.FixedDialog;
                 dlg.StartPosition = FormStartPosition.CenterParent;
                 dlg.MinimizeBox = false;
@@ -1030,7 +1030,7 @@ namespace PhanHe1.Forms
             var tBN = MakeTab("Bệnh Nhân");
             var tHSBA = MakeTab("Hồ Sơ Bệnh Án");
             var tDV = MakeTab("Điều Phối Dịch Vụ");
-            var tTB = MakeTab("Thông Báo Khẩn (OLS)");
+            var tTB = MakeTab("Thông Báo");
             var tDemo = MakeTab("Chức Năng Mở Rộng");
             BuildNV_Info(tInfo); 
             BuildDPV_BN(tBN, tabs); BuildDPV_HSBA(tHSBA, tabs); BuildDPV_DV(tDV, tabs); BuildThongBaoTab(tTB, tabs, ThongBaoSendMode.ViewOnly);
@@ -1175,7 +1175,7 @@ namespace PhanHe1.Forms
 
                                 service.ExecuteNonQuery(
                                     $"UPDATE QLBV.HSBA SET MAKHOA='{Esc(f.MaKhoa)}', MABS='{Esc(f.MaBS)}' WHERE MAHSBA='{Esc(ma)}'");
-                                Ok("Đã cập nhật khoa và bác sĩ phụ trách (AuditDPVUpdateHSBA).");
+                                Ok("Đã cập nhật khoa và bác sĩ phụ trách.");
                                 LoadGrid(dgvDpvHSBA, DpvHsbaSql());
                             }
                             catch (Exception ex) { Err(ex.Message); }
@@ -1269,7 +1269,7 @@ namespace PhanHe1.Forms
             var tBN = MakeTab("Bệnh Nhân");
             var tDV = MakeTab("Dịch Vụ (HSBA_DV)");
             var tDT = MakeTab("Đơn Thuốc");
-            var tTB = MakeTab("Thông Báo Khẩn (OLS)");
+            var tTB = MakeTab("Thông Báo");
             var tDemo = MakeTab("Chức Năng Mở Rộng");
             BuildNV_Info(tInfo);
             BuildBs_HSBA(tHSBA, tabs); BuildBs_BN(tBN, tabs); BuildBs_DV(tDV, tabs); BuildBs_DT(tDT, tabs);
@@ -1328,7 +1328,7 @@ namespace PhanHe1.Forms
             var dt = dgvBsHSBA.DataSource as DataTable; if (dt == null) return;
             int n = 0;
             foreach (DataRow r in dt.Rows) if (r.RowState == DataRowState.Modified) try { service.ExecuteNonQuery($"UPDATE QLBV.HSBA SET CHANDOAN=N'{Esc(r["CHANDOAN"].ToString())}',DIEUTRI=N'{Esc(r["DIEUTRI"].ToString())}',KETLUAN=N'{Esc(r["KETLUAN"].ToString())}' WHERE MAHSBA='{Esc(r["MAHSBA"].ToString())}'"); n++; } catch (Exception ex) { Err(ex.Message); }
-            if (n > 0) { Ok($"Đã lưu {n} thay đổi (ghi vết audit)."); LoadGrid(dgvBsHSBA, BsHsbaSql()); } else Ok("Không có thay đổi nào.");
+            if (n > 0) { Ok($"Đã lưu {n} thay đổi."); LoadGrid(dgvBsHSBA, BsHsbaSql()); } else Ok("Không có thay đổi nào.");
         }
 
         // Bác sĩ – Bệnh Nhân
@@ -1453,7 +1453,7 @@ namespace PhanHe1.Forms
                                     $"TENTHUOC=N'{Esc(f.TenThuoc)}', LIEUDUNG=N'{Esc(f.LieuDung)}' " +
                                     $"WHERE MAHSBA='{Esc(f.OriginalMaHSBA)}' AND NGAYDT=TO_DATE('{f.OriginalNgayDT:dd/MM/yyyy}','DD/MM/YYYY') " +
                                     $"AND TENTHUOC=N'{Esc(f.OriginalTenThuoc)}'");
-                                Ok("Cập nhật thành công (AuditSucBSUpdateDT / AuditSuaDonThuoc)!");
+                                Ok("Cập nhật đơn thuốc thành công.");
                                 LoadBsDonThuocGrid(dgvBsDT);
                             }
                             catch (Exception ex) { Err(ex.Message); }
@@ -1462,7 +1462,7 @@ namespace PhanHe1.Forms
                 }
             };
 
-            tab.Controls.Add(Wrap(dgvBsDT, Toolbar(txtS, btnS, btnAdd, btnDel, btnRe, Note("Nhấn đúp → sửa MAHSBA, NGÀYĐT, TÊN THUỐC, LIỀU DÙNG (FGA 3.a)."))));
+            tab.Controls.Add(Wrap(dgvBsDT, Toolbar(txtS, btnS, btnAdd, btnDel, btnRe, Note("Nhấn đúp để sửa thông tin đơn thuốc."))));
             RegisterTabLazyLoad(ownerTabs, tab, () => LoadBsDonThuocGrid(dgvBsDT));
         }
 
@@ -1499,10 +1499,9 @@ namespace PhanHe1.Forms
                         n++;
                     }
                     catch (Exception ex) { Err(ex.Message); }
-            if (n > 0) { Ok($"Đã lưu {n} thay đổi (ghi vết audit)."); LoadBsDonThuocGrid(dgvBsDT); } else Ok("Không có thay đổi nào.");
+            if (n > 0) { Ok($"Đã lưu {n} thay đổi."); LoadBsDonThuocGrid(dgvBsDT); } else Ok("Không có thay đổi nào.");
         }
 
-        // ═══════════════════════════════════════════════════════════════════
         //  CHỨC NĂNG MỞ RỘNG — UI nghiệp vụ bình thường, thao tác bị chặn → audit (09.sql)
         // ═══════════════════════════════════════════════════════════════════
 
@@ -1512,14 +1511,14 @@ namespace PhanHe1.Forms
             {
                 action();
                 MessageBox.Show(
-                    $"Thao tác đã gửi nhưng có thể không có hiệu lực (0 dòng / VPD).\nKiểm tra tab Kiểm Toán — policy {policy}.",
-                    $"[{code}] Cần xác nhận audit", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    $"Thao tác đã gửi nhưng có thể không có hiệu lực hoặc bị từ chối.",
+                    "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             catch (Exception ex)
             {
                 string friendly = MapAuditDemoError(ex, category);
                 MessageBox.Show(
-                    $"{friendly}\n\n[{code}] Policy audit: {policy}\n\nĐăng nhập QLBV → Kiểm Toán để xem log.",
+                    friendly,
                     "Không thể thực hiện", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
@@ -1557,9 +1556,8 @@ namespace PhanHe1.Forms
                 tab.Controls.Add(new Label
                 {
                     Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter,
-                    Text = "Tab Chức Năng Mở Rộng dành cho tài khoản nghiệp vụ.\n\n" +
-                           "Đăng nhập: NV0001, BS0001, KTV001 hoặc BN000001 (menu Tài khoản test).\n" +
-                           "Sau thao tác → QLBV → Kiểm Toán.",
+                    Text = "Chức năng mở rộng dành cho tài khoản nghiệp vụ.\n\n" +
+                           "Vui lòng đăng nhập bằng tài khoản điều phối viên, bác sĩ hoặc kỹ thuật viên.",
                     Font = new Font("Segoe UI", 10F), ForeColor = UiTheme.DeepBlue
                 });
                 return;
@@ -1603,7 +1601,7 @@ namespace PhanHe1.Forms
             };
 
             page.Controls.Add(Wrap(grid, Toolbar(txtS, btnS, btnRe, btnDel,
-                Note("DPV chỉ được UPDATE MABS/MAKHOA — sửa CHANDOAN → AuditIllegalUpdateHSBA (run/06.sql §3.4.4)."))));
+                Note("DPV chỉ được cập nhật MABS/MAKHOA — sửa chẩn đoán sẽ bị từ chối."))));
             parent.TabPages.Add(page);
             Reload();
         }
@@ -1810,8 +1808,7 @@ namespace PhanHe1.Forms
                         ? "Chưa khai báo"
                         : raw.ToString().Trim();
                     if (string.IsNullOrEmpty(diung)) diung = "Chưa khai báo";
-                    Ok($"Mã BN: {mabn}\n\nDIUNGTHUOC (BENHNHAN): {diung}\n\n" +
-                        $"Nguồn: QLBV.fn_KiemTraDiUngThuoc → trả về giá trị cột DIUNGTHUOC\n\nPolicy: AuditSucBSExecFunc");
+                    Ok($"Mã BN: {mabn}\n\nDị ứng thuốc: {diung}");
                 }
                 catch (Exception ex)
                 {
@@ -1820,7 +1817,7 @@ namespace PhanHe1.Forms
             };
 
             page.Controls.Add(Wrap(grid, Toolbar(btnRe, btnCalc,
-                Note("Chọn HSBA → Kiểm Tra Dị Ứng (fn_KiemTraDiUngThuoc, run/06.sql)."))));
+                Note("Chọn hồ sơ → Kiểm tra dị ứng thuốc."))));
             parent.TabPages.Add(page);
             try { LoadGrid(grid, "SELECT MAHSBA, MABN, CHANDOAN FROM QLBV.HSBA WHERE MABS = USER"); } catch { }
         }
@@ -1832,7 +1829,7 @@ namespace PhanHe1.Forms
             var pnl = new Panel { Dock = DockStyle.Fill, Padding = new Padding(24, 20, 24, 20), BackColor = Color.White };
             var lbl = new Label
             {
-                Text = "Gọi QLBV.sp_BGD_ThongBaoOLS (06.sql) khi không phải Ban Giám đốc → AuditFailBGDTaoThongBao.",
+                Text = "Tạo thông báo cấp Ban Giám đốc (chỉ dành cho tài khoản BGD).",
                 AutoSize = true, MaximumSize = new Size(700, 0), Font = new Font("Segoe UI", 10F), ForeColor = UiTheme.DeepBlue
             };
             var txNd = new TextBox { Width = 420, Multiline = true, Height = 80, Text = "[Demo] Bác sĩ cố tạo thông báo BGD" };
@@ -1867,7 +1864,7 @@ namespace PhanHe1.Forms
 
             var lbl = new Label
             {
-                Text = "Gọi QLBV.fn_CheckUserVaiTro — kiểm tra vai trò nghiệp vụ của tài khoản đang đăng nhập",
+                Text = "Kiểm tra vai trò nghiệp vụ của tài khoản đang đăng nhập",
                 AutoSize = true, MaximumSize = new Size(700, 0), Font = new Font("Segoe UI", 10F), ForeColor = UiTheme.DeepBlue
             };
             var cmb = new ComboBox { Width = 320, DropDownStyle = ComboBoxStyle.DropDownList };
@@ -2136,7 +2133,7 @@ namespace PhanHe1.Forms
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        //  KỸ THUẬT VIÊN  (TC#4)
+        //  KỸ THUẬT VIÊN
         // ═══════════════════════════════════════════════════════════════════
 
         private DataGridView dgvKtvDV;
@@ -2146,7 +2143,7 @@ namespace PhanHe1.Forms
             var tabs = MakeTabs();
             var tInfo = MakeTab("Thông Tin Cá Nhân"); 
             var tDV = MakeTab("Dịch Vụ Được Giao");
-            var tTB = MakeTab("Thông Báo Khẩn (OLS)");
+            var tTB = MakeTab("Thông Báo");
             var tDemo = MakeTab("Chức Năng Mở Rộng");
             BuildNV_Info(tInfo);
             BuildKTV_DV(tDV); BuildThongBaoTab(tTB, tabs, ThongBaoSendMode.ViewOnly);
@@ -2206,7 +2203,7 @@ namespace PhanHe1.Forms
             var dt = dgvKtvDV.DataSource as DataTable; if (dt == null) return;
             int n = 0;
             foreach (DataRow r in dt.Rows) if (r.RowState == DataRowState.Modified) try { service.ExecuteNonQuery($"UPDATE QLBV.VW_KTV_XemHSBADV SET KETQUA=N'{Esc(r["KETQUA"].ToString())}' WHERE MAHSBA='{Esc(r["MAHSBA"].ToString())}' AND LOAIDV=N'{Esc(r["LOAIDV"].ToString())}' AND NGAYDV=TO_DATE('{Convert.ToDateTime(r["NGAYDV"]):dd/MM/yyyy}','DD/MM/YYYY')"); n++; } catch (Exception ex) { Err(ex.Message); }
-            if (n > 0) { Ok($"Đã lưu kết quả {n} dịch vụ (ghi vết audit)."); LoadGrid(dgvKtvDV, "SELECT * FROM QLBV.VW_KTV_XemHSBADV"); } else Ok("Không có thay đổi nào.");
+            if (n > 0) { Ok($"Đã lưu kết quả {n} dịch vụ."); LoadGrid(dgvKtvDV, "SELECT * FROM QLBV.VW_KTV_XemHSBADV"); } else Ok("Không có thay đổi nào.");
         }
 
         // ═══════════════════════════════════════════════════════════════════
@@ -2361,7 +2358,7 @@ namespace PhanHe1.Forms
         {
             var tabs = MakeTabs();
             var tInfo = MakeTab("Thông Tin Cá Nhân");
-            var tTB = MakeTab("Thông Báo Khẩn (OLS)");
+            var tTB = MakeTab("Thông Báo");
 
             BuildNV_Info(tInfo);
             BuildThongBaoTab(tTB, tabs, ThongBaoSendMode.BgdProcedure);
@@ -2372,12 +2369,12 @@ namespace PhanHe1.Forms
         private void BuildAdminInterface(Panel parent)
         {
             var tabs = MakeTabs();
-            var tTB     = MakeTab("Thông Báo Khẩn (OLS)");
-            var tAudit  = MakeTab("Kiểm Toán (Audit)");
-            var tBackup = MakeTab("Sao Lưu (Backup)");
+            var tTB     = MakeTab("Thông Báo");
+            var tAudit  = MakeTab("Kiểm Toán");
+            var tBackup = MakeTab("Sao Lưu");
             var tTK     = MakeTab("Quản Lý Tài Khoản");
 
-            var tOLS = MakeTab("OLS Bảo Mật");
+            var tOLS = MakeTab("Phân Quyền OLS");
 
             BuildThongBaoTab(tTB, tabs, ThongBaoSendMode.AdminOlsPicker);
             BuildAdmin_Audit(tAudit);
@@ -2400,17 +2397,12 @@ namespace PhanHe1.Forms
             var grid    = MakeGrid(true);
 
             // ── §3.4.5: Tất cả QLBV (tổng hợp Standard + FGA)
-            var btnAll  = QuickBtn("Tất Cả QLBV",           Color.FromArgb(210, 220, 230), UiTheme.DeepBlue,                 175);
-            // ── §3.4.1: Đăng nhập thất bại (AuditSession)
-            var btnLog  = QuickBtn("Đăng Nhập Thất Bại",    Color.FromArgb(206, 17,  38),  UiTheme.WhiteText,                175);
-            // ── §3.4.2: Standard Audit — run/06.sql §3.2 + 08.sql archive (NC1–NC9b)
-            var btnStd  = QuickBtn("Standard Audit (§3.4.2)", Color.FromArgb(0,  120, 180), UiTheme.WhiteText,                185);
-            // ── §3.4.3: FGA policies (AuditSuaDonThuoc, AuditBSUpdateHSBA, AuditKTVUpdateKetQua)
-            var btnFga  = QuickBtn("FGA Policies (§3.4.3)",  Color.FromArgb(120, 80, 180),  UiTheme.WhiteText,                170);
-            // ── §3.3.a: FGA AuditSuaDonThuoc + Standard AuditSucBSUpdateDT
-            var btnDT   = QuickBtn("Đơn Thuốc (§3.3.a)",    Color.FromArgb(30,  160, 100),  UiTheme.WhiteText,                155);
-            // ── §3.4.4: Thao tác bất hợp pháp (AuditIllegalUpdateHSBA, AuditIllegalHSBADV)
-            var btnIll  = QuickBtn("Bất Hợp Pháp (§3.4.4)",   Color.FromArgb(180,  60,  60),  UiTheme.WhiteText,                175);
+            var btnAll  = QuickBtn("Tất cả",                Color.FromArgb(210, 220, 230), UiTheme.DeepBlue,                 120);
+            var btnLog  = QuickBtn("Đăng nhập thất bại",    Color.FromArgb(206, 17,  38),  UiTheme.WhiteText,                165);
+            var btnStd  = QuickBtn("Nghiệp vụ",            Color.FromArgb(0,  120, 180), UiTheme.WhiteText,                120);
+            var btnFga  = QuickBtn("Chi tiết FGA",          Color.FromArgb(120, 80, 180),  UiTheme.WhiteText,                130);
+            var btnDT   = QuickBtn("Đơn thuốc",             Color.FromArgb(30,  160, 100),  UiTheme.WhiteText,                115);
+            var btnIll  = QuickBtn("Truy cập trái phép",    Color.FromArgb(180,  60,  60),  UiTheme.WhiteText,                165);
 
             btnAll.Click  += (s, e) => LoadAuditData(grid);
             btnLog.Click  += (s, e) => LoadLoginFailures(grid);
@@ -2442,7 +2434,7 @@ namespace PhanHe1.Forms
             bar.Controls.Add(btnFga);
             bar.Controls.Add(btnDT);
             bar.Controls.Add(btnIll);
-            bar.Controls.Add(Note("Live: UNIFIED_AUDIT_TRAIL  |  Archive: Backup → Scheduler"));
+            bar.Controls.Add(Note("Nguồn: UNIFIED_AUDIT_TRAIL  |  Archive: Sao Lưu → Scheduler"));
 
             var wrapper = new Panel { Dock = DockStyle.Fill };
             wrapper.Controls.Add(grid);
@@ -2507,7 +2499,7 @@ namespace PhanHe1.Forms
             catch (Exception ex)
             {
                 grid.DataSource = null;
-                Err("Không thể tải Standard Audit:\n" + ex.Message);
+                Err("Không thể tải nhật ký nghiệp vụ:\n" + ex.Message);
             }
         }
 
@@ -2548,14 +2540,28 @@ namespace PhanHe1.Forms
                 string sql = $@"
                     SELECT
                         TO_CHAR(EVENT_TIMESTAMP, 'DD/MM/YYYY HH24:MI:SS') AS ""THỜI GIAN"",
-                        DBUSERNAME          AS ""NGƯỜI DÙNG"",
-                        FGA_POLICY_NAME     AS ""FGA POLICY"",
-                        OBJECT_NAME         AS ""ĐỐI TƯỢNG"",
-                        RETURN_CODE         AS ""MÃ KQ"",
-                        SQL_TEXT            AS ""CÂU SQL""
+                        TO_CHAR(DBUSERNAME)         AS ""NGƯỜI DÙNG"",
+                        TO_CHAR(FGA_POLICY_NAME)    AS ""FGA POLICY"",
+                        TO_CHAR(OBJECT_NAME)        AS ""ĐỐI TƯỢNG"",
+                        TO_CHAR(RETURN_CODE)        AS ""MÃ KQ"",
+                        TO_CHAR(SQL_TEXT)           AS ""CÂU SQL""
                     FROM UNIFIED_AUDIT_TRAIL
                     WHERE UPPER(FGA_POLICY_NAME) IN ({AuditFgaPolicyInList})
-                    ORDER BY EVENT_TIMESTAMP DESC
+
+                    UNION ALL
+
+                    SELECT
+                        TO_CHAR(TIMESTAMP, 'DD/MM/YYYY HH24:MI:SS'),
+                        TO_CHAR(DB_USER),
+                        TO_CHAR(UPPER(POLICY_NAME)),
+                        TO_CHAR(OBJECT_NAME),
+                        '0', 
+                        TO_CHAR(SQL_TEXT)
+                    FROM DBA_FGA_AUDIT_TRAIL
+                    WHERE OBJECT_SCHEMA = 'QLBV'
+                    AND UPPER(POLICY_NAME) IN ({AuditFgaPolicyInList})
+
+                    ORDER BY 1 DESC 
                     FETCH FIRST 200 ROWS ONLY";
                 grid.DataSource = service.Query(sql);
                 UiTheme.StyleGrid(grid);
@@ -2563,7 +2569,7 @@ namespace PhanHe1.Forms
             catch (Exception ex)
             {
                 grid.DataSource = null;
-                Err("Không thể tải FGA Audit:\n" + ex.Message);
+                Err("Không thể tải nhật ký chi tiết (FGA):\n" + ex.Message);
             }
         }
 
@@ -2662,7 +2668,7 @@ namespace PhanHe1.Forms
         private Action BuildBackup_DataPump(TabPage tab, TabControl subTabs)
         {
             var pnl     = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 14, 20, 0), BackColor = Color.White };
-            var lblTitle = new Label { Text = "Oracle Data Pump — Sao Lưu & Phục Hồi  (07.sql [07-SYSDBA-01, 07-CMD])", Font = new Font("Segoe UI", 12F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 34 };
+            var lblTitle = new Label { Text = "Oracle Data Pump — Sao Lưu & Phục Hồi", Font = new Font("Segoe UI", 12F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 34 };
 
             var btnBackupSchema  = QuickBtn("Backup Schema QLBV",     UiTheme.BrandeisBlue,       UiTheme.WhiteText, 192, 38);
             var btnBackupTables  = QuickBtn("Backup Bảng Quan Trọng", Color.FromArgb(0, 140, 200), UiTheme.WhiteText, 200, 38);
@@ -2677,11 +2683,7 @@ namespace PhanHe1.Forms
             foreach (var b in new Control[] { btnBackupSchema, btnBackupTables, btnRestoreSchema, btnRestoreFull, btnRestoreTable, btnCheckDir, btnTableList, btnRowCount })
                 flowBtn.Controls.Add(b);
 
-            bool canRunFullSchemaRestore = service.IsAdminSession && !string.Equals(currentUser, "QLBV", StringComparison.OrdinalIgnoreCase);
-            btnRestoreFull.Visible = canRunFullSchemaRestore;
-            btnRestoreFull.Enabled = canRunFullSchemaRestore;
-
-            var lblHist  = new Label { Text = "Lịch Sử Sao Lưu — QLBV.BACKUP_HISTORY  (08.sql [08-QLBV-01])", Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 24 };
+            var lblHist  = new Label { Text = "Lịch Sử Sao Lưu — QLBV.BACKUP_HISTORY", Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 24 };
             var btnReH   = QuickBtn("Tải Lại", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 78, 26);
             var barHist  = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 30, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 2, 0, 2), BackColor = Color.White };
             barHist.Controls.Add(btnReH);
@@ -2722,7 +2724,7 @@ namespace PhanHe1.Forms
                     if (dt.Rows.Count > 0)
                         foreach (DataRow r in dt.Rows) txtLog.AppendText($"  {r[0],-16} {r[1]}\r\n");
                     else
-                        txtLog.AppendText("  (Chưa có BACKUP_DIR — cần chạy 07.sql [07-SYSDBA-01] bằng SYSDBA)\r\n");
+                        txtLog.AppendText("  (Chưa có BACKUP_DIR — cần tạo Oracle directory BACKUP_DIR bằng quyền SYSDBA)\r\n");
                     txtLog.AppendText("SQL> SELECT grantee, privilege FROM dba_tab_privs WHERE table_name = 'BACKUP_DIR';\r\n");
                     var dtG = service.Query("SELECT GRANTEE, PRIVILEGE FROM DBA_TAB_PRIVS WHERE TABLE_NAME = 'BACKUP_DIR' ORDER BY GRANTEE");
                     foreach (DataRow r in dtG.Rows) txtLog.AppendText($"  {r[0],-16} {r[1]}\r\n");
@@ -3092,10 +3094,10 @@ namespace PhanHe1.Forms
         private void BuildBackup_CmdPanel(TabPage tab)
         {
             var pnl     = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 14, 20, 0), BackColor = Color.White };
-            var lblTitle = new Label { Text = "Lệnh expdp / impdp — Tham Chiếu CMD  (07.sql [07-CMD])", Font = new Font("Segoe UI", 12F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 34 };
+            var lblTitle = new Label { Text = "Lệnh expdp / impdp — Tham Chiếu CMD", Font = new Font("Segoe UI", 12F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 34 };
             var lblDesc  = new Label
             {
-                Text = "Tab tham chiếu / fallback: nghiệp vụ chính dùng tab Data Pump (1-click). Ở đây chỉ sao chép hoặc chạy lệnh CMD khi cần debug / chấm điểm script 07.sql.",
+                Text = "Tab tham chiếu / fallback: nghiệp vụ chính dùng tab Data Pump (1-click). Ở đây chỉ sao chép hoặc chạy lệnh CMD thủ công khi cần.",
                 Font = new Font("Segoe UI", 9F),
                 ForeColor = Color.FromArgb(90, 90, 110),
                 Dock = DockStyle.Top,
@@ -3320,7 +3322,7 @@ namespace PhanHe1.Forms
             gridR.Dock = DockStyle.Fill;
             var btnRR    = QuickBtn("Tải Lại",               Color.FromArgb(210, 220, 230), UiTheme.DeepBlue,  78, 26);
             var btnAdd   = QuickBtn("+ Ghi Nhận Phục Hồi",  UiTheme.BrandeisBlue,          UiTheme.WhiteText, 188, 26);
-            var btnAudit = QuickBtn("Phân Tích Sự Cố (09.sql)", Color.FromArgb(80, 80, 120), UiTheme.WhiteText, 232, 26);
+            var btnAudit = QuickBtn("Phân Tích Sự Cố", Color.FromArgb(80, 80, 120), UiTheme.WhiteText, 160, 26);
             var barR     = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 30, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 2, 0, 2), BackColor = Color.White };
             barR.Controls.AddRange(new Control[] { btnRR, btnAdd, btnAudit });
             var lblR = new Label { Text = "QLBV.RESTORE_HISTORY — Lịch Sử Phục Hồi", Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 26 };
@@ -3339,13 +3341,13 @@ namespace PhanHe1.Forms
             // 09.sql Phần IV: query audit trail xác định sự cố trước khi restore
             btnAudit.Click += (s, e) =>
             {
-                var dlg    = new Form { Text = "Phân Tích Sự Cố — Audit Trail  (09.sql Phần IV + 08.sql Archive)", Width = 1100, Height = 600, StartPosition = FormStartPosition.CenterParent };
+                var dlg    = new Form { Text = "Phân Tích Sự Cố — Audit Trail", Width = 1100, Height = 600, StartPosition = FormStartPosition.CenterParent };
                 var gAudit = MakeGrid(true);
                 var cmb    = new ComboBox { Width = 480, DropDownStyle = ComboBoxStyle.DropDownList, Margin = new Padding(4, 4, 8, 0) };
                 cmb.Items.AddRange(new object[] {
                     "Theo tên bảng (BENHNHAN/HSBA/HSBA_DV/DONTHUOC/NHANVIEN)",
-                    "Theo audit policy — UNIFIED_AUDIT_TRAIL (NC1–NC9 + Illegal + FGA)",
-                    "AUDIT_ARCHIVE_LOG — nhật ký đã archive (08.sql)",
+                    "Theo chính sách audit — UNIFIED_AUDIT_TRAIL",
+                    "AUDIT_ARCHIVE_LOG — nhật ký đã archive",
                     "FGA trail riêng (DBA_FGA_AUDIT_TRAIL)"
                 });
                 cmb.SelectedIndex = 0;
@@ -3403,7 +3405,7 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
             // 08.sql [08-QLBV-01]: INSERT vào restore_history sau impdp / flashback
             btnAdd.Click += (s, e) =>
             {
-                var dlg    = new Form { Text = "Ghi Nhận Kết Quả Phục Hồi — QLBV.RESTORE_HISTORY  (08.sql [08-QLBV-01])", Width = 520, Height = 340, StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false };
+                var dlg    = new Form { Text = "Ghi Nhận Kết Quả Phục Hồi", Width = 520, Height = 340, StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false };
                 var layout = new TableLayoutPanel { ColumnCount = 2, Dock = DockStyle.Fill, Padding = new Padding(16, 10, 16, 0) };
                 layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140F));
                 layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 320F));
@@ -3470,13 +3472,13 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
 
             var lblTitle = new Label
             {
-                Text = "Khôi Phục Dữ Liệu Qua Flashback Query  (run/05.sql §Câu 4)",
+                Text = "Khôi Phục Dữ Liệu Qua Flashback Query",
                 Font = new Font("Segoe UI", 13F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue,
                 Dock = DockStyle.Top, Height = 38
             };
             var lblDesc = new Label
             {
-                Text = "Thực hiện theo 3 bước (khớp run/05.sql §Câu 4):  Bước 1 → FLASH_TS + CCCD/NGAYSINH  |  Bước 2 → giả lập hỏng CCCD  |  Bước 3 → SET (CCCD, NGAYSINH) AS OF TIMESTAMP",
+                Text = "Thực hiện theo 3 bước:  Bước 1 → ghi mốc thời gian + CCCD/NGAYSINH  |  Bước 2 → giả lập hỏng CCCD  |  Bước 3 → khôi phục AS OF TIMESTAMP",
                 Font = new Font("Segoe UI", 9F), ForeColor = Color.FromArgb(90, 90, 110),
                 Dock = DockStyle.Top, Height = 26, AutoSize = false
             };
@@ -3587,10 +3589,10 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
                     txtLog.AppendText($"   (Bước 1 ghi nhận dữ liệu HIỆN TẠI trong DB — không đọc từ file insert)\r\n");
                     if (cccd == "999999999999")
                     {
-                        txtLog.AppendText($"\r\n   ⚠ CCCD đang là 999999999999 — có thể đã chạy demo Bước 2/05.sql trước đó mà chưa khôi phục.\r\n");
-                        txtLog.AppendText($"   Seed gốc BN000001: CCCD = 970000000001. Chạy trước khi demo:\r\n");
+                        txtLog.AppendText($"\r\n   ⚠ CCCD đang là 999999999999 — có thể đã chạy Bước 2 trước đó mà chưa khôi phục.\r\n");
+                        txtLog.AppendText($"   Giá trị gốc BN000001: CCCD = 970000000001. Khôi phục trước khi chạy lại:\r\n");
                         txtLog.AppendText($"   UPDATE QLBV.BENHNHAN SET CCCD = '970000000001' WHERE MABN = 'BN000001'; COMMIT;\r\n");
-                        Err("CCCD hiện tại là 999999999999 (dữ liệu demo cũ). Khôi phục về 970000000001 trước khi chạy lại Bước 1 → 2 → 3.");
+                        Err("CCCD hiện tại là 999999999999. Khôi phục về 970000000001 trước khi chạy lại Bước 1 → 2 → 3.");
                         return;
                     }
                     txtLog.AppendText($"   => Tiếp theo: Bấm Bước 2 để giả lập dữ liệu bị hỏng.\r\n");
@@ -3699,12 +3701,12 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
         private void BuildBackup_FlashbackTable(TabPage tab)
         {
             const string tbl = "QLBV.DONTHUOC";
-            const string corruptLieudung = "Dữ liệu bị sửa nhầm/phá hoại trong kịch bản demo Flashback";
+            const string corruptLieudung = "Dữ liệu bị sửa nhầm — cần phục hồi";
 
             var pnl     = new Panel { Dock = DockStyle.Fill, Padding = new Padding(24, 16, 24, 0), BackColor = Color.White };
             var lblTitle = new Label
             {
-                Text = "Flashback Table — Phục Hồi Bảng Đơn Thuốc  (08.sql [08-FLASHBACK])",
+                Text = "Flashback Table — Phục Hồi Bảng Đơn Thuốc",
                 Font = new Font("Segoe UI", 12F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue,
                 Dock = DockStyle.Top, Height = 34
             };
@@ -3728,8 +3730,8 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
             var btnS3  = QuickBtn("Bước 3: FLASHBACK TABLE",     Color.FromArgb(30, 160, 100),  UiTheme.WhiteText, 210, 40);
             flowSteps.Controls.AddRange(new Control[] { btnS1, btnS2, dtpFT, btnS3 });
 
-            var lblDtp = new Label { Text = "← BEFORE_INCIDENT_TIME (tự điền sau Bước 1) — khớp TO_TIMESTAMP(..., 'yyyy-mm-dd hh24:mi:ss')", Font = new Font("Segoe UI", 8.5F), ForeColor = Color.FromArgb(100, 100, 120), Dock = DockStyle.Top, Height = 20, AutoSize = false };
-            var txtLog = new TextBox { Multiline = true, Dock = DockStyle.Bottom, Height = 360, ReadOnly = true, BackColor = Color.Black, ForeColor = Color.Lime, Font = new Font("Consolas", 10.5F), ScrollBars = ScrollBars.Vertical, Text = "SQL> -- 08.sql [08-FLASHBACK]: Bấm 'Xem Dữ Liệu' bất cứ lúc nào, hoặc Bước 1 → 2 → 3.\r\n" };
+            var lblDtp = new Label { Text = "← Mốc thời gian phục hồi (tự điền sau Bước 1)", Font = new Font("Segoe UI", 8.5F), ForeColor = Color.FromArgb(100, 100, 120), Dock = DockStyle.Top, Height = 20, AutoSize = false };
+            var txtLog = new TextBox { Multiline = true, Dock = DockStyle.Bottom, Height = 360, ReadOnly = true, BackColor = Color.Black, ForeColor = Color.Lime, Font = new Font("Consolas", 10.5F), ScrollBars = ScrollBars.Vertical, Text = "SQL> Bấm 'Xem Dữ Liệu' bất cứ lúc nào, hoặc Bước 1 → 2 → 3.\r\n" };
 
             string savedTsFT = null;
 
@@ -3799,7 +3801,7 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
             {
                 if (savedTsFT == null) { Err("Vui lòng thực hiện Bước 1 trước."); return; }
                 string corruptSql = $"UPDATE {tbl} SET LIEUDUNG = N'{corruptLieudung}' WHERE ROWNUM = 1";
-                if (MessageBox.Show($"Sẽ thực thi (08.sql [08-FLASHBACK]):\r\n\r\n{corruptSql};\r\nCOMMIT;\r\n\r\nXác nhận?", "Bước 2 - Giả Lập Sự Cố", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+                if (MessageBox.Show($"Sẽ thực thi:\r\n\r\n{corruptSql};\r\nCOMMIT;\r\n\r\nXác nhận?", "Bước 2 - Giả Lập Sự Cố", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
                 try
                 {
                     txtLog.AppendText($"\r\nSQL> {corruptSql};\r\n");
@@ -3860,7 +3862,7 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
         private void BuildBackup_Scheduler(TabPage tab)
         {
             var pnl     = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 14, 20, 0), BackColor = Color.White };
-            var lblTitle = new Label { Text = "Scheduler — Archive Audit Tự Động  (08.sql [08-QLBV-03])", Font = new Font("Segoe UI", 12F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 34 };
+            var lblTitle = new Label { Text = "Scheduler — Archive Audit Tự Động", Font = new Font("Segoe UI", 12F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 34 };
 
             var btnRunNow  = QuickBtn("▶ Chạy Archive Ngay",   UiTheme.BrandeisBlue,        UiTheme.WhiteText, 188, 38);
             var btnEnable  = QuickBtn("✔ Bật Job",              Color.FromArgb(30, 160, 80),  UiTheme.WhiteText, 108, 38);
@@ -3884,7 +3886,7 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
             splitOuter.Panel1.Controls.Add(pnlJob);
             var pnlArchive = new Panel { Dock = DockStyle.Fill };
             pnlArchive.Controls.Add(gridArchive);
-            pnlArchive.Controls.Add(new Label { Text = "QLBV.AUDIT_ARCHIVE_LOG — Nhật ký đã archive (08.sql [08-QLBV-01])", Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 24 });
+            pnlArchive.Controls.Add(new Label { Text = "QLBV.AUDIT_ARCHIVE_LOG — Nhật ký đã archive", Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 24 });
             splitOuter.Panel2.Controls.Add(pnlArchive);
 
             var txtOut = new TextBox { Multiline = true, Dock = DockStyle.Fill, ReadOnly = true, BackColor = Color.Black, ForeColor = Color.Lime, Font = new Font("Consolas", 10F), ScrollBars = ScrollBars.Vertical, Text = "C:\\Oracle> Scheduler console sẵn sàng.\r\n" };
@@ -3922,7 +3924,7 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
             {
                 if (MessageBox.Show(
                     "Sẽ thực thi QLBV.PR_AUTO_ARCHIVE_AUDIT_LOG.\n\n" +
-                    "Gom UNIFIED_AUDIT_TRAIL (NC1–NC9 + Illegal + FGA + LOGON) → AUDIT_ARCHIVE_LOG\n" +
+                    "Gom nhật ký audit từ UNIFIED_AUDIT_TRAIL vào AUDIT_ARCHIVE_LOG\n" +
                     "và ghi BACKUP_HISTORY (AUDIT_LOG_AUTO).\n\nXác nhận?",
                     "Chạy Archive Ngay", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
 
@@ -4527,7 +4529,7 @@ END;";
             btnSync.Click += (s, e) => SyncOlsLabels(grid);
 
             tab.Controls.Add(Wrap(grid, Toolbar(btnRe, txtS, btnS, btnSync,
-                Note("Nhãn OLS xác định hàng nào trong THONGBAO mỗi user được đọc.  |  'Đồng Bộ' tính lại theo CAPBAC/MAKHOA/COSO từ run/06.sql."))));
+                Note("Nhãn OLS xác định hàng nào trong THONGBAO mỗi user được đọc.  |  'Đồng Bộ' tính lại theo CAPBAC/MAKHOA/COSO."))));
             // Lazy load: chỉ query DBA_SA_USER_LABELS khi user mở tab lần đầu
             bool _olsULLoaded = false;
             tab.Enter += (s, e) => { if (_olsULLoaded) return; _olsULLoaded = true; LoadOlsUserLabels(grid, ""); };
@@ -4626,7 +4628,7 @@ BEGIN
         END;
     END LOOP;
 END;");
-                Ok("Đã đồng bộ nhãn OLS theo run/06.sql PHẦN I.");
+                Ok("Đã đồng bộ nhãn OLS cho toàn bộ nhân viên.");
                 LoadOlsUserLabels(grid, "");
             }
             catch (Exception ex) { Err(ex.Message); }
@@ -4688,7 +4690,7 @@ END;");
                 ForeColor = Color.FromArgb(100, 100, 120),
                 Margin = new Padding(4, 10, 0, 0),
                 Font = new Font("Segoe UI", 8.5F),
-                Text = "Mở tab để tải thông báo (OLS — run/06.sql PHẦN I)."
+                Text = "Mở tab để tải thông báo."
             };
 
             bool showOlsColumn = sendMode != ThongBaoSendMode.ViewOnly;
@@ -4755,7 +4757,7 @@ END;");
             Panel toolbar;
             if (sendMode == ThongBaoSendMode.AdminOlsPicker)
             {
-                var btnSend = QuickBtn("+ Gửi Thông Báo Khẩn", UiTheme.PastelGreen, UiTheme.DeepBlue, 190);
+                var btnSend = QuickBtn("+ Gửi Thông Báo", UiTheme.PastelGreen, UiTheme.DeepBlue, 170);
                 btnSend.Click += (s, e) => GuiThongBaoAdmin(LoadThongBao);
                 toolbar = Toolbar(btnSend, btnRe, lblInfo, Note("QLBV: INSERT + chọn nhãn OLS."));
             }
@@ -4779,7 +4781,7 @@ END;");
                     try
                     {
                         InsertThongBao(f.NoiDung, f.NgayGio, f.DiaDiem, f.OlsLabel);
-                        Ok($"Đã gửi thông báo khẩn!\nNhãn OLS: {(string.IsNullOrEmpty(f.OlsLabel) ? "(mặc định QLBV)" : f.OlsLabel)}");
+                        Ok($"Đã gửi thông báo!\nNhãn OLS: {(string.IsNullOrEmpty(f.OlsLabel) ? "(mặc định QLBV)" : f.OlsLabel)}");
                         afterSend?.Invoke();
                     }
                     catch (Exception ex) { Err(ex.Message); }
@@ -4834,12 +4836,12 @@ END;");
                         {
                             service.ExecuteNonQuery(
                                 $"BEGIN QLBV.sp_BGD_ThongBaoOLS(N'{Esc(f.NoiDung)}', N'{Esc(f.DiaDiem)}'); END;");
-                            Ok($"Đã gửi thông báo khẩn!\n\nChi nhánh: {coSo}\nNhãn OLS: {ComputeBgdWriteLabel(coSo)}\nPolicy: AuditSucBGDTaoThongBao (NC9)");
+                            Ok($"Đã gửi thông báo!\n\nChi nhánh: {coSo}\nNhãn OLS: {ComputeBgdWriteLabel(coSo)}");
                         }
                         else
                         {
                             InsertThongBao(f.NoiDung, f.NgayGio, f.DiaDiem, label);
-                            Ok($"Đã gửi thông báo khẩn!\n\nChi nhánh: {coSo}\nĐối tượng: {f.SelectedLevel}\nNhãn OLS: {label}");
+                            Ok($"Đã gửi thông báo!\n\nChi nhánh: {coSo}\nĐối tượng: {f.SelectedLevel}\nNhãn OLS: {label}");
                         }
                         afterSend?.Invoke();
                     }
@@ -6608,8 +6610,8 @@ END;");
             _bgdMode = !string.IsNullOrEmpty(fixedGroupCode);
 
             Text = _bgdMode
-                ? "Gửi Thông Báo Khẩn — Ban Giám Đốc"
-                : "Gửi Thông Báo Khẩn — Chọn Nhãn OLS";
+                ? "Gửi Thông Báo — Ban Giám Đốc"
+                : "Gửi Thông Báo — Chọn Nhãn OLS";
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
@@ -7220,7 +7222,7 @@ END;");
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
             layout.Controls.Add(new Label
             {
-                Text = "Sửa MAHSBA/NGAYĐT bất thường sẽ ghi FGA AuditSuaDonThuoc (Yêu cầu 3.a).",
+                Text = "Thay đổi mã HSBA hoặc ngày kê đơn sẽ được hệ thống ghi nhận trong nhật ký kiểm toán.",
                 ForeColor = Color.FromArgb(90, 70, 0), AutoSize = true,
                 Font = new Font("Segoe UI", 8.5F, FontStyle.Italic), Margin = new Padding(0, 2, 0, 2)
             }, 0, row);
