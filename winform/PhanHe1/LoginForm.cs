@@ -264,12 +264,24 @@ namespace PhanHe1
 
             try
             {
-                AuthenticatedService = OracleAdminService.Login(
-                    txtHost.Text.Trim(),
-                    txtPort.Text.Trim(),
-                    txtService.Text.Trim(),
-                    txtUser.Text.Trim(),
-                    txtPassword.Text);
+                // If user is SYS, attempt to connect AS SYSDBA
+                if (string.Equals(txtUser.Text.Trim(), "SYS", StringComparison.OrdinalIgnoreCase))
+                {
+                    AuthenticatedService = OracleAdminService.LoginAsSys(
+                        txtHost.Text.Trim(),
+                        txtPort.Text.Trim(),
+                        txtService.Text.Trim(),
+                        txtPassword.Text);
+                }
+                else
+                {
+                    AuthenticatedService = OracleAdminService.Login(
+                        txtHost.Text.Trim(),
+                        txtPort.Text.Trim(),
+                        txtService.Text.Trim(),
+                        txtUser.Text.Trim(),
+                        txtPassword.Text);
+                }
 
                 DialogResult = DialogResult.OK;
                 Close();
