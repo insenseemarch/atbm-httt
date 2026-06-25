@@ -2838,14 +2838,12 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             var btnLog = QuickBtn("Đăng nhập thất bại", Color.FromArgb(206, 17, 38), UiTheme.WhiteText, 165);
             var btnStd = QuickBtn("Nghiệp vụ", Color.FromArgb(0, 120, 180), UiTheme.WhiteText, 120);
             var btnFga = QuickBtn("Chi tiết FGA", Color.FromArgb(120, 80, 180), UiTheme.WhiteText, 130);
-            var btnDT = QuickBtn("Đơn thuốc", Color.FromArgb(30, 160, 100), UiTheme.WhiteText, 115);
             var btnIll = QuickBtn("Truy cập trái phép", Color.FromArgb(180, 60, 60), UiTheme.WhiteText, 165);
 
             btnAll.Click += (s, e) => LoadAuditData(grid);
             btnLog.Click += (s, e) => LoadLoginFailures(grid);
             btnStd.Click += (s, e) => LoadStandardAudit(grid);
             btnFga.Click += (s, e) => LoadFgaAudit(grid);
-            btnDT.Click += (s, e) => LoadDonThuocAudit(grid);
             btnIll.Click += (s, e) => LoadIllegalAudit(grid);
 
             grid.CellDoubleClick += (s, e) => {
@@ -2872,7 +2870,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             bar.Controls.Add(btnLog);
             bar.Controls.Add(btnStd);
             bar.Controls.Add(btnFga);
-            bar.Controls.Add(btnDT);
             bar.Controls.Add(btnIll);
             bar.Controls.Add(Note("Nguồn: UNIFIED_AUDIT_TRAIL  |  Archive: Sao Lưu → Scheduler"));
 
@@ -3011,40 +3008,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             {
                 grid.DataSource = null;
                 Err("Không thể tải nhật ký chi tiết (FGA):\n" + ex.Message);
-            }
-        }
-
-        // ── §3.3.a: FGA AuditSuaDonThuoc + Standard AuditSucBSUpdateDT (run/06.sql)
-        private void LoadDonThuocAudit(DataGridView grid)
-        {
-            try
-            {
-                string sql = @"
-                    SELECT
-                        TO_CHAR(EVENT_TIMESTAMP, 'DD/MM/YYYY HH24:MI:SS') AS ""THỜI GIAN"",
-                        DBUSERNAME                AS ""NGƯỜI DÙNG"",
-                        ACTION_NAME               AS ""HÀNH ĐỘNG"",
-                        OBJECT_SCHEMA             AS ""SCHEMA"",
-                        OBJECT_NAME               AS ""ĐỐI TƯỢNG"",
-                        RETURN_CODE               AS ""MÃ KQ"",
-                        NVL(FGA_POLICY_NAME, UNIFIED_AUDIT_POLICIES) AS ""POLICY"",
-                        SQL_TEXT                  AS ""CÂU SQL""
-                    FROM UNIFIED_AUDIT_TRAIL
-                    WHERE (
-                        UPPER(FGA_POLICY_NAME) = 'AUDITSUADONTHUOC'
-                        OR UPPER(UNIFIED_AUDIT_POLICIES) = 'AUDITSUCBSUPDATEDT'
-                        OR (OBJECT_SCHEMA = 'QLBV' AND OBJECT_NAME = 'DONTHUOC'
-                            AND ACTION_NAME IN ('INSERT','UPDATE'))
-                    )
-                    ORDER BY EVENT_TIMESTAMP DESC
-                    FETCH FIRST 200 ROWS ONLY";
-                grid.DataSource = service.Query(sql);
-                UiTheme.StyleGrid(grid);
-            }
-            catch (Exception ex)
-            {
-                grid.DataSource = null;
-                Err("Không thể tải nhật ký đơn thuốc:\n" + ex.Message);
             }
         }
 
