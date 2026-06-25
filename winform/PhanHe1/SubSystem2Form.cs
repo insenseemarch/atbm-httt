@@ -156,11 +156,11 @@ namespace PhanHe1.Forms
             string roleId = null;
             switch (userRole)
             {
-                case UserRole.DPV: 
+                case UserRole.DPV:
                 case UserRole.GIAMDOC: roleId = "ROLE_DPV"; break;
-                case UserRole.BACSI:   roleId = "ROLE_BACSI"; break;
-                case UserRole.KTV:     roleId = "ROLE_KTV"; break;
-                case UserRole.BN:      roleId = "ROLE_BENHNHAN"; break;
+                case UserRole.BACSI: roleId = "ROLE_BACSI"; break;
+                case UserRole.KTV: roleId = "ROLE_KTV"; break;
+                case UserRole.BN: roleId = "ROLE_BENHNHAN"; break;
 
             }
             if (roleId == null) return;
@@ -1026,13 +1026,13 @@ namespace PhanHe1.Forms
         private void BuildDPVInterface(Panel parent)
         {
             var tabs = MakeTabs();
-            var tInfo = MakeTab("Thông Tin Cá Nhân"); 
+            var tInfo = MakeTab("Thông Tin Cá Nhân");
             var tBN = MakeTab("Bệnh Nhân");
             var tHSBA = MakeTab("Hồ Sơ Bệnh Án");
             var tDV = MakeTab("Điều Phối Dịch Vụ");
             var tTB = MakeTab("Thông Báo");
             var tDemo = MakeTab("Chức Năng Mở Rộng");
-            BuildNV_Info(tInfo); 
+            BuildNV_Info(tInfo);
             BuildDPV_BN(tBN, tabs); BuildDPV_HSBA(tHSBA, tabs); BuildDPV_DV(tDV, tabs); BuildThongBaoTab(tTB, tabs, ThongBaoSendMode.ViewOnly);
             BuildAuditDemoTab(tDemo);
             tabs.TabPages.AddRange(new[] { tInfo, tBN, tHSBA, tDV, tTB, tDemo });
@@ -1264,7 +1264,7 @@ namespace PhanHe1.Forms
         private void BuildBacsiInterface(Panel parent)
         {
             var tabs = MakeTabs();
-            var tInfo = MakeTab("Thông Tin Cá Nhân"); 
+            var tInfo = MakeTab("Thông Tin Cá Nhân");
             var tHSBA = MakeTab("Hồ Sơ Bệnh Án");
             var tBN = MakeTab("Bệnh Nhân");
             var tDV = MakeTab("Dịch Vụ (HSBA_DV)");
@@ -1555,10 +1555,12 @@ namespace PhanHe1.Forms
             {
                 tab.Controls.Add(new Label
                 {
-                    Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter,
+                    Dock = DockStyle.Fill,
+                    TextAlign = ContentAlignment.MiddleCenter,
                     Text = "Chức năng mở rộng dành cho tài khoản nghiệp vụ.\n\n" +
                            "Vui lòng đăng nhập bằng tài khoản điều phối viên, bác sĩ hoặc kỹ thuật viên.",
-                    Font = new Font("Segoe UI", 10F), ForeColor = UiTheme.DeepBlue
+                    Font = new Font("Segoe UI", 10F),
+                    ForeColor = UiTheme.DeepBlue
                 });
                 return;
             }
@@ -1843,7 +1845,10 @@ namespace PhanHe1.Forms
             var lbl = new Label
             {
                 Text = "Tạo thông báo cấp Ban Giám đốc (chỉ dành cho tài khoản BGD).",
-                AutoSize = true, MaximumSize = new Size(700, 0), Font = new Font("Segoe UI", 10F), ForeColor = UiTheme.DeepBlue
+                AutoSize = true,
+                MaximumSize = new Size(700, 0),
+                Font = new Font("Segoe UI", 10F),
+                ForeColor = UiTheme.DeepBlue
             };
             var txNd = new TextBox { Width = 420, Multiline = true, Height = 80, Text = "[Demo] Bác sĩ cố tạo thông báo BGD" };
             var txDd = new TextBox { Width = 420, Text = "Phòng họp A" };
@@ -1961,7 +1966,10 @@ namespace PhanHe1.Forms
             var lbl = new Label
             {
                 Text = "Nhập mã HSBA của bác sĩ khác để cập nhật chẩn đoán (thao tác ngoài phạm vi VPD).",
-                AutoSize = true, MaximumSize = new Size(700, 0), Font = new Font("Segoe UI", 10F), ForeColor = UiTheme.DeepBlue
+                AutoSize = true,
+                MaximumSize = new Size(700, 0),
+                Font = new Font("Segoe UI", 10F),
+                ForeColor = UiTheme.DeepBlue
             };
             var tbl = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, Location = new Point(0, 40), Padding = new Padding(0, 12, 0, 0) };
             tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
@@ -2158,7 +2166,7 @@ namespace PhanHe1.Forms
         private void BuildKTVInterface(Panel parent)
         {
             var tabs = MakeTabs();
-            var tInfo = MakeTab("Thông Tin Cá Nhân"); 
+            var tInfo = MakeTab("Thông Tin Cá Nhân");
             var tDV = MakeTab("Dịch Vụ Được Giao");
             var tTB = MakeTab("Thông Báo");
             var tDemo = MakeTab("Chức Năng Mở Rộng");
@@ -2232,7 +2240,7 @@ namespace PhanHe1.Forms
             var tabs = MakeTabs();
             var tInfo = MakeTab("Thông Tin Cá Nhân");
             BuildBN_Info(tInfo);
-            tabs.TabPages.AddRange(new[] { tInfo});
+            tabs.TabPages.AddRange(new[] { tInfo });
             parent.Controls.Add(tabs);
         }
 
@@ -2386,10 +2394,10 @@ namespace PhanHe1.Forms
         private void BuildAdminInterface(Panel parent)
         {
             var tabs = MakeTabs();
-            var tTB     = MakeTab("Thông Báo");
-            var tAudit  = MakeTab("Kiểm Toán");
+            var tTB = MakeTab("Thông Báo");
+            var tAudit = MakeTab("Kiểm Toán");
             var tBackup = MakeTab("Sao Lưu");
-            var tTK     = MakeTab("Quản Lý Tài Khoản");
+            var tTK = MakeTab("Quản Lý Tài Khoản");
 
             var tOLS = MakeTab("Phân Quyền OLS");
 
@@ -2420,27 +2428,27 @@ namespace PhanHe1.Forms
         //           sys_PH2.sql §3.4 — Query đọc nhật ký
         private void BuildAdmin_Audit(TabPage tab)
         {
-            var grid    = MakeGrid(true);
+            var grid = MakeGrid(true);
 
             // ── §3.4.5: Tất cả QLBV (tổng hợp Standard + FGA)
-            var btnAll  = QuickBtn("Tất cả",                Color.FromArgb(210, 220, 230), UiTheme.DeepBlue,                 120);
-            var btnLog  = QuickBtn("Đăng nhập thất bại",    Color.FromArgb(206, 17,  38),  UiTheme.WhiteText,                165);
-            var btnStd  = QuickBtn("Nghiệp vụ",            Color.FromArgb(0,  120, 180), UiTheme.WhiteText,                120);
-            var btnFga  = QuickBtn("Chi tiết FGA",          Color.FromArgb(120, 80, 180),  UiTheme.WhiteText,                130);
-            var btnDT   = QuickBtn("Đơn thuốc",             Color.FromArgb(30,  160, 100),  UiTheme.WhiteText,                115);
-            var btnIll  = QuickBtn("Truy cập trái phép",    Color.FromArgb(180,  60,  60),  UiTheme.WhiteText,                165);
+            var btnAll = QuickBtn("Tất cả", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 120);
+            var btnLog = QuickBtn("Đăng nhập thất bại", Color.FromArgb(206, 17, 38), UiTheme.WhiteText, 165);
+            var btnStd = QuickBtn("Nghiệp vụ", Color.FromArgb(0, 120, 180), UiTheme.WhiteText, 120);
+            var btnFga = QuickBtn("Chi tiết FGA", Color.FromArgb(120, 80, 180), UiTheme.WhiteText, 130);
+            var btnDT = QuickBtn("Đơn thuốc", Color.FromArgb(30, 160, 100), UiTheme.WhiteText, 115);
+            var btnIll = QuickBtn("Truy cập trái phép", Color.FromArgb(180, 60, 60), UiTheme.WhiteText, 165);
 
-            btnAll.Click  += (s, e) => LoadAuditData(grid);
-            btnLog.Click  += (s, e) => LoadLoginFailures(grid);
-            btnStd.Click  += (s, e) => LoadStandardAudit(grid);
-            btnFga.Click  += (s, e) => LoadFgaAudit(grid);
-            btnDT.Click   += (s, e) => LoadDonThuocAudit(grid);
-            btnIll.Click  += (s, e) => LoadIllegalAudit(grid);
+            btnAll.Click += (s, e) => LoadAuditData(grid);
+            btnLog.Click += (s, e) => LoadLoginFailures(grid);
+            btnStd.Click += (s, e) => LoadStandardAudit(grid);
+            btnFga.Click += (s, e) => LoadFgaAudit(grid);
+            btnDT.Click += (s, e) => LoadDonThuocAudit(grid);
+            btnIll.Click += (s, e) => LoadIllegalAudit(grid);
 
             grid.CellDoubleClick += (s, e) => {
                 if (e.RowIndex < 0) return;
                 string colName = grid.Columns.Contains("CHI TIẾT MÔ TẢ") ? "CHI TIẾT MÔ TẢ"
-                               : grid.Columns.Contains("CÂU SQL")         ? "CÂU SQL" : null;
+                               : grid.Columns.Contains("CÂU SQL") ? "CÂU SQL" : null;
                 if (colName == null) return;
                 var cell = grid.Rows[e.RowIndex].Cells[colName].Value;
                 if (cell != null)
@@ -2450,9 +2458,12 @@ namespace PhanHe1.Forms
             // Toolbar
             var bar = new FlowLayoutPanel
             {
-                Dock = DockStyle.Top, Height = 98,
-                FlowDirection = FlowDirection.LeftToRight, WrapContents = true,
-                Padding = new Padding(8, 6, 8, 4), BackColor = Color.FromArgb(238, 248, 255)
+                Dock = DockStyle.Top,
+                Height = 98,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = true,
+                Padding = new Padding(8, 6, 8, 4),
+                BackColor = Color.FromArgb(238, 248, 255)
             };
             bar.Controls.Add(btnAll);
             bar.Controls.Add(btnLog);
@@ -2505,19 +2516,20 @@ namespace PhanHe1.Forms
         {
             try
             {
-                string sql = $@"
+                string sql = @"
                     SELECT
-                        TO_CHAR(EVENT_TIMESTAMP, 'DD/MM/YYYY HH24:MI:SS') AS ""THỜI GIAN"",
-                        DBUSERNAME                AS ""NGƯỜI DÙNG"",
-                        ACTION_NAME               AS ""HÀNH ĐỘNG"",
-                        OBJECT_SCHEMA             AS ""SCHEMA"",
-                        OBJECT_NAME               AS ""ĐỐI TƯỢNG"",
-                        RETURN_CODE               AS ""MÃ KQ"",
-                        UNIFIED_AUDIT_POLICIES    AS ""POLICY"",
-                        SQL_TEXT                  AS ""CHI TIẾT MÔ TẢ""
-                    FROM UNIFIED_AUDIT_TRAIL
-                    WHERE UPPER(UNIFIED_AUDIT_POLICIES) IN ({AuditStandardPolicyInList})
-                    ORDER BY EVENT_TIMESTAMP DESC
+                        TO_CHAR(TIMESTAMP, 'DD/MM/YYYY HH24:MI:SS') AS ""THỜI GIAN"",
+                        USERNAME                                    AS ""NGƯỜI DÙNG"",
+                        ACTION_NAME                                 AS ""HÀNH ĐỘNG"",
+                        OWNER                                       AS ""SCHEMA"",
+                        OBJ_NAME                                    AS ""ĐỐI TƯỢNG"",
+                        RETURNCODE                                  AS ""MÃ KQ"",
+                        'Standard Audit'                            AS ""POLICY"",
+                        COMMENT_TEXT                                AS ""CHI TIẾT MÔ TẢ""
+                    FROM DBA_AUDIT_TRAIL
+                    WHERE OWNER = 'QLBV'
+                      AND USERNAME NOT IN ('SYS', 'SYSTEM')
+                    ORDER BY TIMESTAMP DESC
                     FETCH FIRST 200 ROWS ONLY";
                 grid.DataSource = service.Query(sql);
                 UiTheme.StyleGrid(grid);
@@ -2640,16 +2652,31 @@ namespace PhanHe1.Forms
             {
                 string sql = @"
                     SELECT
-                        TO_CHAR(EVENT_TIMESTAMP, 'DD/MM/YYYY HH24:MI:SS') AS ""THỜI GIAN"",
-                        DBUSERNAME AS ""NGƯỜI DÙNG"",
+                        TO_CHAR(TIMESTAMP, 'DD/MM/YYYY HH24:MI:SS') AS ""THỜI GIAN"",
+                        USERNAME AS ""NGƯỜI DÙNG"",
                         ACTION_NAME AS ""HÀNH ĐỘNG"",
-                        OBJECT_NAME AS ""ĐỐI TƯỢNG"",
-                        NVL(FGA_POLICY_NAME, UNIFIED_AUDIT_POLICIES) AS ""POLICY"",
-                        SQL_TEXT AS ""CHI TIẾT MÔ TẢ""
+                        OBJ_NAME AS ""ĐỐI TƯỢNG"",
+                        'Standard Audit' AS ""POLICY"",
+                        CAST(COMMENT_TEXT AS VARCHAR2(2000)) AS ""CHI TIẾT MÔ TẢ""
+                    FROM DBA_AUDIT_TRAIL
+                    WHERE OWNER = 'QLBV'
+                      AND USERNAME NOT IN ('SYS', 'SYSTEM') 
+
+                    UNION ALL
+
+                    SELECT
+                        TO_CHAR(EVENT_TIMESTAMP, 'DD/MM/YYYY HH24:MI:SS'),
+                        DBUSERNAME,
+                        ACTION_NAME,
+                        OBJECT_NAME,
+                        NVL(FGA_POLICY_NAME, UNIFIED_AUDIT_POLICIES),
+                        CAST(SQL_TEXT AS VARCHAR2(2000))
                     FROM UNIFIED_AUDIT_TRAIL
                     WHERE OBJECT_SCHEMA = 'QLBV'
                       AND DBUSERNAME NOT IN ('SYS', 'SYSTEM')
-                    ORDER BY EVENT_TIMESTAMP DESC
+                      AND (FGA_POLICY_NAME IS NOT NULL OR UNIFIED_AUDIT_POLICIES IS NOT NULL)
+
+                    ORDER BY 1 DESC
                     FETCH FIRST 200 ROWS ONLY";
 
                 grid.DataSource = service.Query(sql);
@@ -2669,12 +2696,12 @@ namespace PhanHe1.Forms
         private void BuildAdmin_Backup(TabPage tab)
         {
             var subTabs = new TabControl { Dock = DockStyle.Fill };
-            var tPump   = new TabPage("Data Pump");
-            var tCmd    = new TabPage("CMD / PowerShell");
-            var tHist   = new TabPage("Lịch Sử & Phục Hồi");
+            var tPump = new TabPage("Data Pump");
+            var tCmd = new TabPage("CMD / PowerShell");
+            var tHist = new TabPage("Lịch Sử & Phục Hồi");
             var tFlashQ = new TabPage("Flashback Query");
             var tFlashT = new TabPage("Flashback Table");
-            var tSched  = new TabPage("Scheduler");
+            var tSched = new TabPage("Scheduler");
             var refreshPump = BuildBackup_DataPump(tPump, subTabs);
             BuildBackup_CmdPanel(tCmd);
             var refreshHist = BuildBackup_HistoryPanel(tHist, subTabs);
@@ -2693,29 +2720,29 @@ namespace PhanHe1.Forms
         // ── 08.sql [08-QLBV-01]: Data Pump + BACKUP_HISTORY tracking
         private Action BuildBackup_DataPump(TabPage tab, TabControl subTabs)
         {
-            var pnl     = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 14, 20, 0), BackColor = Color.White };
+            var pnl = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 14, 20, 0), BackColor = Color.White };
             var lblTitle = new Label { Text = "Oracle Data Pump — Sao Lưu & Phục Hồi", Font = new Font("Segoe UI", 12F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 34 };
 
-            var btnBackupSchema  = QuickBtn("Backup Schema QLBV",     UiTheme.BrandeisBlue,       UiTheme.WhiteText, 192, 38);
-            var btnBackupTables  = QuickBtn("Backup Bảng Quan Trọng", Color.FromArgb(0, 140, 200), UiTheme.WhiteText, 200, 38);
+            var btnBackupSchema = QuickBtn("Backup Schema QLBV", UiTheme.BrandeisBlue, UiTheme.WhiteText, 192, 38);
+            var btnBackupTables = QuickBtn("Backup Bảng Quan Trọng", Color.FromArgb(0, 140, 200), UiTheme.WhiteText, 200, 38);
             var btnRestoreSchema = QuickBtn("Restore An Toàn", Color.FromArgb(206, 17, 38), UiTheme.WhiteText, 188, 38);
             btnRestoreFull = QuickBtn("Restore Full Schema", Color.FromArgb(150, 45, 45), UiTheme.WhiteText, 172, 38);
-            var btnRestoreTable  = QuickBtn("Restore 1 Bảng (impdp)", Color.FromArgb(180, 60, 40), UiTheme.WhiteText, 178, 38);
-            var btnCheckDir      = QuickBtn("Kiểm Tra BACKUP_DIR",    Color.FromArgb(80, 80, 120), UiTheme.WhiteText, 161, 38);
-            var btnTableList     = QuickBtn("Liệt Kê Bảng NV",      Color.FromArgb(100, 120, 180), UiTheme.WhiteText, 155, 38);
-            var btnRowCount      = QuickBtn("Đếm Số Dòng Bảng",      Color.FromArgb(50, 150, 80), UiTheme.WhiteText, 154, 38);
+            var btnRestoreTable = QuickBtn("Restore 1 Bảng (impdp)", Color.FromArgb(180, 60, 40), UiTheme.WhiteText, 178, 38);
+            var btnCheckDir = QuickBtn("Kiểm Tra BACKUP_DIR", Color.FromArgb(80, 80, 120), UiTheme.WhiteText, 161, 38);
+            var btnTableList = QuickBtn("Liệt Kê Bảng NV", Color.FromArgb(100, 120, 180), UiTheme.WhiteText, 155, 38);
+            var btnRowCount = QuickBtn("Đếm Số Dòng Bảng", Color.FromArgb(50, 150, 80), UiTheme.WhiteText, 154, 38);
 
             var flowBtn = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 138, FlowDirection = FlowDirection.LeftToRight, WrapContents = true, Padding = new Padding(0, 6, 0, 4), BackColor = Color.White };
             foreach (var b in new Control[] { btnBackupSchema, btnBackupTables, btnRestoreSchema, btnRestoreFull, btnRestoreTable, btnCheckDir, btnTableList, btnRowCount })
                 flowBtn.Controls.Add(b);
 
-            var lblHist  = new Label { Text = "Lịch Sử Sao Lưu — QLBV.BACKUP_HISTORY", Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 24 };
-            var btnReH   = QuickBtn("Tải Lại", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 78, 26);
-            var barHist  = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 30, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 2, 0, 2), BackColor = Color.White };
+            var lblHist = new Label { Text = "Lịch Sử Sao Lưu — QLBV.BACKUP_HISTORY", Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 24 };
+            var btnReH = QuickBtn("Tải Lại", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 78, 26);
+            var barHist = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 30, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 2, 0, 2), BackColor = Color.White };
             barHist.Controls.Add(btnReH);
             var gridHist = MakeGrid(true);
             gridHist.Dock = DockStyle.Fill;
-            var txtLog   = new TextBox { Multiline = true, Dock = DockStyle.Fill, ReadOnly = true, BackColor = Color.Black, ForeColor = Color.Lime, Font = new Font("Consolas", 10F), ScrollBars = ScrollBars.Vertical, Text = "C:\\> Sẵn sàng. Bấm nút để thực hiện.\r\n" };
+            var txtLog = new TextBox { Multiline = true, Dock = DockStyle.Fill, ReadOnly = true, BackColor = Color.Black, ForeColor = Color.Lime, Font = new Font("Consolas", 10F), ScrollBars = ScrollBars.Vertical, Text = "C:\\> Sẵn sàng. Bấm nút để thực hiện.\r\n" };
 
             var splitMain = new SplitContainer
             {
@@ -3119,9 +3146,9 @@ namespace PhanHe1.Forms
         // ── 07.sql [07-CMD]: Tham chiếu lệnh expdp/impdp — sao chép hoặc chạy CMD thủ công (fallback)
         private void BuildBackup_CmdPanel(TabPage tab)
         {
-            var pnl     = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 14, 20, 0), BackColor = Color.White };
+            var pnl = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 14, 20, 0), BackColor = Color.White };
             var lblTitle = new Label { Text = "Lệnh expdp / impdp — Tham Chiếu CMD", Font = new Font("Segoe UI", 12F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 34 };
-            var lblDesc  = new Label
+            var lblDesc = new Label
             {
                 Text = "Tab tham chiếu / fallback: nghiệp vụ chính dùng tab Data Pump (1-click). Ở đây chỉ sao chép hoặc chạy lệnh CMD thủ công khi cần.",
                 Font = new Font("Segoe UI", 9F),
@@ -3227,8 +3254,8 @@ namespace PhanHe1.Forms
 
             var txtCmd = new TextBox { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Both, BackColor = Color.FromArgb(20, 26, 32), ForeColor = Color.FromArgb(190, 235, 150), Font = new Font("Consolas", 11F), WordWrap = false, Dock = DockStyle.Fill };
 
-            var btnCopy = QuickBtn("Sao Chép Lệnh",     UiTheme.BrandeisBlue,       UiTheme.WhiteText, 152, 40);
-            var btnRun  = QuickBtn("▶ Chạy trong CMD",  Color.FromArgb(30, 160, 60), UiTheme.WhiteText, 162, 40);
+            var btnCopy = QuickBtn("Sao Chép Lệnh", UiTheme.BrandeisBlue, UiTheme.WhiteText, 152, 40);
+            var btnRun = QuickBtn("▶ Chạy trong CMD", Color.FromArgb(30, 160, 60), UiTheme.WhiteText, 162, 40);
             var btnManual = QuickBtn("Ghi BACKUP_HISTORY (manual)", Color.FromArgb(0, 120, 180), UiTheme.WhiteText, 220, 40);
             var flowAct = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 58, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 8, 0, 0), BackColor = Color.White };
             flowAct.Controls.Add(btnCopy);
@@ -3336,7 +3363,7 @@ namespace PhanHe1.Forms
             var gridB = MakeGrid(true);
             gridB.Dock = DockStyle.Fill;
             var btnRB = QuickBtn("Tải Lại", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 78, 26);
-            var barB  = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 30, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 2, 0, 2), BackColor = Color.White };
+            var barB = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 30, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 2, 0, 2), BackColor = Color.White };
             barB.Controls.Add(btnRB);
             var lblB = new Label { Text = "QLBV.BACKUP_HISTORY — Lịch Sử Sao Lưu", Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 26 };
             split.Panel1.Controls.Add(gridB);
@@ -3344,12 +3371,12 @@ namespace PhanHe1.Forms
             split.Panel1.Controls.Add(lblB);
 
             // PANEL BOTTOM: RESTORE_HISTORY + controls
-            var gridR    = MakeGrid(true);
+            var gridR = MakeGrid(true);
             gridR.Dock = DockStyle.Fill;
-            var btnRR    = QuickBtn("Tải Lại",               Color.FromArgb(210, 220, 230), UiTheme.DeepBlue,  78, 26);
-            var btnAdd   = QuickBtn("+ Ghi Nhận Phục Hồi",  UiTheme.BrandeisBlue,          UiTheme.WhiteText, 188, 26);
+            var btnRR = QuickBtn("Tải Lại", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 78, 26);
+            var btnAdd = QuickBtn("+ Ghi Nhận Phục Hồi", UiTheme.BrandeisBlue, UiTheme.WhiteText, 188, 26);
             var btnAudit = QuickBtn("Phân Tích Sự Cố", Color.FromArgb(80, 80, 120), UiTheme.WhiteText, 160, 26);
-            var barR     = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 30, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 2, 0, 2), BackColor = Color.White };
+            var barR = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 30, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 2, 0, 2), BackColor = Color.White };
             barR.Controls.AddRange(new Control[] { btnRR, btnAdd, btnAudit });
             var lblR = new Label { Text = "QLBV.RESTORE_HISTORY — Lịch Sử Phục Hồi", Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 26 };
             split.Panel2.Controls.Add(gridR);
@@ -3367,9 +3394,9 @@ namespace PhanHe1.Forms
             // 09.sql Phần IV: query audit trail xác định sự cố trước khi restore
             btnAudit.Click += (s, e) =>
             {
-                var dlg    = new Form { Text = "Phân Tích Sự Cố — Audit Trail", Width = 1100, Height = 600, StartPosition = FormStartPosition.CenterParent };
+                var dlg = new Form { Text = "Phân Tích Sự Cố — Audit Trail", Width = 1100, Height = 600, StartPosition = FormStartPosition.CenterParent };
                 var gAudit = MakeGrid(true);
-                var cmb    = new ComboBox { Width = 480, DropDownStyle = ComboBoxStyle.DropDownList, Margin = new Padding(4, 4, 8, 0) };
+                var cmb = new ComboBox { Width = 480, DropDownStyle = ComboBoxStyle.DropDownList, Margin = new Padding(4, 4, 8, 0) };
                 cmb.Items.AddRange(new object[] {
                     "Theo tên bảng (BENHNHAN/HSBA/HSBA_DV/DONTHUOC/NHANVIEN)",
                     "Theo chính sách audit — UNIFIED_AUDIT_TRAIL",
@@ -3390,15 +3417,71 @@ namespace PhanHe1.Forms
                         if (cmb.SelectedIndex == 0)
                         {
                             // 09.sql query theo bảng nghiệp vụ
-                            sql = "SELECT EVENT_TIMESTAMP, DBUSERNAME, ACTION_NAME, OBJECT_SCHEMA, OBJECT_NAME, RETURN_CODE, UNIFIED_AUDIT_POLICIES, FGA_POLICY_NAME, SQL_TEXT FROM UNIFIED_AUDIT_TRAIL WHERE OBJECT_SCHEMA = 'QLBV' AND OBJECT_NAME IN ('BENHNHAN','HSBA','HSBA_DV','DONTHUOC','NHANVIEN') ORDER BY EVENT_TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
+                            sql = @"
+                                SELECT
+                                    TO_CHAR(TIMESTAMP, 'DD/MM/YYYY HH24:MI:SS') AS EVENT_TIMESTAMP,
+                                    USERNAME AS DBUSERNAME,
+                                    ACTION_NAME,
+                                    OWNER AS OBJECT_SCHEMA,
+                                    OBJ_NAME AS OBJECT_NAME,
+                                    RETURNCODE AS RETURN_CODE,
+                                    'Standard Audit' AS UNIFIED_AUDIT_POLICIES,
+                                    NULL AS FGA_POLICY_NAME,
+                                    CAST(COMMENT_TEXT AS VARCHAR2(2000)) AS SQL_TEXT
+                                FROM DBA_AUDIT_TRAIL
+                                WHERE OWNER = 'QLBV' AND OBJ_NAME IN ('BENHNHAN','HSBA','HSBA_DV','DONTHUOC','NHANVIEN')
+                                
+                                UNION ALL
+                                
+                                SELECT
+                                    TO_CHAR(EVENT_TIMESTAMP, 'DD/MM/YYYY HH24:MI:SS'),
+                                    DBUSERNAME,
+                                    ACTION_NAME,
+                                    OBJECT_SCHEMA,
+                                    OBJECT_NAME,
+                                    RETURN_CODE,
+                                    UNIFIED_AUDIT_POLICIES,
+                                    FGA_POLICY_NAME,
+                                    CAST(SQL_TEXT AS VARCHAR2(2000))
+                                FROM UNIFIED_AUDIT_TRAIL
+                                WHERE OBJECT_SCHEMA = 'QLBV' AND OBJECT_NAME IN ('BENHNHAN','HSBA','HSBA_DV','DONTHUOC','NHANVIEN')
+                                  AND (FGA_POLICY_NAME IS NOT NULL OR UNIFIED_AUDIT_POLICIES IS NOT NULL)
+                                
+                                ORDER BY 1 DESC FETCH FIRST 100 ROWS ONLY";
                         }
                         else if (cmb.SelectedIndex == 1)
                         {
-                            sql = $@"SELECT EVENT_TIMESTAMP, DBUSERNAME, ACTION_NAME, OBJECT_SCHEMA, OBJECT_NAME, RETURN_CODE, UNIFIED_AUDIT_POLICIES, FGA_POLICY_NAME, SQL_TEXT
-FROM UNIFIED_AUDIT_TRAIL
-WHERE UPPER(UNIFIED_AUDIT_POLICIES) IN ({AuditStandardPolicyInList},{AuditIllegalPolicyInList})
-   OR UPPER(FGA_POLICY_NAME) IN ({AuditFgaPolicyInList})
-ORDER BY EVENT_TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
+                            sql = $@"
+                                SELECT
+                                    TO_CHAR(TIMESTAMP, 'DD/MM/YYYY HH24:MI:SS') AS EVENT_TIMESTAMP,
+                                    USERNAME AS DBUSERNAME,
+                                    ACTION_NAME,
+                                    OWNER AS OBJECT_SCHEMA,
+                                    OBJ_NAME AS OBJECT_NAME,
+                                    RETURNCODE AS RETURN_CODE,
+                                    'Standard Audit' AS UNIFIED_AUDIT_POLICIES,
+                                    NULL AS FGA_POLICY_NAME,
+                                    CAST(COMMENT_TEXT AS VARCHAR2(2000)) AS SQL_TEXT
+                                FROM DBA_AUDIT_TRAIL
+                                WHERE OWNER = 'QLBV'
+                                
+                                UNION ALL
+                                
+                                SELECT
+                                    TO_CHAR(EVENT_TIMESTAMP, 'DD/MM/YYYY HH24:MI:SS'),
+                                    DBUSERNAME,
+                                    ACTION_NAME,
+                                    OBJECT_SCHEMA,
+                                    OBJECT_NAME,
+                                    RETURN_CODE,
+                                    UNIFIED_AUDIT_POLICIES,
+                                    FGA_POLICY_NAME,
+                                    CAST(SQL_TEXT AS VARCHAR2(2000))
+                                FROM UNIFIED_AUDIT_TRAIL
+                                WHERE UPPER(UNIFIED_AUDIT_POLICIES) IN ({AuditIllegalPolicyInList})
+                                   OR UPPER(FGA_POLICY_NAME) IN ({AuditFgaPolicyInList})
+                                
+                                ORDER BY 1 DESC FETCH FIRST 100 ROWS ONLY";
                         }
                         else if (cmb.SelectedIndex == 2)
                         {
@@ -3431,7 +3514,7 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
             // 08.sql [08-QLBV-01]: INSERT vào restore_history sau impdp / flashback
             btnAdd.Click += (s, e) =>
             {
-                var dlg    = new Form { Text = "Ghi Nhận Kết Quả Phục Hồi", Width = 520, Height = 340, StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false };
+                var dlg = new Form { Text = "Ghi Nhận Kết Quả Phục Hồi", Width = 520, Height = 340, StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false };
                 var layout = new TableLayoutPanel { ColumnCount = 2, Dock = DockStyle.Fill, Padding = new Padding(16, 10, 16, 0) };
                 layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140F));
                 layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 320F));
@@ -3447,7 +3530,7 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
                     return tb;
                 }
 
-                var cmbType  = new ComboBox { Width = 310, DropDownStyle = ComboBoxStyle.DropDownList, Margin = new Padding(0, 6, 0, 0) };
+                var cmbType = new ComboBox { Width = 310, DropDownStyle = ComboBoxStyle.DropDownList, Margin = new Padding(0, 6, 0, 0) };
                 cmbType.Items.AddRange(new object[] { "IMPDP_SCHEMA", "IMPDP_TABLE", "FLASHBACK_TABLE", "FLASHBACK_QUERY" });
                 cmbType.SelectedIndex = 0;
                 layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -3456,10 +3539,10 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
                 rowIdx++;
 
                 var tFileSrc = MkField("Nguồn (file/bảng)", "qlbv_schema_latest.dmp");
-                var tStatus  = MkField("Trạng thái", "SUCCESS");
+                var tStatus = MkField("Trạng thái", "SUCCESS");
 
-                var btnSave   = QuickBtn("Lưu",  UiTheme.BrandeisBlue,         UiTheme.WhiteText, 100, 36);
-                var btnCancel = QuickBtn("Hủy",  Color.FromArgb(200, 200, 200), UiTheme.DeepBlue,   80, 36);
+                var btnSave = QuickBtn("Lưu", UiTheme.BrandeisBlue, UiTheme.WhiteText, 100, 36);
+                var btnCancel = QuickBtn("Hủy", Color.FromArgb(200, 200, 200), UiTheme.DeepBlue, 80, 36);
                 var flowF = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 52, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(16, 8, 0, 0) };
                 flowF.Controls.AddRange(new Control[] { btnSave, btnCancel });
 
@@ -3499,22 +3582,29 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
             var lblTitle = new Label
             {
                 Text = "Khôi Phục Dữ Liệu Qua Flashback Query",
-                Font = new Font("Segoe UI", 13F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue,
-                Dock = DockStyle.Top, Height = 38
+                Font = new Font("Segoe UI", 13F, FontStyle.Bold),
+                ForeColor = UiTheme.DeepBlue,
+                Dock = DockStyle.Top,
+                Height = 38
             };
             var lblDesc = new Label
             {
                 Text = "Thực hiện theo 3 bước:  Bước 1 → ghi mốc thời gian + CCCD/NGAYSINH  |  Bước 2 → giả lập hỏng CCCD  |  Bước 3 → khôi phục AS OF TIMESTAMP",
-                Font = new Font("Segoe UI", 9F), ForeColor = Color.FromArgb(90, 90, 110),
-                Dock = DockStyle.Top, Height = 26, AutoSize = false
+                Font = new Font("Segoe UI", 9F),
+                ForeColor = Color.FromArgb(90, 90, 110),
+                Dock = DockStyle.Top,
+                Height = 26,
+                AutoSize = false
             };
 
             // Input row: MABN
             var flowInput = new FlowLayoutPanel
             {
-                Dock = DockStyle.Top, Height = 46,
+                Dock = DockStyle.Top,
+                Height = 46,
                 FlowDirection = FlowDirection.LeftToRight,
-                Padding = new Padding(0, 8, 0, 0), BackColor = Color.White
+                Padding = new Padding(0, 8, 0, 0),
+                BackColor = Color.White
             };
             var lblMabn = new Label { Text = "Mã bệnh nhân (MABN):", AutoSize = true, Font = new Font("Segoe UI", 10F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Margin = new Padding(0, 6, 8, 0) };
             var txtMabn = new TextBox { Text = "BN000001", Width = 150, Font = UiTheme.BodyFont, Margin = new Padding(0, 4, 12, 0) };
@@ -3526,19 +3616,24 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
             // Step buttons + DateTimePicker
             var flowSteps = new FlowLayoutPanel
             {
-                Dock = DockStyle.Top, Height = 54,
+                Dock = DockStyle.Top,
+                Height = 54,
                 FlowDirection = FlowDirection.LeftToRight,
-                Padding = new Padding(0, 6, 0, 4), BackColor = Color.White
+                Padding = new Padding(0, 6, 0, 4),
+                BackColor = Color.White
             };
-            var btnStep1 = QuickBtn("Bước 1: Ghi Nhận Thời Điểm Gốc",    UiTheme.BrandeisBlue,              UiTheme.WhiteText,  245, 40);
-            var btnStep2 = QuickBtn("Bước 2: Giả Lập Làm Hỏng Dữ Liệu",  Color.FromArgb(206, 17, 38),       UiTheme.WhiteText,  248, 40);
+            var btnStep1 = QuickBtn("Bước 1: Ghi Nhận Thời Điểm Gốc", UiTheme.BrandeisBlue, UiTheme.WhiteText, 245, 40);
+            var btnStep2 = QuickBtn("Bước 2: Giả Lập Làm Hỏng Dữ Liệu", Color.FromArgb(206, 17, 38), UiTheme.WhiteText, 248, 40);
             var dtpFlash = new DateTimePicker
             {
-                Format = DateTimePickerFormat.Custom, CustomFormat = "yyyy-MM-dd HH:mm:ss",
-                ShowUpDown = true, Width = 210,
-                Margin = new Padding(10, 5, 6, 0), Value = DateTime.Now
+                Format = DateTimePickerFormat.Custom,
+                CustomFormat = "yyyy-MM-dd HH:mm:ss",
+                ShowUpDown = true,
+                Width = 210,
+                Margin = new Padding(10, 5, 6, 0),
+                Value = DateTime.Now
             };
-            var btnStep3 = QuickBtn("Bước 3: Khôi Phục Flashback",        Color.FromArgb(30, 160, 100),       UiTheme.WhiteText,  225, 40);
+            var btnStep3 = QuickBtn("Bước 3: Khôi Phục Flashback", Color.FromArgb(30, 160, 100), UiTheme.WhiteText, 225, 40);
             flowSteps.Controls.Add(btnStep1);
             flowSteps.Controls.Add(btnStep2);
             flowSteps.Controls.Add(dtpFlash);
@@ -3547,15 +3642,23 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
             var lblDtp = new Label
             {
                 Text = "← Điều chỉnh mốc thời gian (tự điền sau Bước 1) rồi bấm Bước 3",
-                Font = new Font("Segoe UI", 8.5F), ForeColor = Color.FromArgb(100, 100, 120),
-                Dock = DockStyle.Top, Height = 22, AutoSize = false
+                Font = new Font("Segoe UI", 8.5F),
+                ForeColor = Color.FromArgb(100, 100, 120),
+                Dock = DockStyle.Top,
+                Height = 22,
+                AutoSize = false
             };
 
             var txtLog = new TextBox
             {
-                Multiline = true, Dock = DockStyle.Bottom, Height = 360, ReadOnly = true,
-                BackColor = Color.Black, ForeColor = Color.Lime,
-                Font = new Font("Consolas", 10.5F), ScrollBars = ScrollBars.Vertical,
+                Multiline = true,
+                Dock = DockStyle.Bottom,
+                Height = 360,
+                ReadOnly = true,
+                BackColor = Color.Black,
+                ForeColor = Color.Lime,
+                Font = new Font("Consolas", 10.5F),
+                ScrollBars = ScrollBars.Vertical,
                 Text = "SQL> -- Sẵn sàng. Bấm 'Xem Dữ Liệu' bất cứ lúc nào để kiểm tra CCCD/NGAYSINH hiện tại.\r\n"
             };
 
@@ -3591,10 +3694,10 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
                 if (string.IsNullOrEmpty(mabn)) { Err("Vui lòng nhập MABN."); return; }
                 try
                 {
-                    var tsRow  = service.Query("SELECT TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI:SS') AS TS FROM DUAL");
+                    var tsRow = service.Query("SELECT TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI:SS') AS TS FROM DUAL");
                     savedTimestamp = tsRow.Rows[0]["TS"].ToString();
 
-                    var dtRow  = service.Query(
+                    var dtRow = service.Query(
                         $"SELECT CCCD, TO_CHAR(NGAYSINH, 'YYYY-MM-DD') AS NGAYSINH FROM QLBV.BENHNHAN WHERE MABN = '{mabn}'");
                     string cccd = dtRow.Rows.Count > 0 ? (dtRow.Rows[0]["CCCD"]?.ToString() ?? "(null)") : "(không tìm thấy)";
                     string ngaysinh = dtRow.Rows.Count > 0 ? (dtRow.Rows[0]["NGAYSINH"]?.ToString() ?? "(null)") : "(null)";
@@ -3642,8 +3745,8 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
                     service.ExecuteNonQuery($"UPDATE QLBV.BENHNHAN SET CCCD = '999999999999' WHERE MABN = '{mabn}'");
                     service.ExecuteNonQuery("COMMIT");
 
-                    var dtRow   = service.Query($"SELECT CCCD FROM QLBV.BENHNHAN WHERE MABN = '{mabn}'");
-                    string now  = dtRow.Rows.Count > 0 ? (dtRow.Rows[0]["CCCD"]?.ToString() ?? "(null)") : "(null)";
+                    var dtRow = service.Query($"SELECT CCCD FROM QLBV.BENHNHAN WHERE MABN = '{mabn}'");
+                    string now = dtRow.Rows.Count > 0 ? (dtRow.Rows[0]["CCCD"]?.ToString() ?? "(null)") : "(null)";
                     txtLog.AppendText($"1 row updated.\r\nSQL> COMMIT;\r\nCommit complete.\r\n");
                     txtLog.AppendText($"\r\nSQL> SELECT CCCD FROM QLBV.BENHNHAN WHERE MABN = '{mabn}';\r\n");
                     txtLog.AppendText($"CCCD\r\n-------------------\r\n{now}\r\n");
@@ -3659,7 +3762,7 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
 
             btnStep3.Click += (s, e) =>
             {
-                string mabn   = Esc(txtMabn.Text.Trim());
+                string mabn = Esc(txtMabn.Text.Trim());
                 string flashTs = dtpFlash.Value.ToString("yyyy-MM-dd HH:mm:ss");
                 if (savedTimestamp == null) { Err("Vui lòng thực hiện Bước 1 trước."); return; }
                 if (MessageBox.Show(
@@ -3688,7 +3791,7 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
                     var dtRow = service.Query(
                         $"SELECT CCCD, TO_CHAR(NGAYSINH, 'YYYY-MM-DD') AS NGAYSINH FROM QLBV.BENHNHAN WHERE MABN = '{mabn}'");
                     string restoredCccd = dtRow.Rows.Count > 0 ? (dtRow.Rows[0]["CCCD"]?.ToString() ?? "(null)") : "(null)";
-                    string restoredNs   = dtRow.Rows.Count > 0 ? (dtRow.Rows[0]["NGAYSINH"]?.ToString() ?? "(null)") : "(null)";
+                    string restoredNs = dtRow.Rows.Count > 0 ? (dtRow.Rows[0]["NGAYSINH"]?.ToString() ?? "(null)") : "(null)";
                     txtLog.AppendText($"1 row updated.\r\nSQL> COMMIT;\r\nCommit complete.\r\n");
                     txtLog.AppendText($"\r\nSQL> SELECT CCCD, NGAYSINH FROM QLBV.BENHNHAN WHERE MABN = '{mabn}';\r\n");
                     txtLog.AppendText($"CCCD       NGAYSINH\r\n---------- ----------\r\n{restoredCccd,-11}{restoredNs}\r\n");
@@ -3729,18 +3832,23 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
             const string tbl = "QLBV.DONTHUOC";
             const string corruptLieudung = "Dữ liệu bị sửa nhầm — cần phục hồi";
 
-            var pnl     = new Panel { Dock = DockStyle.Fill, Padding = new Padding(24, 16, 24, 0), BackColor = Color.White };
+            var pnl = new Panel { Dock = DockStyle.Fill, Padding = new Padding(24, 16, 24, 0), BackColor = Color.White };
             var lblTitle = new Label
             {
                 Text = "Flashback Table — Phục Hồi Bảng Đơn Thuốc",
-                Font = new Font("Segoe UI", 12F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue,
-                Dock = DockStyle.Top, Height = 34
+                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+                ForeColor = UiTheme.DeepBlue,
+                Dock = DockStyle.Top,
+                Height = 34
             };
-            var lblDesc  = new Label
+            var lblDesc = new Label
             {
                 Text = "Khôi phục toàn bộ trạng thái bảng QLBV.DONTHUOC về mốc thời gian trước sự cố — không cần impdp. Yêu cầu ENABLE ROW MOVEMENT.",
-                Font = new Font("Segoe UI", 9F), ForeColor = Color.FromArgb(90, 90, 110),
-                Dock = DockStyle.Top, Height = 36, AutoSize = false
+                Font = new Font("Segoe UI", 9F),
+                ForeColor = Color.FromArgb(90, 90, 110),
+                Dock = DockStyle.Top,
+                Height = 36,
+                AutoSize = false
             };
 
             var flowInput = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 46, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 6, 0, 0), BackColor = Color.White };
@@ -3750,10 +3858,10 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
             flowInput.Controls.Add(btnSelect);
 
             var flowSteps = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 54, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 6, 0, 4), BackColor = Color.White };
-            var btnS1  = QuickBtn("Bước 1: Ghi Mốc An Toàn",     UiTheme.BrandeisBlue,        UiTheme.WhiteText, 220, 40);
-            var btnS2  = QuickBtn("Bước 2: Giả Lập Sửa Nhầm",   Color.FromArgb(206, 17, 38),  UiTheme.WhiteText, 222, 40);
-            var dtpFT  = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "yyyy-MM-dd HH:mm:ss", ShowUpDown = true, Width = 210, Margin = new Padding(10, 5, 6, 0), Value = DateTime.Now };
-            var btnS3  = QuickBtn("Bước 3: FLASHBACK TABLE",     Color.FromArgb(30, 160, 100),  UiTheme.WhiteText, 210, 40);
+            var btnS1 = QuickBtn("Bước 1: Ghi Mốc An Toàn", UiTheme.BrandeisBlue, UiTheme.WhiteText, 220, 40);
+            var btnS2 = QuickBtn("Bước 2: Giả Lập Sửa Nhầm", Color.FromArgb(206, 17, 38), UiTheme.WhiteText, 222, 40);
+            var dtpFT = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "yyyy-MM-dd HH:mm:ss", ShowUpDown = true, Width = 210, Margin = new Padding(10, 5, 6, 0), Value = DateTime.Now };
+            var btnS3 = QuickBtn("Bước 3: FLASHBACK TABLE", Color.FromArgb(30, 160, 100), UiTheme.WhiteText, 210, 40);
             flowSteps.Controls.AddRange(new Control[] { btnS1, btnS2, dtpFT, btnS3 });
 
             var lblDtp = new Label { Text = "← Mốc thời gian phục hồi (tự điền sau Bước 1)", Font = new Font("Segoe UI", 8.5F), ForeColor = Color.FromArgb(100, 100, 120), Dock = DockStyle.Top, Height = 20, AutoSize = false };
@@ -3887,14 +3995,14 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
         // ── 08.sql [08-QLBV-03]: DBMS_SCHEDULER + JOB_DAILY_ARCHIVE_AUDIT
         private void BuildBackup_Scheduler(TabPage tab)
         {
-            var pnl     = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 14, 20, 0), BackColor = Color.White };
+            var pnl = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 14, 20, 0), BackColor = Color.White };
             var lblTitle = new Label { Text = "Scheduler — Archive Audit Tự Động", Font = new Font("Segoe UI", 12F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Top, Height = 34 };
 
-            var btnRunNow  = QuickBtn("▶ Chạy Archive Ngay",   UiTheme.BrandeisBlue,        UiTheme.WhiteText, 188, 38);
-            var btnEnable  = QuickBtn("✔ Bật Job",              Color.FromArgb(30, 160, 80),  UiTheme.WhiteText, 108, 38);
-            var btnDisable = QuickBtn("✗ Tắt Job",              Color.FromArgb(206, 17, 38),  UiTheme.WhiteText,  98, 38);
-            var btnRefresh = QuickBtn("Tải Lại",               Color.FromArgb(210, 220, 230), UiTheme.DeepBlue,   88, 38);
-            var flowBtn    = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 52, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 7, 0, 4), BackColor = Color.White };
+            var btnRunNow = QuickBtn("▶ Chạy Archive Ngay", UiTheme.BrandeisBlue, UiTheme.WhiteText, 188, 38);
+            var btnEnable = QuickBtn("✔ Bật Job", Color.FromArgb(30, 160, 80), UiTheme.WhiteText, 108, 38);
+            var btnDisable = QuickBtn("✗ Tắt Job", Color.FromArgb(206, 17, 38), UiTheme.WhiteText, 98, 38);
+            var btnRefresh = QuickBtn("Tải Lại", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 88, 38);
+            var flowBtn = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 52, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 7, 0, 4), BackColor = Color.White };
             flowBtn.Controls.AddRange(new Control[] { btnRunNow, btnEnable, btnDisable, btnRefresh,
                 Note("JOB: QLBV.JOB_DAILY_ARCHIVE_AUDIT — 23:00 hằng ngày. Procedure: QLBV.PR_AUTO_ARCHIVE_AUDIT_LOG") });
 
@@ -4006,10 +4114,10 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
         // =====================================================================
         private void BuildAdmin_QuanLyTK(TabPage tab)
         {
-            var grid   = MakeGrid(true);
-            var btnNV  = QuickBtn("+ Tạo Nhân Viên", UiTheme.BrandeisBlue, UiTheme.WhiteText, 155);
-            var btnBN  = QuickBtn("+ Tạo Bệnh Nhân", UiTheme.PastelGreen, UiTheme.DeepBlue, 152);
-            var btnRe  = QuickBtn("Tải Lại", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 90);
+            var grid = MakeGrid(true);
+            var btnNV = QuickBtn("+ Tạo Nhân Viên", UiTheme.BrandeisBlue, UiTheme.WhiteText, 155);
+            var btnBN = QuickBtn("+ Tạo Bệnh Nhân", UiTheme.PastelGreen, UiTheme.DeepBlue, 152);
+            var btnRe = QuickBtn("Tải Lại", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 90);
 
             btnNV.Click += (s, e) => TaoTaiKhoanNhanVien(grid);
             btnBN.Click += (s, e) => TaoTaiKhoanBenhNhan(grid);
@@ -4020,7 +4128,7 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
                 if (e.RowIndex < 0) return;
                 var row = grid.Rows[e.RowIndex];
                 string loai = grid.Columns.Contains("LOẠI") ? row.Cells["LOẠI"].Value?.ToString() : null;
-                string ma   = grid.Columns.Contains("MÃ")   ? row.Cells["MÃ"].Value?.ToString()   : null;
+                string ma = grid.Columns.Contains("MÃ") ? row.Cells["MÃ"].Value?.ToString() : null;
                 if (string.IsNullOrWhiteSpace(ma)) return;
                 ShowHoSoTaiKhoan(loai, ma);
             };
@@ -4241,8 +4349,8 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
 
         private string NextAvailableNvId(string vaitro)
         {
-            if (vaitro == "Bác sĩ/Y sĩ")       return FindNextId("BS",  4, "QLBV.NHANVIEN", "MANV");
-            if (vaitro == "Kỹ thuật viên")       return FindNextId("KTV", 3, "QLBV.NHANVIEN", "MANV");
+            if (vaitro == "Bác sĩ/Y sĩ") return FindNextId("BS", 4, "QLBV.NHANVIEN", "MANV");
+            if (vaitro == "Kỹ thuật viên") return FindNextId("KTV", 3, "QLBV.NHANVIEN", "MANV");
             return FindNextId("NV", 4, "QLBV.NHANVIEN", "MANV");
         }
 
@@ -4395,12 +4503,12 @@ END;";
                 if (f.ShowDialog(this) != DialogResult.OK) return;
                 try
                 {
-                    string ngSinh  = f.NgaySinh.HasValue
+                    string ngSinh = f.NgaySinh.HasValue
                         ? $"TO_DATE('{f.NgaySinh.Value:dd/MM/yyyy}','DD/MM/YYYY')" : "NULL";
-                    string maKhoa  = string.IsNullOrEmpty(f.MaKhoa) ? "NULL" : $"'{Esc(f.MaKhoa)}'";
-                    string capBac  = string.IsNullOrEmpty(f.CapBac) ? "NULL" : $"N'{Esc(f.CapBac)}'";
-                    string coSo    = string.IsNullOrEmpty(f.CoSo)   ? "NULL" : $"N'{Esc(f.CoSo)}'";
-                    string phai    = string.IsNullOrEmpty(f.Phai)   ? "NULL" : $"N'{Esc(f.Phai)}'";
+                    string maKhoa = string.IsNullOrEmpty(f.MaKhoa) ? "NULL" : $"'{Esc(f.MaKhoa)}'";
+                    string capBac = string.IsNullOrEmpty(f.CapBac) ? "NULL" : $"N'{Esc(f.CapBac)}'";
+                    string coSo = string.IsNullOrEmpty(f.CoSo) ? "NULL" : $"N'{Esc(f.CoSo)}'";
+                    string phai = string.IsNullOrEmpty(f.Phai) ? "NULL" : $"N'{Esc(f.Phai)}'";
 
                     // 1. INSERT vào QLBV.NHANVIEN
                     service.ExecuteNonQuery(
@@ -4415,9 +4523,9 @@ END;";
 
                     // 3. Grant role theo vai trò (run/03.sql)
                     string role;
-                    if      (f.VaiTro == "Bác sĩ/Y sĩ")   role = "ROLE_BACSI";
-                    else if (f.VaiTro == "Kỹ thuật viên")  role = "ROLE_KTV";
-                    else                                    role = "ROLE_DPV";
+                    if (f.VaiTro == "Bác sĩ/Y sĩ") role = "ROLE_BACSI";
+                    else if (f.VaiTro == "Kỹ thuật viên") role = "ROLE_KTV";
+                    else role = "ROLE_DPV";
                     service.ExecuteNonQuery($"GRANT {role} TO {f.MaNV}");
 
                     // 4. Gán OLS label — run/06.sql PHẦN I
@@ -4446,9 +4554,9 @@ END;";
                 if (f.ShowDialog(this) != DialogResult.OK) return;
                 try
                 {
-                    string ngSinh  = f.NgaySinh.HasValue
+                    string ngSinh = f.NgaySinh.HasValue
                         ? $"TO_DATE('{f.NgaySinh.Value:dd/MM/yyyy}','DD/MM/YYYY')" : "NULL";
-                    string phai    = string.IsNullOrEmpty(f.Phai)   ? "NULL" : $"N'{Esc(f.Phai)}'";
+                    string phai = string.IsNullOrEmpty(f.Phai) ? "NULL" : $"N'{Esc(f.Phai)}'";
 
                     // 1. INSERT vào QLBV.BENHNHAN
                     service.ExecuteNonQuery(
@@ -4478,8 +4586,8 @@ END;";
         // =====================================================================
         private void BuildAdmin_OLS(TabPage tab)
         {
-            var inner  = MakeTabs();
-            var tComp  = MakeTab("Thành Phần Nhãn");
+            var inner = MakeTabs();
+            var tComp = MakeTab("Thành Phần Nhãn");
             var tUsers = MakeTab("Nhãn Người Dùng");
 
             BuildAdmin_OLS_Components(tComp);
@@ -4494,8 +4602,11 @@ END;";
         {
             var tbl = new TableLayoutPanel
             {
-                Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 2,
-                BackColor = Color.White, Padding = new Padding(8)
+                Dock = DockStyle.Fill,
+                ColumnCount = 3,
+                RowCount = 2,
+                BackColor = Color.White,
+                Padding = new Padding(8)
             };
             tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33F));
             tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34F));
@@ -4505,8 +4616,11 @@ END;";
 
             Label MkHdr(string t) => new Label
             {
-                Text = t, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter,
-                Font = new Font("Segoe UI", 10F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue,
+                Text = t,
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                ForeColor = UiTheme.DeepBlue,
                 BackColor = Color.FromArgb(215, 235, 255)
             };
             tbl.Controls.Add(MkHdr("LEVELS  (Cấp độ)"), 0, 0);
@@ -4544,14 +4658,14 @@ END;";
         // Grid DBA_SA_USER_LABELS + nút đồng bộ lại nhãn cho tất cả NV (run/06.sql)
         private void BuildAdmin_OLS_UserLabels(TabPage tab)
         {
-            var grid    = MakeGrid(true);
-            var btnRe   = QuickBtn("Tải Lại",          Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 90);
-            var txtS    = SearchBox("Tìm user...", 180);
-            var btnS    = QuickBtn("Tìm", UiTheme.DeepBlue, UiTheme.WhiteText, 70);
+            var grid = MakeGrid(true);
+            var btnRe = QuickBtn("Tải Lại", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 90);
+            var txtS = SearchBox("Tìm user...", 180);
+            var btnS = QuickBtn("Tìm", UiTheme.DeepBlue, UiTheme.WhiteText, 70);
             var btnSync = QuickBtn("Đồng Bộ Nhãn NV", UiTheme.BrandeisBlue, UiTheme.WhiteText, 175);
 
-            btnRe.Click   += (s, e) => LoadOlsUserLabels(grid, "");
-            btnS.Click    += (s, e) => LoadOlsUserLabels(grid, Val(txtS, "Tìm user..."));
+            btnRe.Click += (s, e) => LoadOlsUserLabels(grid, "");
+            btnS.Click += (s, e) => LoadOlsUserLabels(grid, Val(txtS, "Tìm user..."));
             btnSync.Click += (s, e) => SyncOlsLabels(grid);
 
             tab.Controls.Add(Wrap(grid, Toolbar(btnRe, txtS, btnS, btnSync,
@@ -5026,8 +5140,11 @@ END;");
             var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
             var layout = new TableLayoutPanel
             {
-                ColumnCount = 2, AutoSize = true, Dock = DockStyle.Top,
-                BackColor = UiTheme.JordyBlue, Padding = new Padding(16)
+                ColumnCount = 2,
+                AutoSize = true,
+                Dock = DockStyle.Top,
+                BackColor = UiTheme.JordyBlue,
+                Padding = new Padding(16)
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 360F));
@@ -5038,19 +5155,28 @@ END;");
             {
                 var panel = new FlowLayoutPanel
                 {
-                    AutoSize = true, FlowDirection = FlowDirection.LeftToRight,
-                    WrapContents = false, Anchor = AnchorStyles.Right,
-                    Margin = new Padding(0, 8, 8, 0), BackColor = Color.Transparent
+                    AutoSize = true,
+                    FlowDirection = FlowDirection.LeftToRight,
+                    WrapContents = false,
+                    Anchor = AnchorStyles.Right,
+                    Margin = new Padding(0, 8, 8, 0),
+                    BackColor = Color.Transparent
                 };
                 panel.Controls.Add(new Label
                 {
-                    Text = text, AutoSize = true, Font = UiTheme.HeaderFont,
-                    ForeColor = UiTheme.DeepBlue, Margin = new Padding(0)
+                    Text = text,
+                    AutoSize = true,
+                    Font = UiTheme.HeaderFont,
+                    ForeColor = UiTheme.DeepBlue,
+                    Margin = new Padding(0)
                 });
                 panel.Controls.Add(new Label
                 {
-                    Text = "*", AutoSize = true, ForeColor = Color.Red,
-                    Font = new Font("Segoe UI", 10F, FontStyle.Bold), Margin = new Padding(2, 0, 0, 0)
+                    Text = "*",
+                    AutoSize = true,
+                    ForeColor = Color.Red,
+                    Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                    Margin = new Padding(2, 0, 0, 0)
                 });
                 return panel;
             }
@@ -5060,8 +5186,11 @@ END;");
                 layout.RowStyles.Add(new RowStyle(SizeType.Absolute, height));
                 layout.Controls.Add(new Label
                 {
-                    Text = text, AutoSize = true, Font = UiTheme.HeaderFont,
-                    ForeColor = UiTheme.DeepBlue, Anchor = AnchorStyles.Right,
+                    Text = text,
+                    AutoSize = true,
+                    Font = UiTheme.HeaderFont,
+                    ForeColor = UiTheme.DeepBlue,
+                    Anchor = AnchorStyles.Right,
                     Margin = new Padding(0, 8, 8, 0)
                 }, 0, r);
             }
@@ -5088,7 +5217,8 @@ END;");
             AddRequiredLabel("Phái:", row);
             var cmbPhai = new ComboBox
             {
-                Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList,
+                Dock = DockStyle.Fill,
+                DropDownStyle = ComboBoxStyle.DropDownList,
                 Margin = new Padding(0, 4, 0, 4)
             };
             cmbPhai.Items.AddRange(new object[] { "Nam", "Nữ" });
@@ -5104,8 +5234,10 @@ END;");
             AddRequiredLabel("Ngày sinh:", row);
             var dtpNgaySinh = new DateTimePicker
             {
-                Dock = DockStyle.Fill, Format = DateTimePickerFormat.Custom,
-                CustomFormat = "dd/MM/yyyy", ShowUpDown = false,
+                Dock = DockStyle.Fill,
+                Format = DateTimePickerFormat.Custom,
+                CustomFormat = "dd/MM/yyyy",
+                ShowUpDown = false,
                 Margin = new Padding(0, 4, 0, 4),
                 Value = editValues?.NgaySinh ?? DateTime.Today.AddYears(-30)
             };
@@ -5134,8 +5266,11 @@ END;");
             AddOptionalLabel("Tiền sử bệnh:", row, 68);
             var txtTienSuBenh = new TextBox
             {
-                Dock = DockStyle.Fill, Multiline = true, Height = 56,
-                ScrollBars = ScrollBars.Vertical, Margin = new Padding(0, 4, 0, 4),
+                Dock = DockStyle.Fill,
+                Multiline = true,
+                Height = 56,
+                ScrollBars = ScrollBars.Vertical,
+                Margin = new Padding(0, 4, 0, 4),
                 Text = editValues?.TienSuBenh ?? ""
             };
             layout.Controls.Add(txtTienSuBenh, 1, row++);
@@ -5143,8 +5278,11 @@ END;");
             AddOptionalLabel("Tiền sử bệnh GĐ:", row, 68);
             var txtTienSuBenhGD = new TextBox
             {
-                Dock = DockStyle.Fill, Multiline = true, Height = 56,
-                ScrollBars = ScrollBars.Vertical, Margin = new Padding(0, 4, 0, 4),
+                Dock = DockStyle.Fill,
+                Multiline = true,
+                Height = 56,
+                ScrollBars = ScrollBars.Vertical,
+                Margin = new Padding(0, 4, 0, 4),
                 Text = editValues?.TienSuBenhGD ?? ""
             };
             layout.Controls.Add(txtTienSuBenhGD, 1, row++);
@@ -5159,8 +5297,10 @@ END;");
                 Text = isEdit
                     ? "Mã BN không được chỉnh sửa."
                     : "Mã BN tự động đề xuất nhỏ nhất chưa dùng (BN000001, BN000002, ...).",
-                ForeColor = Color.FromArgb(90, 70, 0), AutoSize = true,
-                Font = new Font("Segoe UI", 8.5F, FontStyle.Italic), Margin = new Padding(0, 2, 0, 2)
+                ForeColor = Color.FromArgb(90, 70, 0),
+                AutoSize = true,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Italic),
+                Margin = new Padding(0, 2, 0, 2)
             }, 0, row);
             layout.SetColumnSpan(layout.GetControlFromPosition(0, row), 2);
             row++;
@@ -5169,15 +5309,23 @@ END;");
             var ft = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
             var ok = new Button
             {
-                Text = isEdit ? "Lưu" : "Thêm", Width = 110, Height = 36, FlatStyle = FlatStyle.Flat,
-                BackColor = UiTheme.PastelGreen, ForeColor = UiTheme.DeepBlue,
+                Text = isEdit ? "Lưu" : "Thêm",
+                Width = 110,
+                Height = 36,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.PastelGreen,
+                ForeColor = UiTheme.DeepBlue,
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold)
             };
             ok.FlatAppearance.BorderSize = 0;
             var cn = new Button
             {
-                Text = "Hủy", Width = 100, Height = 36, FlatStyle = FlatStyle.Flat,
-                BackColor = UiTheme.BrandeisBlue, ForeColor = UiTheme.WhiteText
+                Text = "Hủy",
+                Width = 100,
+                Height = 36,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.BrandeisBlue,
+                ForeColor = UiTheme.WhiteText
             };
             cn.FlatAppearance.BorderSize = 0;
 
@@ -5277,32 +5425,42 @@ END;");
             };
             layout.ColumnStyles.Clear();
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130F));
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F)); 
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
 
             Control MakeRequiredLabel(string text)
             {
                 var panel = new FlowLayoutPanel
                 {
-                    AutoSize = true, FlowDirection = FlowDirection.LeftToRight,
-                    WrapContents = false, Anchor = AnchorStyles.Right,
-                    Margin = new Padding(0, 8, 8, 0), BackColor = Color.Transparent
+                    AutoSize = true,
+                    FlowDirection = FlowDirection.LeftToRight,
+                    WrapContents = false,
+                    Anchor = AnchorStyles.Right,
+                    Margin = new Padding(0, 8, 8, 0),
+                    BackColor = Color.Transparent
                 };
                 panel.Controls.Add(new Label
                 {
-                    Text = text, AutoSize = true, Font = UiTheme.HeaderFont,
-                    ForeColor = UiTheme.DeepBlue, Margin = new Padding(0)
+                    Text = text,
+                    AutoSize = true,
+                    Font = UiTheme.HeaderFont,
+                    ForeColor = UiTheme.DeepBlue,
+                    Margin = new Padding(0)
                 });
                 panel.Controls.Add(new Label
                 {
-                    Text = "*", AutoSize = true, ForeColor = Color.Red,
-                    Font = new Font("Segoe UI", 10F, FontStyle.Bold), Margin = new Padding(2, 0, 0, 0)
+                    Text = "*",
+                    AutoSize = true,
+                    ForeColor = Color.Red,
+                    Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                    Margin = new Padding(2, 0, 0, 0)
                 });
                 return panel;
             }
 
             ComboBox MakeEditableCombo() => new ComboBox
             {
-                Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown,
+                Dock = DockStyle.Fill,
+                DropDownStyle = ComboBoxStyle.DropDown,
                 Margin = new Padding(0, 4, 0, 4),
                 AutoCompleteMode = AutoCompleteMode.SuggestAppend,
                 AutoCompleteSource = AutoCompleteSource.ListItems
@@ -5313,13 +5471,20 @@ END;");
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
             layout.Controls.Add(new Label
             {
-                Text = "Mã HSBA:", AutoSize = true, Font = UiTheme.HeaderFont,
-                ForeColor = UiTheme.DeepBlue, Anchor = AnchorStyles.Right, Margin = new Padding(0, 8, 8, 0)
+                Text = "Mã HSBA:",
+                AutoSize = true,
+                Font = UiTheme.HeaderFont,
+                ForeColor = UiTheme.DeepBlue,
+                Anchor = AnchorStyles.Right,
+                Margin = new Padding(0, 8, 8, 0)
             }, 0, row);
             _txtMaHsba = new TextBox
             {
-                Text = suggestedMaHsba ?? "", ReadOnly = true, Dock = DockStyle.Fill,
-                BackColor = Color.FromArgb(245, 245, 245), Margin = new Padding(0, 4, 0, 4)
+                Text = suggestedMaHsba ?? "",
+                ReadOnly = true,
+                Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(245, 245, 245),
+                Margin = new Padding(0, 4, 0, 4)
             };
             layout.Controls.Add(_txtMaHsba, 1, row++);
 
@@ -5328,7 +5493,7 @@ END;");
             _cmbBn = MakeEditableCombo();
             layout.Controls.Add(_cmbBn, 1, row++);
 
-            
+
 
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
             layout.Controls.Add(MakeRequiredLabel("Bác sĩ:"), 0, row);
@@ -5355,7 +5520,8 @@ END;");
             layout.Controls.Add(new Label
             {
                 Text = "Chẩn đoán / Điều trị / Kết luận do Y bác sĩ cập nhật sau.",
-                ForeColor = Color.FromArgb(100, 80, 0), AutoSize = true,
+                ForeColor = Color.FromArgb(100, 80, 0),
+                AutoSize = true,
                 Font = new Font("Segoe UI", 8.5F, FontStyle.Italic)
             }, 0, row);
             layout.SetColumnSpan(layout.GetControlFromPosition(0, row), 2);
@@ -5376,15 +5542,23 @@ END;");
             var ft = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
             var ok = new Button
             {
-                Text = "Tạo HSBA", Width = 120, Height = 36, FlatStyle = FlatStyle.Flat,
-                BackColor = UiTheme.PastelGreen, ForeColor = UiTheme.DeepBlue,
+                Text = "Tạo HSBA",
+                Width = 120,
+                Height = 36,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.PastelGreen,
+                ForeColor = UiTheme.DeepBlue,
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold)
             };
             ok.FlatAppearance.BorderSize = 0;
             var cn = new Button
             {
-                Text = "Hủy", Width = 90, Height = 36, FlatStyle = FlatStyle.Flat,
-                BackColor = UiTheme.BrandeisBlue, ForeColor = UiTheme.WhiteText
+                Text = "Hủy",
+                Width = 90,
+                Height = 36,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.BrandeisBlue,
+                ForeColor = UiTheme.WhiteText
             };
             cn.FlatAppearance.BorderSize = 0;
 
@@ -5685,7 +5859,9 @@ END;");
 
             var layout = new TableLayoutPanel
             {
-                Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(18),
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                Padding = new Padding(18),
                 BackColor = UiTheme.JordyBlue
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150F));
@@ -5695,19 +5871,28 @@ END;");
             {
                 var panel = new FlowLayoutPanel
                 {
-                    AutoSize = true, FlowDirection = FlowDirection.LeftToRight,
-                    WrapContents = false, Anchor = AnchorStyles.Right,
-                    Margin = new Padding(0, 8, 8, 0), BackColor = Color.Transparent
+                    AutoSize = true,
+                    FlowDirection = FlowDirection.LeftToRight,
+                    WrapContents = false,
+                    Anchor = AnchorStyles.Right,
+                    Margin = new Padding(0, 8, 8, 0),
+                    BackColor = Color.Transparent
                 };
                 panel.Controls.Add(new Label
                 {
-                    Text = text, AutoSize = true, Font = UiTheme.HeaderFont,
-                    ForeColor = UiTheme.DeepBlue, Margin = new Padding(0)
+                    Text = text,
+                    AutoSize = true,
+                    Font = UiTheme.HeaderFont,
+                    ForeColor = UiTheme.DeepBlue,
+                    Margin = new Padding(0)
                 });
                 panel.Controls.Add(new Label
                 {
-                    Text = "*", AutoSize = true, ForeColor = Color.Red,
-                    Font = new Font("Segoe UI", 10F, FontStyle.Bold), Margin = new Padding(2, 0, 0, 0)
+                    Text = "*",
+                    AutoSize = true,
+                    ForeColor = Color.Red,
+                    Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                    Margin = new Padding(2, 0, 0, 0)
                 });
                 return panel;
             }
@@ -5716,21 +5901,30 @@ END;");
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
             layout.Controls.Add(new Label
             {
-                Text = "Mã HSBA:", AutoSize = true, Font = UiTheme.HeaderFont,
-                ForeColor = UiTheme.DeepBlue, Anchor = AnchorStyles.Right, Margin = new Padding(0, 8, 8, 0)
+                Text = "Mã HSBA:",
+                AutoSize = true,
+                Font = UiTheme.HeaderFont,
+                ForeColor = UiTheme.DeepBlue,
+                Anchor = AnchorStyles.Right,
+                Margin = new Padding(0, 8, 8, 0)
             }, 0, row);
             layout.Controls.Add(new TextBox
             {
-                Text = maHsba ?? "", ReadOnly = true, Dock = DockStyle.Fill,
-                BackColor = Color.FromArgb(245, 245, 245), Margin = new Padding(0, 4, 0, 4)
+                Text = maHsba ?? "",
+                ReadOnly = true,
+                Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(245, 245, 245),
+                Margin = new Padding(0, 4, 0, 4)
             }, 1, row++);
 
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
             layout.Controls.Add(MakeRequiredLabel("Khoa:"), 0, row);
             _cmbKhoa = new ComboBox
             {
-                Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown,
-                Margin = new Padding(0, 4, 0, 4), AutoCompleteMode = AutoCompleteMode.SuggestAppend,
+                Dock = DockStyle.Fill,
+                DropDownStyle = ComboBoxStyle.DropDown,
+                Margin = new Padding(0, 4, 0, 4),
+                AutoCompleteMode = AutoCompleteMode.SuggestAppend,
                 AutoCompleteSource = AutoCompleteSource.ListItems
             };
             layout.Controls.Add(_cmbKhoa, 1, row++);
@@ -5739,8 +5933,10 @@ END;");
             layout.Controls.Add(MakeRequiredLabel("Bác sĩ:"), 0, row);
             _cmbBs = new ComboBox
             {
-                Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown,
-                Margin = new Padding(0, 4, 0, 4), AutoCompleteMode = AutoCompleteMode.SuggestAppend,
+                Dock = DockStyle.Fill,
+                DropDownStyle = ComboBoxStyle.DropDown,
+                Margin = new Padding(0, 4, 0, 4),
+                AutoCompleteMode = AutoCompleteMode.SuggestAppend,
                 AutoCompleteSource = AutoCompleteSource.ListItems
             };
             layout.Controls.Add(_cmbBs, 1, row++);
@@ -5749,8 +5945,10 @@ END;");
             layout.Controls.Add(new Label
             {
                 Text = "Chọn từ dropdown hoặc gõ mã (vd. K001, BS0004). Chọn khoa trước để lọc bác sĩ.",
-                ForeColor = Color.FromArgb(90, 70, 0), AutoSize = true,
-                Font = new Font("Segoe UI", 8.5F, FontStyle.Italic), Margin = new Padding(0, 4, 0, 0)
+                ForeColor = Color.FromArgb(90, 70, 0),
+                AutoSize = true,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Italic),
+                Margin = new Padding(0, 4, 0, 0)
             }, 0, row);
             layout.SetColumnSpan(layout.GetControlFromPosition(0, row), 2);
             row++;
@@ -5759,15 +5957,23 @@ END;");
             var ft = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
             var ok = new Button
             {
-                Text = "Lưu", Width = 110, Height = 36, FlatStyle = FlatStyle.Flat,
-                BackColor = UiTheme.PastelGreen, ForeColor = UiTheme.DeepBlue,
+                Text = "Lưu",
+                Width = 110,
+                Height = 36,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.PastelGreen,
+                ForeColor = UiTheme.DeepBlue,
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold)
             };
             ok.FlatAppearance.BorderSize = 0;
             var cn = new Button
             {
-                Text = "Hủy", Width = 90, Height = 36, FlatStyle = FlatStyle.Flat,
-                BackColor = UiTheme.BrandeisBlue, ForeColor = UiTheme.WhiteText
+                Text = "Hủy",
+                Width = 90,
+                Height = 36,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.BrandeisBlue,
+                ForeColor = UiTheme.WhiteText
             };
             cn.FlatAppearance.BorderSize = 0;
 
@@ -6311,7 +6517,9 @@ END;");
 
             var layout = new TableLayoutPanel
             {
-                Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(16),
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                Padding = new Padding(16),
                 BackColor = UiTheme.JordyBlue
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150F));
@@ -6320,8 +6528,11 @@ END;");
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
             layout.Controls.Add(new Label
             {
-                Text = "Mã KTV:", AutoSize = true, Font = UiTheme.HeaderFont,
-                ForeColor = UiTheme.DeepBlue, Anchor = AnchorStyles.Right,
+                Text = "Mã KTV:",
+                AutoSize = true,
+                Font = UiTheme.HeaderFont,
+                ForeColor = UiTheme.DeepBlue,
+                Anchor = AnchorStyles.Right,
                 Margin = new Padding(0, 8, 8, 0)
             }, 0, 0);
 
@@ -6339,7 +6550,8 @@ END;");
             layout.Controls.Add(new Label
             {
                 Text = "Chọn từ DISTINCT MAKTV (HSBA_DV) hoặc gõ mã KTV mới.",
-                ForeColor = Color.FromArgb(90, 70, 0), AutoSize = true,
+                ForeColor = Color.FromArgb(90, 70, 0),
+                AutoSize = true,
                 Font = new Font("Segoe UI", 8.5F, FontStyle.Italic),
                 Margin = new Padding(0, 2, 0, 2)
             }, 0, 1);
@@ -6349,15 +6561,23 @@ END;");
             var ft = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
             var ok = new Button
             {
-                Text = "Cập nhật", Width = 110, Height = 36, FlatStyle = FlatStyle.Flat,
-                BackColor = UiTheme.PastelGreen, ForeColor = UiTheme.DeepBlue,
+                Text = "Cập nhật",
+                Width = 110,
+                Height = 36,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.PastelGreen,
+                ForeColor = UiTheme.DeepBlue,
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold)
             };
             ok.FlatAppearance.BorderSize = 0;
             var cn = new Button
             {
-                Text = "Hủy", Width = 90, Height = 36, FlatStyle = FlatStyle.Flat,
-                BackColor = UiTheme.BrandeisBlue, ForeColor = UiTheme.WhiteText
+                Text = "Hủy",
+                Width = 90,
+                Height = 36,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.BrandeisBlue,
+                ForeColor = UiTheme.WhiteText
             };
             cn.FlatAppearance.BorderSize = 0;
 
@@ -6457,7 +6677,9 @@ END;");
 
             var layout = new TableLayoutPanel
             {
-                Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(16),
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                Padding = new Padding(16),
                 BackColor = UiTheme.JordyBlue
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190F));
@@ -6467,19 +6689,28 @@ END;");
             {
                 var panel = new FlowLayoutPanel
                 {
-                    AutoSize = true, FlowDirection = FlowDirection.LeftToRight,
-                    WrapContents = false, Anchor = AnchorStyles.Right,
-                    Margin = new Padding(0, 8, 8, 0), BackColor = Color.Transparent
+                    AutoSize = true,
+                    FlowDirection = FlowDirection.LeftToRight,
+                    WrapContents = false,
+                    Anchor = AnchorStyles.Right,
+                    Margin = new Padding(0, 8, 8, 0),
+                    BackColor = Color.Transparent
                 };
                 panel.Controls.Add(new Label
                 {
-                    Text = text, AutoSize = true, Font = UiTheme.HeaderFont,
-                    ForeColor = UiTheme.DeepBlue, Margin = new Padding(0)
+                    Text = text,
+                    AutoSize = true,
+                    Font = UiTheme.HeaderFont,
+                    ForeColor = UiTheme.DeepBlue,
+                    Margin = new Padding(0)
                 });
                 panel.Controls.Add(new Label
                 {
-                    Text = "*", AutoSize = true, ForeColor = Color.Red,
-                    Font = new Font("Segoe UI", 10F, FontStyle.Bold), Margin = new Padding(2, 0, 0, 0)
+                    Text = "*",
+                    AutoSize = true,
+                    ForeColor = Color.Red,
+                    Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                    Margin = new Padding(2, 0, 0, 0)
                 });
                 return panel;
             }
@@ -6490,7 +6721,8 @@ END;");
             layout.Controls.Add(MakeRequiredLabel("Mã HSBA:"), 0, row);
             var cmbHsba = new ComboBox
             {
-                Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown,
+                Dock = DockStyle.Fill,
+                DropDownStyle = ComboBoxStyle.DropDown,
                 Margin = new Padding(0, 4, 0, 4),
                 AutoCompleteMode = AutoCompleteMode.SuggestAppend,
                 AutoCompleteSource = AutoCompleteSource.ListItems
@@ -6501,9 +6733,12 @@ END;");
             layout.Controls.Add(MakeRequiredLabel("Ngày:"), 0, row);
             var dtpNgay = new DateTimePicker
             {
-                Dock = DockStyle.Fill, Format = DateTimePickerFormat.Custom,
-                CustomFormat = "dd/MM/yyyy", ShowUpDown = false,
-                MinDate = DateTime.Today, Value = DateTime.Today,
+                Dock = DockStyle.Fill,
+                Format = DateTimePickerFormat.Custom,
+                CustomFormat = "dd/MM/yyyy",
+                ShowUpDown = false,
+                MinDate = DateTime.Today,
+                Value = DateTime.Today,
                 Margin = new Padding(0, 4, 0, 4)
             };
             layout.Controls.Add(dtpNgay, 1, row++);
@@ -6522,8 +6757,10 @@ END;");
             layout.Controls.Add(new Label
             {
                 Text = "HSBA: chọn hoặc gõ mã hồ sơ bạn phụ trách. Ngày kê đơn không được trước hôm nay.",
-                ForeColor = Color.FromArgb(90, 70, 0), AutoSize = true,
-                Font = new Font("Segoe UI", 8.5F, FontStyle.Italic), Margin = new Padding(0, 2, 0, 2)
+                ForeColor = Color.FromArgb(90, 70, 0),
+                AutoSize = true,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Italic),
+                Margin = new Padding(0, 2, 0, 2)
             }, 0, row);
             layout.SetColumnSpan(layout.GetControlFromPosition(0, row), 2);
             row++;
@@ -6532,15 +6769,23 @@ END;");
             var ft = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
             var ok = new Button
             {
-                Text = "Thêm", Width = 100, Height = 36, FlatStyle = FlatStyle.Flat,
-                BackColor = UiTheme.PastelGreen, ForeColor = UiTheme.DeepBlue,
+                Text = "Thêm",
+                Width = 100,
+                Height = 36,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.PastelGreen,
+                ForeColor = UiTheme.DeepBlue,
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold)
             };
             ok.FlatAppearance.BorderSize = 0;
             var cn = new Button
             {
-                Text = "Hủy", Width = 90, Height = 36, FlatStyle = FlatStyle.Flat,
-                BackColor = UiTheme.BrandeisBlue, ForeColor = UiTheme.WhiteText
+                Text = "Hủy",
+                Width = 90,
+                Height = 36,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.BrandeisBlue,
+                ForeColor = UiTheme.WhiteText
             };
             cn.FlatAppearance.BorderSize = 0;
 
@@ -6617,11 +6862,11 @@ END;");
     // ════════════════════════════════════════════════════════════════════════
     public class ThongBaoForm : Form
     {
-        public string   NoiDung  { get; private set; }
-        public DateTime NgayGio  { get; private set; }
-        public string   DiaDiem  { get; private set; }
-        public string   OlsLabel { get; private set; }   // "BGD:TH,TK,TM:HCM,HP,HN" etc.
-        public string   SelectedLevel { get; private set; }
+        public string NoiDung { get; private set; }
+        public DateTime NgayGio { get; private set; }
+        public string DiaDiem { get; private set; }
+        public string OlsLabel { get; private set; }   // "BGD:TH,TK,TM:HCM,HP,HN" etc.
+        public string SelectedLevel { get; private set; }
 
         private readonly string _fixedGroupCode;
         private readonly string _fixedCoSoDisplay;
@@ -6648,8 +6893,11 @@ END;");
             // ── Outer layout: left (fields) | right (OLS picker) ──────────
             var outer = new TableLayoutPanel
             {
-                Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1,
-                Padding = new Padding(14), BackColor = UiTheme.JordyBlue
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1,
+                Padding = new Padding(14),
+                BackColor = UiTheme.JordyBlue
             };
             outer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 48F));
             outer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 52F));
@@ -6658,14 +6906,19 @@ END;");
             // ── LEFT: nội dung / ngày giờ / địa điểm ─────────────────────
             var leftPanel = new TableLayoutPanel
             {
-                Dock = DockStyle.Fill, ColumnCount = 1, BackColor = Color.Transparent,
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                BackColor = Color.Transparent,
                 Padding = new Padding(0, 0, 10, 0)
             };
 
             Label MkLbl(string t) => new Label
             {
-                Text = t, AutoSize = true, Font = UiTheme.HeaderFont,
-                ForeColor = UiTheme.DeepBlue, Margin = new Padding(0, 6, 0, 2),
+                Text = t,
+                AutoSize = true,
+                Font = UiTheme.HeaderFont,
+                ForeColor = UiTheme.DeepBlue,
+                Margin = new Padding(0, 6, 0, 2),
                 Anchor = AnchorStyles.Left | AnchorStyles.Top
             };
 
@@ -6712,13 +6965,16 @@ END;");
             // ── RIGHT: OLS Label Picker ───────────────────────────────────
             var rightPanel = new Panel
             {
-                Dock = DockStyle.Fill, BackColor = Color.FromArgb(230, 242, 255),
+                Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(230, 242, 255),
                 Padding = new Padding(10)
             };
 
             var rightLayout = new TableLayoutPanel
             {
-                Dock = DockStyle.Fill, ColumnCount = 1, BackColor = Color.Transparent
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                BackColor = Color.Transparent
             };
 
             // Title
@@ -6727,14 +6983,17 @@ END;");
             {
                 Text = "Nhãn OLS (Đối tượng nhận)",
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-                ForeColor = UiTheme.DeepBlue, Dock = DockStyle.Fill
+                ForeColor = UiTheme.DeepBlue,
+                Dock = DockStyle.Fill
             });
 
             // ── LEVEL GroupBox ──
             var gbLevel = new GroupBox
             {
-                Text = "Cấp độ (Level)", Dock = DockStyle.Fill,
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue,
+                Text = "Cấp độ (Level)",
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = UiTheme.DeepBlue,
                 Height = 100
             };
             var flowLevel = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = true };
@@ -6751,7 +7010,8 @@ END;");
                 {
                     Text = $"{levelDefs[i].Label} ({levelDefs[i].Code})",
                     Tag = levelDefs[i].Code,
-                    AutoSize = true, Margin = new Padding(4, 2, 4, 2),
+                    AutoSize = true,
+                    Margin = new Padding(4, 2, 4, 2),
                     Font = new Font("Segoe UI", 8.5F)
                 };
                 flowLevel.Controls.Add(rbLevels[i]);
@@ -6766,7 +7026,8 @@ END;");
             var btnPresetAllNv = new Button
             {
                 Text = _bgdMode ? "📢 Toàn bộ NV chi nhánh" : "📢 Toàn bộ nhân viên (NV)",
-                Dock = DockStyle.Fill, Height = 30,
+                Dock = DockStyle.Fill,
+                Height = 30,
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(255, 230, 180),
                 ForeColor = UiTheme.DeepBlue,
@@ -6779,7 +7040,8 @@ END;");
             var btnPresetLdk = new Button
             {
                 Text = _bgdMode ? "📢 Lãnh đạo khoa chi nhánh" : "📢 Lãnh đạo khoa (LDK)",
-                Dock = DockStyle.Fill, Height = 30,
+                Dock = DockStyle.Fill,
+                Height = 30,
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(220, 240, 255),
                 ForeColor = UiTheme.DeepBlue,
@@ -6792,7 +7054,8 @@ END;");
             var btnPresetLdp = new Button
             {
                 Text = _bgdMode ? "📢 Lãnh đạo phòng chi nhánh" : "📢 Lãnh đạo phòng (LDP)",
-                Dock = DockStyle.Fill, Height = 30,
+                Dock = DockStyle.Fill,
+                Height = 30,
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(220, 240, 255),
                 ForeColor = UiTheme.DeepBlue,
@@ -6804,8 +7067,10 @@ END;");
             // ── COMPARTMENT GroupBox ──
             var gbComp = new GroupBox
             {
-                Text = "Khoa (Compartment)", Dock = DockStyle.Fill,
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue,
+                Text = "Khoa (Compartment)",
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = UiTheme.DeepBlue,
                 Height = 90
             };
             var flowComp = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight };
@@ -6820,8 +7085,10 @@ END;");
             {
                 cbComps[i] = new CheckBox
                 {
-                    Text = compDefs[i].Label, Tag = compDefs[i].Code,
-                    AutoSize = true, Margin = new Padding(4, 2, 4, 2),
+                    Text = compDefs[i].Label,
+                    Tag = compDefs[i].Code,
+                    AutoSize = true,
+                    Margin = new Padding(4, 2, 4, 2),
                     Font = new Font("Segoe UI", 8.5F)
                 };
                 flowComp.Controls.Add(cbComps[i]);
@@ -6833,8 +7100,10 @@ END;");
             // ── GROUP GroupBox ──
             var gbGrp = new GroupBox
             {
-                Text = "Cơ sở (Group)", Dock = DockStyle.Fill,
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = UiTheme.DeepBlue,
+                Text = "Cơ sở (Group)",
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = UiTheme.DeepBlue,
                 Height = 90
             };
             var flowGrp = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight };
@@ -6849,8 +7118,10 @@ END;");
             {
                 cbGrps[i] = new CheckBox
                 {
-                    Text = grpDefs[i].Label, Tag = grpDefs[i].Code,
-                    AutoSize = true, Margin = new Padding(4, 2, 4, 2),
+                    Text = grpDefs[i].Label,
+                    Tag = grpDefs[i].Code,
+                    AutoSize = true,
+                    Margin = new Padding(4, 2, 4, 2),
                     Font = new Font("Segoe UI", 8.5F)
                 };
                 flowGrp.Controls.Add(cbGrps[i]);
@@ -6875,14 +7146,17 @@ END;");
             rightLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
             rightLayout.Controls.Add(new Label
             {
-                Text = "Xem trước nhãn OLS:", Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(60, 60, 130), Dock = DockStyle.Fill
+                Text = "Xem trước nhãn OLS:",
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(60, 60, 130),
+                Dock = DockStyle.Fill
             });
 
             rightLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
             var lblPreview = new Label
             {
-                Text = "NV", Dock = DockStyle.Fill,
+                Text = "NV",
+                Dock = DockStyle.Fill,
                 Font = new Font("Consolas", 11F, FontStyle.Bold),
                 ForeColor = Color.DarkGreen,
                 BackColor = Color.FromArgb(220, 255, 220),
@@ -6898,8 +7172,10 @@ END;");
                 Text = _bgdMode
                     ? "Giám đốc chỉ gửi NV/LDK/LDP trong chi nhánh của mình (nhãn dạng NV::HCM hoặc NV:TH:HCM)."
                     : "Gửi toàn NV: chọn NV + Tất cả khoa/cơ sở → nhãn NV (không phải NV:TH,TK,TM:...).",
-                Dock = DockStyle.Fill, ForeColor = Color.FromArgb(140, 80, 0),
-                Font = new Font("Segoe UI", 8F), AutoSize = false
+                Dock = DockStyle.Fill,
+                ForeColor = Color.FromArgb(140, 80, 0),
+                Font = new Font("Segoe UI", 8F),
+                AutoSize = false
             });
 
             rightPanel.Controls.Add(rightLayout);
@@ -7031,8 +7307,8 @@ END;");
                 // "Tất cả khoa" mutex
                 if (cb.Tag.ToString() == "ALL" && cb.Checked)
                     foreach (var c in cbComps) if (c.Tag.ToString() != "ALL") c.Checked = false;
-                else if (cb.Tag.ToString() != "ALL" && cb.Checked)
-                    cbComps[3].Checked = false;
+                        else if (cb.Tag.ToString() != "ALL" && cb.Checked)
+                            cbComps[3].Checked = false;
                 UpdatePreview();
             };
             if (!_bgdMode)
@@ -7042,8 +7318,8 @@ END;");
                     // "Tất cả cơ sở" mutex
                     if (cb.Tag.ToString() == "ALL" && cb.Checked)
                         foreach (var c in cbGrps) if (c.Tag.ToString() != "ALL") c.Checked = false;
-                    else if (cb.Tag.ToString() != "ALL" && cb.Checked)
-                        cbGrps[3].Checked = false;
+                            else if (cb.Tag.ToString() != "ALL" && cb.Checked)
+                                cbGrps[3].Checked = false;
                     UpdatePreview();
                 };
             }
@@ -7078,21 +7354,31 @@ END;");
             // ── Buttons ───────────────────────────────────────────────────
             var btmPanel = new FlowLayoutPanel
             {
-                Dock = DockStyle.Bottom, Height = 54,
+                Dock = DockStyle.Bottom,
+                Height = 54,
                 FlowDirection = FlowDirection.RightToLeft,
-                BackColor = UiTheme.JordyBlue, Padding = new Padding(8)
+                BackColor = UiTheme.JordyBlue,
+                Padding = new Padding(8)
             };
             var ok = new Button
             {
-                Text = "Gửi Thông Báo", Width = 155, Height = 36, FlatStyle = FlatStyle.Flat,
-                BackColor = UiTheme.PastelGreen, ForeColor = UiTheme.DeepBlue,
+                Text = "Gửi Thông Báo",
+                Width = 155,
+                Height = 36,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.PastelGreen,
+                ForeColor = UiTheme.DeepBlue,
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold)
             };
             ok.FlatAppearance.BorderSize = 0;
             var cn = new Button
             {
-                Text = "Hủy", Width = 90, Height = 36, FlatStyle = FlatStyle.Flat,
-                BackColor = UiTheme.BrandeisBlue, ForeColor = UiTheme.WhiteText
+                Text = "Hủy",
+                Width = 90,
+                Height = 36,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.BrandeisBlue,
+                ForeColor = UiTheme.WhiteText
             };
             cn.FlatAppearance.BorderSize = 0;
 
@@ -7205,7 +7491,9 @@ END;");
 
             var layout = new TableLayoutPanel
             {
-                Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(16),
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                Padding = new Padding(16),
                 BackColor = UiTheme.JordyBlue
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150F));
@@ -7218,8 +7506,11 @@ END;");
                 layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
                 layout.Controls.Add(new Label
                 {
-                    Text = label, AutoSize = true, Font = UiTheme.HeaderFont,
-                    ForeColor = UiTheme.DeepBlue, Anchor = AnchorStyles.Right,
+                    Text = label,
+                    AutoSize = true,
+                    Font = UiTheme.HeaderFont,
+                    ForeColor = UiTheme.DeepBlue,
+                    Anchor = AnchorStyles.Right,
                     Margin = new Padding(0, 8, 8, 0)
                 }, 0, row);
                 layout.Controls.Add(ctrl, 1, row++);
@@ -7227,7 +7518,8 @@ END;");
 
             var cmbHsba = new ComboBox
             {
-                Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown,
+                Dock = DockStyle.Fill,
+                DropDownStyle = ComboBoxStyle.DropDown,
                 Margin = new Padding(0, 4, 0, 4),
                 AutoCompleteMode = AutoCompleteMode.SuggestAppend,
                 AutoCompleteSource = AutoCompleteSource.ListItems
@@ -7236,22 +7528,27 @@ END;");
 
             var dtpNgay = new DateTimePicker
             {
-                Dock = DockStyle.Fill, Format = DateTimePickerFormat.Custom,
-                CustomFormat = "dd/MM/yyyy", ShowUpDown = false,
-                Value = ngayDt.Date, Margin = new Padding(0, 4, 0, 4)
+                Dock = DockStyle.Fill,
+                Format = DateTimePickerFormat.Custom,
+                CustomFormat = "dd/MM/yyyy",
+                ShowUpDown = false,
+                Value = ngayDt.Date,
+                Margin = new Padding(0, 4, 0, 4)
             };
             AddRow("Ngày kê đơn:", dtpNgay);
 
             var txtTenThuoc = new TextBox
             {
-                Dock = DockStyle.Fill, Text = tenThuoc ?? "",
+                Dock = DockStyle.Fill,
+                Text = tenThuoc ?? "",
                 Margin = new Padding(0, 4, 0, 4)
             };
             AddRow("Tên thuốc:", txtTenThuoc);
 
             var txtLieuDung = new TextBox
             {
-                Dock = DockStyle.Fill, Text = lieuDung ?? "",
+                Dock = DockStyle.Fill,
+                Text = lieuDung ?? "",
                 Margin = new Padding(0, 4, 0, 4)
             };
             AddRow("Liều dùng:", txtLieuDung);
@@ -7260,8 +7557,10 @@ END;");
             layout.Controls.Add(new Label
             {
                 Text = "Thay đổi mã HSBA hoặc ngày kê đơn sẽ được hệ thống ghi nhận trong nhật ký kiểm toán.",
-                ForeColor = Color.FromArgb(90, 70, 0), AutoSize = true,
-                Font = new Font("Segoe UI", 8.5F, FontStyle.Italic), Margin = new Padding(0, 2, 0, 2)
+                ForeColor = Color.FromArgb(90, 70, 0),
+                AutoSize = true,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Italic),
+                Margin = new Padding(0, 2, 0, 2)
             }, 0, row);
             layout.SetColumnSpan(layout.GetControlFromPosition(0, row), 2);
             row++;
@@ -7270,15 +7569,23 @@ END;");
             var ft = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
             var ok = new Button
             {
-                Text = "Lưu", Width = 100, Height = 36, FlatStyle = FlatStyle.Flat,
-                BackColor = UiTheme.PastelGreen, ForeColor = UiTheme.DeepBlue,
+                Text = "Lưu",
+                Width = 100,
+                Height = 36,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.PastelGreen,
+                ForeColor = UiTheme.DeepBlue,
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold)
             };
             ok.FlatAppearance.BorderSize = 0;
             var cn = new Button
             {
-                Text = "Hủy", Width = 90, Height = 36, FlatStyle = FlatStyle.Flat,
-                BackColor = UiTheme.BrandeisBlue, ForeColor = UiTheme.WhiteText
+                Text = "Hủy",
+                Width = 90,
+                Height = 36,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.BrandeisBlue,
+                ForeColor = UiTheme.WhiteText
             };
             cn.FlatAppearance.BorderSize = 0;
 
@@ -7403,18 +7710,18 @@ END;");
     // ════════════════════════════════════════════════════════════════════════
     public class TaoNhanVienForm : Form
     {
-        public string   MaNV     { get; private set; }
-        public string   HoTen    { get; private set; }
-        public string   VaiTro   { get; private set; }
-        public string   Phai     { get; private set; }
+        public string MaNV { get; private set; }
+        public string HoTen { get; private set; }
+        public string VaiTro { get; private set; }
+        public string Phai { get; private set; }
         public DateTime? NgaySinh { get; private set; }
-        public string   Cmnd     { get; private set; }
-        public string   QueQuan  { get; private set; }
-        public string   SoDt     { get; private set; }
-        public string   MaKhoa   { get; private set; }
-        public string   CapBac   { get; private set; }
-        public string   CoSo     { get; private set; }
-        public string   MatKhau  { get; private set; }
+        public string Cmnd { get; private set; }
+        public string QueQuan { get; private set; }
+        public string SoDt { get; private set; }
+        public string MaKhoa { get; private set; }
+        public string CapBac { get; private set; }
+        public string CoSo { get; private set; }
+        public string MatKhau { get; private set; }
 
         public TaoNhanVienForm(string suggestedId, string[] danhSachKhoa, Func<string, string> getNextId)
         {
@@ -7429,8 +7736,11 @@ END;");
             var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
             var layout = new TableLayoutPanel
             {
-                ColumnCount = 2, AutoSize = true, Dock = DockStyle.Top,
-                BackColor = UiTheme.JordyBlue, Padding = new Padding(18)
+                ColumnCount = 2,
+                AutoSize = true,
+                Dock = DockStyle.Top,
+                BackColor = UiTheme.JordyBlue,
+                Padding = new Padding(18)
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 200F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 360F));
@@ -7443,8 +7753,11 @@ END;");
                 layout.RowStyles.Add(new RowStyle(SizeType.Absolute, height));
                 layout.Controls.Add(new Label
                 {
-                    Text = text, AutoSize = true, Font = UiTheme.HeaderFont,
-                    ForeColor = UiTheme.DeepBlue, Anchor = AnchorStyles.Right,
+                    Text = text,
+                    AutoSize = true,
+                    Font = UiTheme.HeaderFont,
+                    ForeColor = UiTheme.DeepBlue,
+                    Anchor = AnchorStyles.Right,
                     Margin = new Padding(0, 8, 8, 0)
                 }, 0, r);
             }
@@ -7547,8 +7860,10 @@ END;");
             layout.Controls.Add(new Label
             {
                 Text = "* Bắt buộc. Mã NV tự động đề xuất nhỏ nhất chưa dùng theo tiền tố vai trò (BS/KTV/NV).",
-                ForeColor = Color.FromArgb(90, 70, 0), AutoSize = true,
-                Font = new Font("Segoe UI", 8.5F, FontStyle.Italic), Margin = new Padding(0, 2, 0, 2)
+                ForeColor = Color.FromArgb(90, 70, 0),
+                AutoSize = true,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Italic),
+                Margin = new Padding(0, 2, 0, 2)
             }, 0, row);
             layout.SetColumnSpan(layout.GetControlFromPosition(0, row), 2); row++;
 
@@ -7557,35 +7872,43 @@ END;");
             var ft = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
             var ok = new Button
             {
-                Text = "Tạo Tài Khoản", Width = 155, Height = 36, FlatStyle = FlatStyle.Flat,
-                BackColor = UiTheme.PastelGreen, ForeColor = UiTheme.DeepBlue,
+                Text = "Tạo Tài Khoản",
+                Width = 155,
+                Height = 36,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.PastelGreen,
+                ForeColor = UiTheme.DeepBlue,
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold)
             };
             ok.FlatAppearance.BorderSize = 0;
             var cn = new Button
             {
-                Text = "Hủy", Width = 90, Height = 36, FlatStyle = FlatStyle.Flat,
-                BackColor = UiTheme.BrandeisBlue, ForeColor = UiTheme.WhiteText
+                Text = "Hủy",
+                Width = 90,
+                Height = 36,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.BrandeisBlue,
+                ForeColor = UiTheme.WhiteText
             };
             cn.FlatAppearance.BorderSize = 0;
 
             ok.Click += (s, e) =>
             {
-                if (string.IsNullOrWhiteSpace(txtMaNV.Text))   { MessageBox.Show("Nhập Mã nhân viên."); return; }
-                if (string.IsNullOrWhiteSpace(txtHoTen.Text))  { MessageBox.Show("Nhập Họ tên."); return; }
-                if (string.IsNullOrWhiteSpace(txtMatKhau.Text)){ MessageBox.Show("Nhập Mật khẩu."); return; }
+                if (string.IsNullOrWhiteSpace(txtMaNV.Text)) { MessageBox.Show("Nhập Mã nhân viên."); return; }
+                if (string.IsNullOrWhiteSpace(txtHoTen.Text)) { MessageBox.Show("Nhập Họ tên."); return; }
+                if (string.IsNullOrWhiteSpace(txtMatKhau.Text)) { MessageBox.Show("Nhập Mật khẩu."); return; }
 
                 if (!TaoTaiKhoanUi.TryReadNgaySinh(dtpNgaySinh, out DateTime? dob, out string dobErr))
                 { MessageBox.Show(dobErr); return; }
 
-                MaNV    = txtMaNV.Text.Trim();
-                HoTen   = txtHoTen.Text.Trim();
-                VaiTro  = cmbVaiTro.SelectedItem?.ToString() ?? "Điều phối viên";
-                Phai    = cmbPhai.SelectedItem?.ToString() ?? "";
+                MaNV = txtMaNV.Text.Trim();
+                HoTen = txtHoTen.Text.Trim();
+                VaiTro = cmbVaiTro.SelectedItem?.ToString() ?? "Điều phối viên";
+                Phai = cmbPhai.SelectedItem?.ToString() ?? "";
                 NgaySinh = dob;
-                Cmnd    = txtCmnd.Text.Trim();
+                Cmnd = txtCmnd.Text.Trim();
                 QueQuan = txtQueQuan.Text.Trim();
-                SoDt    = txtSoDt.Text.Trim();
+                SoDt = txtSoDt.Text.Trim();
 
                 // Tách MAKHOA ra từ "K001 - TieuHoa"
                 string khoaStr = cmbKhoa.SelectedItem?.ToString() ?? "";
@@ -7593,8 +7916,8 @@ END;");
                     ? khoaStr.Split(new[] { " - " }, StringSplitOptions.None)[0]
                     : "";
 
-                CapBac  = cmbCapBac.SelectedItem?.ToString() ?? "";
-                CoSo    = cmbCoSo.SelectedItem?.ToString() ?? "";
+                CapBac = cmbCapBac.SelectedItem?.ToString() ?? "";
+                CoSo = cmbCoSo.SelectedItem?.ToString() ?? "";
                 MatKhau = txtMatKhau.Text.Trim();
 
                 DialogResult = DialogResult.OK;
@@ -7619,19 +7942,19 @@ END;");
     // ════════════════════════════════════════════════════════════════════════
     public class TaoBenhNhanForm : Form
     {
-        public string    MaBN         { get; private set; }
-        public string    TenBN        { get; private set; }
-        public string    Phai         { get; private set; }
-        public DateTime? NgaySinh     { get; private set; }
-        public string    CCCD         { get; private set; }
-        public string    SoNha        { get; private set; }
-        public string    TenDuong     { get; private set; }
-        public string    QuanHuyen    { get; private set; }
-        public string    TinhTP       { get; private set; }
-        public string    TienSuBenh   { get; private set; }
-        public string    TienSuBenhGD { get; private set; }
-        public string    DiUngThuoc   { get; private set; }
-        public string    MatKhau      { get; private set; }
+        public string MaBN { get; private set; }
+        public string TenBN { get; private set; }
+        public string Phai { get; private set; }
+        public DateTime? NgaySinh { get; private set; }
+        public string CCCD { get; private set; }
+        public string SoNha { get; private set; }
+        public string TenDuong { get; private set; }
+        public string QuanHuyen { get; private set; }
+        public string TinhTP { get; private set; }
+        public string TienSuBenh { get; private set; }
+        public string TienSuBenhGD { get; private set; }
+        public string DiUngThuoc { get; private set; }
+        public string MatKhau { get; private set; }
 
         public TaoBenhNhanForm(string suggestedId)
         {
@@ -7646,8 +7969,11 @@ END;");
             var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
             var layout = new TableLayoutPanel
             {
-                ColumnCount = 2, AutoSize = true, Dock = DockStyle.Top,
-                BackColor = UiTheme.JordyBlue, Padding = new Padding(18)
+                ColumnCount = 2,
+                AutoSize = true,
+                Dock = DockStyle.Top,
+                BackColor = UiTheme.JordyBlue,
+                Padding = new Padding(18)
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 200F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 360F));
@@ -7659,8 +7985,11 @@ END;");
                 layout.RowStyles.Add(new RowStyle(SizeType.Absolute, height));
                 layout.Controls.Add(new Label
                 {
-                    Text = text, AutoSize = true, Font = UiTheme.HeaderFont,
-                    ForeColor = UiTheme.DeepBlue, Anchor = AnchorStyles.Right,
+                    Text = text,
+                    AutoSize = true,
+                    Font = UiTheme.HeaderFont,
+                    ForeColor = UiTheme.DeepBlue,
+                    Anchor = AnchorStyles.Right,
                     Margin = new Padding(0, 8, 8, 0)
                 }, 0, r);
             }
@@ -7719,8 +8048,11 @@ END;");
             AddLbl("Tiền sử bệnh:", row, 68);
             var txtTienSuBenh = new TextBox
             {
-                Dock = DockStyle.Fill, Multiline = true, Height = 56,
-                ScrollBars = ScrollBars.Vertical, Margin = new Padding(0, 4, 0, 4)
+                Dock = DockStyle.Fill,
+                Multiline = true,
+                Height = 56,
+                ScrollBars = ScrollBars.Vertical,
+                Margin = new Padding(0, 4, 0, 4)
             };
             layout.Controls.Add(txtTienSuBenh, 1, row++);
 
@@ -7728,8 +8060,11 @@ END;");
             AddLbl("Tiền sử bệnh GĐ:", row, 68);
             var txtTienSuBenhGD = new TextBox
             {
-                Dock = DockStyle.Fill, Multiline = true, Height = 56,
-                ScrollBars = ScrollBars.Vertical, Margin = new Padding(0, 4, 0, 4)
+                Dock = DockStyle.Fill,
+                Multiline = true,
+                Height = 56,
+                ScrollBars = ScrollBars.Vertical,
+                Margin = new Padding(0, 4, 0, 4)
             };
             layout.Controls.Add(txtTienSuBenhGD, 1, row++);
 
@@ -7748,8 +8083,10 @@ END;");
             layout.Controls.Add(new Label
             {
                 Text = "* Bắt buộc. Mã BN tự động đề xuất nhỏ nhất chưa dùng (BN000001, BN000002, ...).",
-                ForeColor = Color.FromArgb(90, 70, 0), AutoSize = true,
-                Font = new Font("Segoe UI", 8.5F, FontStyle.Italic), Margin = new Padding(0, 2, 0, 2)
+                ForeColor = Color.FromArgb(90, 70, 0),
+                AutoSize = true,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Italic),
+                Margin = new Padding(0, 2, 0, 2)
             }, 0, row);
             layout.SetColumnSpan(layout.GetControlFromPosition(0, row), 2); row++;
 
@@ -7758,40 +8095,48 @@ END;");
             var ft = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
             var ok = new Button
             {
-                Text = "Tạo Tài Khoản", Width = 155, Height = 36, FlatStyle = FlatStyle.Flat,
-                BackColor = UiTheme.PastelGreen, ForeColor = UiTheme.DeepBlue,
+                Text = "Tạo Tài Khoản",
+                Width = 155,
+                Height = 36,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.PastelGreen,
+                ForeColor = UiTheme.DeepBlue,
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold)
             };
             ok.FlatAppearance.BorderSize = 0;
             var cn = new Button
             {
-                Text = "Hủy", Width = 90, Height = 36, FlatStyle = FlatStyle.Flat,
-                BackColor = UiTheme.BrandeisBlue, ForeColor = UiTheme.WhiteText
+                Text = "Hủy",
+                Width = 90,
+                Height = 36,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = UiTheme.BrandeisBlue,
+                ForeColor = UiTheme.WhiteText
             };
             cn.FlatAppearance.BorderSize = 0;
 
             ok.Click += (s, e) =>
             {
-                if (string.IsNullOrWhiteSpace(txtMaBN.Text))   { MessageBox.Show("Nhập Mã bệnh nhân."); return; }
-                if (string.IsNullOrWhiteSpace(txtTenBN.Text))  { MessageBox.Show("Nhập Họ tên."); return; }
-                if (string.IsNullOrWhiteSpace(txtMatKhau.Text)){ MessageBox.Show("Nhập Mật khẩu."); return; }
+                if (string.IsNullOrWhiteSpace(txtMaBN.Text)) { MessageBox.Show("Nhập Mã bệnh nhân."); return; }
+                if (string.IsNullOrWhiteSpace(txtTenBN.Text)) { MessageBox.Show("Nhập Họ tên."); return; }
+                if (string.IsNullOrWhiteSpace(txtMatKhau.Text)) { MessageBox.Show("Nhập Mật khẩu."); return; }
 
                 if (!TaoTaiKhoanUi.TryReadNgaySinh(dtpNgaySinh, out DateTime? dob, out string dobErr))
                 { MessageBox.Show(dobErr); return; }
 
-                MaBN         = txtMaBN.Text.Trim();
-                TenBN        = txtTenBN.Text.Trim();
-                Phai         = cmbPhai.SelectedItem?.ToString() ?? "";
-                NgaySinh     = dob;
-                CCCD         = txtCCCD.Text.Trim();
-                SoNha        = txtSoNha.Text.Trim();
-                TenDuong     = txtTenDuong.Text.Trim();
-                QuanHuyen    = txtQuanHuyen.Text.Trim();
-                TinhTP       = txtTinhTP.Text.Trim();
-                TienSuBenh   = txtTienSuBenh.Text.Trim();
+                MaBN = txtMaBN.Text.Trim();
+                TenBN = txtTenBN.Text.Trim();
+                Phai = cmbPhai.SelectedItem?.ToString() ?? "";
+                NgaySinh = dob;
+                CCCD = txtCCCD.Text.Trim();
+                SoNha = txtSoNha.Text.Trim();
+                TenDuong = txtTenDuong.Text.Trim();
+                QuanHuyen = txtQuanHuyen.Text.Trim();
+                TinhTP = txtTinhTP.Text.Trim();
+                TienSuBenh = txtTienSuBenh.Text.Trim();
                 TienSuBenhGD = txtTienSuBenhGD.Text.Trim();
-                DiUngThuoc   = txtDiUngThuoc.Text.Trim();
-                MatKhau      = txtMatKhau.Text.Trim();
+                DiUngThuoc = txtDiUngThuoc.Text.Trim();
+                MatKhau = txtMatKhau.Text.Trim();
 
                 DialogResult = DialogResult.OK;
                 Close();

@@ -251,66 +251,47 @@ CREATE AUDIT POLICY AuditSession ACTIONS LOGON;
 AUDIT POLICY AuditSession WHENEVER NOT SUCCESSFUL;
 
 
--- ----------------------------------------------------------------------------
--- 3.2: STANDARD AUDIT - THEO DÕI HÀNH VI THEO NGỮ CẢNH VAI TRÒ CHUẨN (ĐÃ SỬA LỖI ORA-46368)
+-- 3.2: STANDARD AUDIT - THEO DÕI HÀNH VI THEO NGỮ CẢNH VAI TRÒ CHUẨN (TRUYỀN THỐNG)
 -- ----------------------------------------------------------------------------
 -- === Creating Selected Standard Audit Contexts by Role ===
 
--- Ngữ cảnh 1: [Thành công 1] Người dùng "ROLE_DPV" cập nhật thông tin BENHNHAN thành công
-CREATE AUDIT POLICY AuditSucDPVUpdateBN
-ACTIONS UPDATE ON QLBV.BENHNHAN
-WHEN 'SYS_CONTEXT(''userenv'', ''client_identifier'') LIKE ''%ROLE_DPV%''' EVALUATE PER STATEMENT;
-AUDIT POLICY AuditSucDPVUpdateBN WHENEVER SUCCESSFUL;
+-- Tắt thiết lập cũ nếu có để chạy lại script sạch sẽ
+BEGIN
+    EXECUTE IMMEDIATE 'NOAUDIT UPDATE ON QLBV.BENHNHAN';
+    EXECUTE IMMEDIATE 'NOAUDIT UPDATE ON QLBV.HSBA';
+    EXECUTE IMMEDIATE 'NOAUDIT UPDATE ON QLBV.VW_KTV_XemHSBADV';
+    EXECUTE IMMEDIATE 'NOAUDIT UPDATE ON QLBV.DONTHUOC';
+    EXECUTE IMMEDIATE 'NOAUDIT UPDATE, DELETE ON QLBV.NHANVIEN';
+    EXECUTE IMMEDIATE 'NOAUDIT EXECUTE ON QLBV.sp_DieuPhoiNhanSu';
+    EXECUTE IMMEDIATE 'NOAUDIT EXECUTE ON QLBV.fn_KiemTraDiUngThuoc';
+    EXECUTE IMMEDIATE 'NOAUDIT EXECUTE ON QLBV.SP_XEM_LICHSU_DIEUTRI_BENHNHAN';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
 
--- Ngữ cảnh 2: [Thành công 4.5] Người dùng "ROLE_DPV" cập nhật thông tin trên HSBA thành công
-CREATE AUDIT POLICY AuditDPVUpdateHSBA
-ACTIONS UPDATE ON QLBV.HSBA
-WHEN 'SYS_CONTEXT(''userenv'', ''client_identifier'') LIKE ''%ROLE_DPV%''' EVALUATE PER STATEMENT;
-AUDIT POLICY AuditDPVUpdateHSBA WHENEVER SUCCESSFUL;
+-- Ngữ cảnh 1: [Thành công 1] Cập nhật thông tin BENHNHAN thành công
+AUDIT UPDATE ON QLBV.BENHNHAN BY ACCESS WHENEVER SUCCESSFUL;
 
--- Ngữ cảnh 3: [Thành công 5] Người dùng "ROLE_KTV" cập nhật thông tin trên View dịch vụ thành công
-CREATE AUDIT POLICY AuditSucKTVUpdateDV
-ACTIONS UPDATE ON QLBV.VW_KTV_XemHSBADV
-WHEN 'SYS_CONTEXT(''userenv'', ''client_identifier'') LIKE ''%ROLE_KTV%''' EVALUATE PER STATEMENT;
-AUDIT POLICY AuditSucKTVUpdateDV WHENEVER SUCCESSFUL;
+-- Ngữ cảnh 2: [Thành công 4.5] Cập nhật thông tin trên HSBA thành công
+AUDIT UPDATE ON QLBV.HSBA BY ACCESS WHENEVER SUCCESSFUL;
 
--- Ngữ cảnh 4: [Thành công 6] Người dùng "ROLE_BACSI" cập nhật ĐƠNTHUỐC thành công
-CREATE AUDIT POLICY AuditSucBSUpdateDT
-ACTIONS UPDATE ON QLBV.DONTHUOC
-WHEN 'SYS_CONTEXT(''userenv'', ''client_identifier'') LIKE ''%ROLE_BACSI%''' EVALUATE PER STATEMENT;
-AUDIT POLICY AuditSucBSUpdateDT WHENEVER SUCCESSFUL;
+-- Ngữ cảnh 3: [Thành công 5] Cập nhật thông tin trên View dịch vụ thành công
+AUDIT UPDATE ON QLBV.VW_KTV_XemHSBADV BY ACCESS WHENEVER SUCCESSFUL;
 
--- Ngữ cảnh 5: [Thất bại 1] Người dùng "ROLE_BACSI" cố tình cập nhật/xóa thông tin nhân viên (Thất bại)
-CREATE AUDIT POLICY AuditFailBSUpdateNV
-ACTIONS UPDATE ON QLBV.NHANVIEN, DELETE ON QLBV.NHANVIEN
-WHEN 'SYS_CONTEXT(''userenv'', ''client_identifier'') LIKE ''%ROLE_BACSI%''' EVALUATE PER STATEMENT;
-AUDIT POLICY AuditFailBSUpdateNV WHENEVER NOT SUCCESSFUL;
+-- Ngữ cảnh 4: [Thành công 6] Cập nhật ĐƠNTHUỐC thành công
+AUDIT UPDATE ON QLBV.DONTHUOC BY ACCESS WHENEVER SUCCESSFUL;
 
--- Ngữ cảnh 6: [Stored Procedure]: Giám sát ĐIỀU PHỐI VIÊN thực thi thủ tục chuyển khoa bệnh nhân
-CREATE AUDIT POLICY AuditDieuPhoiNhanSu
-ACTIONS EXECUTE ON QLBV.sp_DieuPhoiNhanSu
-WHEN 'SYS_CONTEXT(''userenv'', ''client_identifier'') LIKE ''%ROLE_DPV%''' EVALUATE PER STATEMENT;
-AUDIT POLICY AuditDieuPhoiNhanSu;
+-- Ngữ cảnh 5: [Thất bại 1] Cố tình cập nhật/xóa thông tin nhân viên (Thất bại)
+AUDIT UPDATE, DELETE ON QLBV.NHANVIEN BY ACCESS WHENEVER NOT SUCCESSFUL;
 
+-- Ngữ cảnh 6: [Stored Procedure]: Giám sát thực thi thủ tục sp_DieuPhoiNhanSu
+AUDIT EXECUTE ON QLBV.sp_DieuPhoiNhanSu BY ACCESS;
 
--- Ngữ cảnh 7: [Function - NGỮ CẢNH MỚI - Thành công]: Bác sĩ thực thi hàm "Kiểm tra dị ứng thuốc nguy kịch" thành công
-CREATE AUDIT POLICY AuditSucBSExecFunc
-ACTIONS EXECUTE ON QLBV.fn_KiemTraDiUngThuoc
-WHEN 'SYS_CONTEXT(''userenv'', ''client_identifier'') LIKE ''%ROLE_BACSI%''' EVALUATE PER STATEMENT;
-AUDIT POLICY AuditSucBSExecFunc WHENEVER SUCCESSFUL;
+-- Ngữ cảnh 7: [Function - Thành công]: Thực thi hàm "Kiểm tra dị ứng thuốc nguy kịch" thành công
+AUDIT EXECUTE ON QLBV.fn_KiemTraDiUngThuoc BY ACCESS WHENEVER SUCCESSFUL;
 
--- Ngữ cảnh 8: DPV xem lịch sử khám bệnh của bệnh nhân
--- Policy 1: Ghi log DPV thực thi thành công
-CREATE AUDIT POLICY AuditDPVXemLichSuBN
-ACTIONS EXECUTE ON QLBV.SP_XEM_LICHSU_DIEUTRI_BENHNHAN
-WHEN 'SYS_CONTEXT(''userenv'', ''client_identifier'') LIKE ''%ROLE_DPV%'''
-EVALUATE PER STATEMENT;
-AUDIT POLICY AuditDPVXemLichSuBN WHENEVER SUCCESSFUL;
-
--- Policy 2: Ghi log bất kỳ ai gọi thất bại (truy cập trái phép)
-CREATE AUDIT POLICY AuditDPVXemLichSuBN_Fail
-ACTIONS EXECUTE ON QLBV.SP_XEM_LICHSU_DIEUTRI_BENHNHAN;
-AUDIT POLICY AuditDPVXemLichSuBN_Fail WHENEVER NOT SUCCESSFUL;
+-- Ngữ cảnh 8: Thực thi thủ tục SP_XEM_LICHSU_DIEUTRI_BENHNHAN
+AUDIT EXECUTE ON QLBV.SP_XEM_LICHSU_DIEUTRI_BENHNHAN BY ACCESS;
 
 -- ----------------------------------------------------------------------------
 -- 3.3: TÌNH HUỐNG KIỂM TOÁN NGHIỆP VỤ CHI TIẾT (a, b, c, d)
@@ -376,22 +357,10 @@ WHERE  action_name = 'LOGON'
 ORDER  BY event_timestamp DESC;
 
 -- 3.4.2: Đọc dữ liệu Standard Audit của 8 ngữ cảnh vai trò chuẩn đã chỉnh sửa
-SELECT event_timestamp, dbusername, action_name, object_name,
-       return_code, unified_audit_policies
-FROM   unified_audit_trail
-WHERE  unified_audit_policies IN (
-    'AUDITSUCDPVUPDATEBN',  -- NC1: Điều phối viên cập nhật BENHNHAN thành công
-        'AUDITDPVUPDATEHSBA',   -- NC2: Điều phối viên cập nhật HSBA thành công
-        'AUDITSUCKTVUPDATEDV',  -- NC3: Kỹ thuật viên cập nhật View dịch vụ thành công
-        'AUDITSUCBSUPDATEDT',   -- NC4: Bác sĩ cập nhật ĐƠNTHUỐC thành công
-        'AUDITFAILBSUPDATENV',  -- NC5: Bác sĩ cập nhật/xóa NHANVIEN (Thất bại - Vượt quyền)
-        'AUDITDIEUPHOINHANSU',  -- NC6: Giám sát Điều phối viên thực thi sp_DieuPhoiNhanSu (Mới bổ sung)
-        'AUDITSUCBSEXECPROC',   -- NC7: Bác sĩ thực thi sp_KhoiTaoHSBAKhancap thành công
-        'AUDITSUCBSEXECFUNC',   -- NC8: Bác sĩ thực thi fn_KiemTraDiUngThuoc thành công
-        'AuditDPVXemLichSuBN',  -- NC9: DPV Xem lịch sử khám bệnh - TC
-        'AuditDPVXemLichSuBN_Fail' --NC9: Role khác xem lịch sử khám bệnh thất bại
-)
-ORDER BY event_timestamp DESC;
+SELECT timestamp, username, action_name, owner, obj_name, returncode, comment_text
+FROM   dba_audit_trail
+WHERE  owner = 'QLBV'
+ORDER BY timestamp DESC;
 
 -- 3.4.3: Đọc dữ liệu FGA của tình huống (a) Sửa Đơn Thuốc & (b) Bác sĩ Sửa HSBA hợp pháp
 SELECT event_timestamp, dbusername, fga_policy_name, object_schema, object_name,

@@ -32,7 +32,7 @@ SET LINESIZE 200;
 -- CONNECTION: NV0001 (Tài khoản Điều phối viên) - Mật khẩu: nv123
 -- POLICY KÍCH HOẠT: AuditSucDPVUpdateBN
 -- KẾT QUẢ MONG ĐỢI: THÀNH CÔNG (Ghi log thành công)
--- ----------------------------------------------------------------------------
+-- ---------------------------------------------------------------------------- 
 -- Giả lập ứng dụng WinForm kích hoạt định danh vai trò của Session
 EXEC DBMS_SESSION.SET_IDENTIFIER('ROLE_DPV');
 

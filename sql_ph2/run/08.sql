@@ -84,7 +84,34 @@ AS
     v_row_count NUMBER := 0;
     v_desc      NVARCHAR2(500); -- Khai báo biến trung gian để hứng chuỗi description
 BEGIN
-    -- Thực hiện chèn ép trực tiếp, chỉ định rõ ràng nguồn trích xuất
+    -- 1. Trích xuất Standard Audit từ DBA_AUDIT_TRAIL
+     INSERT INTO qlbv.audit_archive_log (
+        event_timestamp, 
+        dbusername, 
+        action_name, 
+        object_schema, 
+        object_name, 
+        return_code, 
+        unified_audit_policies, 
+        fga_policy_name, 
+        sql_text
+    )
+    SELECT timestamp, 
+           username, 
+           action_name, 
+           owner, 
+           obj_name, 
+           returncode, 
+           'Standard Audit', 
+           NULL, 
+           TO_CLOB(comment_text)
+    FROM   dba_audit_trail
+    WHERE  owner = 'QLBV'
+      AND  timestamp > (SELECT NVL(MAX(event_timestamp), TO_TIMESTAMP('2000-01-01', 'YYYY-MM-DD')) FROM qlbv.audit_archive_log WHERE unified_audit_policies = 'Standard Audit');
+
+    v_row_count := SQL%ROWCOUNT;
+
+    -- 2. Trích xuất FGA và Logon Failures từ UNIFIED_AUDIT_TRAIL
     INSERT INTO qlbv.audit_archive_log (
         event_timestamp, 
         dbusername, 
@@ -106,25 +133,11 @@ BEGIN
            fga_policy_name, 
            sql_text
     FROM   unified_audit_trail
-    WHERE  unified_audit_policies IN (
-                'AUDITSUCDPVUPDATEBN',  -- NC1: Điều phối viên cập nhật BENHNHAN thành công
-                'AUDITDPVUPDATEHSBA',   -- NC2: Điều phối viên cập nhật HSBA thành công
-                'AUDITSUCKTVUPDATEDV',  -- NC3: Kỹ thuật viên cập nhật View dịch vụ thành công
-                'AUDITSUCBSUPDATEDT',   -- NC4: Bác sĩ cập nhật ĐƠNTHUỐC thành công
-                'AUDITFAILBSUPDATENV',  -- NC5: Bác sĩ cập nhật/xóa NHANVIEN (Thất bại - Vượt quyền)
-                'AUDITDIEUPHOINHANSU',  -- NC6: Giám sát Điều phối viên thực thi sp_DieuPhoiNhanSu (Mới bổ sung)
-                'AUDITSUCBSEXECPROC',   -- NC7: Bác sĩ thực thi sp_KhoiTaoHSBAKhancap thành công
-                'AUDITSUCBSEXECFUNC',   -- NC8: Bác sĩ thực thi fn_KiemTraDiUngThuoc thành công
-                'AUDITDPVXEMLICHSUBN',   -- NC9: Thành công
-                'AUDITDPVXEMLICHSUBN_FAIL' -- NC9: Thất bại
-           )
-       OR  fga_policy_name IN (
-                'AUDITSUADONTHUOC',
-                'AUDITBSUPDATEHSBA_HOPPHAP'
-           )
-       OR  action_name = 'LOGON';
+    WHERE  ((fga_policy_name IN ('AUDITSUADONTHUOC', 'AUDITBSUPDATEHSBA_HOPPHAP'))
+            OR (action_name = 'LOGON' AND return_code <> 0))
+      AND  event_timestamp > (SELECT NVL(MAX(event_timestamp), TO_TIMESTAMP('2000-01-01', 'YYYY-MM-DD')) FROM qlbv.audit_archive_log WHERE unified_audit_policies <> 'Standard Audit');
 
-    v_row_count := SQL%ROWCOUNT;
+    v_row_count := v_row_count + SQL%ROWCOUNT;
     COMMIT;
 
     -- Gán chuỗi thông báo thành công vào biến trước khi INSERT
