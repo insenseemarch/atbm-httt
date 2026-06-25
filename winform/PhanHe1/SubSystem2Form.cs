@@ -437,6 +437,409 @@ namespace PhanHe1.Forms
             return $"expdp thất bại (exit {exitCode}).";
         }
 
+        private static void ExecuteSysDba(string sysPassword, string hostDescriptor, string sql)
+        {
+            var connStr = $"User Id=sys;Password={sysPassword};Data Source={hostDescriptor};DBA Privilege=SYSDBA";
+            using (var conn = new OracleConnection(connStr))
+            {
+                conn.Open();
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = sql;
+                    cmd.CommandType = CommandType.Text;
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
+        // run/01.sql — mật khẩu schema QLBV mặc định
+        private const string QlbvSchemaPassword = "123";
+
+        // Tạo user QLBV trống trước impdp / trước GRANT post-restore (tránh ORA-01917)
+        private const string SqlEnsureQlbvUser = @"
+DECLARE
+  v_cnt NUMBER;
+BEGIN
+  BEGIN EXECUTE IMMEDIATE 'ALTER SESSION SET ""_ORACLE_SCRIPT""=true'; EXCEPTION WHEN OTHERS THEN NULL; END;
+  SELECT COUNT(*) INTO v_cnt FROM dba_users WHERE username = 'QLBV';
+  IF v_cnt = 0 THEN
+    EXECUTE IMMEDIATE 'CREATE USER QLBV IDENTIFIED BY ""123"" DEFAULT TABLESPACE USERS TEMPORARY TABLESPACE TEMP QUOTA UNLIMITED ON USERS';
+    EXECUTE IMMEDIATE 'GRANT CONNECT, RESOURCE TO QLBV';
+  END IF;
+END;";
+
+        private static void EnsureQlbvUserExists(string sysPassword, string hostDescriptor, Action<string> log)
+        {
+            log?.Invoke($"[{DateTime.Now:HH:mm:ss}] Tạo user QLBV (mật khẩu {QlbvSchemaPassword}, theo 01.sql) nếu chưa có...");
+            ExecuteSysDba(sysPassword, hostDescriptor, SqlEnsureQlbvUser);
+            log?.Invoke($"[{DateTime.Now:HH:mm:ss}] OK: User QLBV sẵn sàng.");
+        }
+
+        // Post-restore: GRANT hệ thống cho QLBV (WinForm — SYSDBA)
+        private const string SqlPostRestoreSysGrants = @"
+BEGIN
+    BEGIN EXECUTE IMMEDIATE 'ALTER SESSION SET ""_ORACLE_SCRIPT""=true'; EXCEPTION WHEN OTHERS THEN NULL; END;
+    EXECUTE IMMEDIATE 'GRANT DBA TO QLBV';
+    EXECUTE IMMEDIATE 'GRANT AUDIT_ADMIN TO QLBV';
+    EXECUTE IMMEDIATE 'GRANT CREATE ROLE TO QLBV';
+    EXECUTE IMMEDIATE 'GRANT GRANT ANY ROLE TO QLBV';
+    EXECUTE IMMEDIATE 'GRANT EXECUTE ON SYS.DBMS_RLS TO QLBV';
+    EXECUTE IMMEDIATE 'GRANT EXECUTE ON SYS.DBMS_FGA TO QLBV';
+    EXECUTE IMMEDIATE 'GRANT EXECUTE ON SYS.DBMS_SCHEDULER TO QLBV';
+    EXECUTE IMMEDIATE 'GRANT CREATE JOB TO QLBV';
+    EXECUTE IMMEDIATE 'GRANT EXEMPT ACCESS POLICY TO QLBV';
+    EXECUTE IMMEDIATE 'GRANT SELECT ANY DICTIONARY TO QLBV';
+    EXECUTE IMMEDIATE 'GRANT EXECUTE ON LBACSYS.LBAC_POLICY_ADMIN TO QLBV';
+    EXECUTE IMMEDIATE 'GRANT EXECUTE ON LBACSYS.SA_USER_ADMIN TO QLBV';
+    EXECUTE IMMEDIATE 'GRANT EXECUTE ON LBACSYS.SA_LABEL_ADMIN TO QLBV';
+    EXECUTE IMMEDIATE 'GRANT EXECUTE ON LBACSYS.SA_COMPONENTS TO QLBV';
+    BEGIN EXECUTE IMMEDIATE 'GRANT LBAC_DBA TO QLBV'; EXCEPTION WHEN OTHERS THEN NULL; END;
+    BEGIN EXECUTE IMMEDIATE 'GRANT EXECUTE ON LBACSYS.SA_SYSDBA TO QLBV'; EXCEPTION WHEN OTHERS THEN NULL; END;
+END;";
+
+        // run/03.sql — tạo role + user NV trước post-restore (SYSDBA)
+        private const string SqlPostRestoreSysRoles = @"
+BEGIN
+    BEGIN EXECUTE IMMEDIATE 'ALTER SESSION SET ""_ORACLE_SCRIPT""=true'; EXCEPTION WHEN OTHERS THEN NULL; END;
+    BEGIN EXECUTE IMMEDIATE 'CREATE ROLE ROLE_KTV'; EXCEPTION WHEN OTHERS THEN NULL; END;
+    BEGIN EXECUTE IMMEDIATE 'CREATE ROLE ROLE_DPV'; EXCEPTION WHEN OTHERS THEN NULL; END;
+    BEGIN EXECUTE IMMEDIATE 'CREATE ROLE ROLE_BACSI'; EXCEPTION WHEN OTHERS THEN NULL; END;
+END;";
+
+        private const string SqlPostRestoreEnsureNvUsers = @"
+BEGIN
+    BEGIN EXECUTE IMMEDIATE 'ALTER SESSION SET ""_ORACLE_SCRIPT""=true'; EXCEPTION WHEN OTHERS THEN NULL; END;
+    FOR nv IN (SELECT MANV FROM QLBV.NHANVIEN) LOOP
+        BEGIN
+            EXECUTE IMMEDIATE 'CREATE USER ' || nv.MANV || ' IDENTIFIED BY nv123';
+            EXECUTE IMMEDIATE 'GRANT CREATE SESSION TO ' || nv.MANV;
+        EXCEPTION WHEN OTHERS THEN NULL;
+        END;
+    END LOOP;
+END;";
+
+        // Post-restore: RBAC/VPD/OLS/FGA (WinForm — SYSDBA, khớp 03.sql + 04.sql + 06.sql)
+        private const string SqlPostRestoreQlbvSecurity = @"
+DECLARE
+  v_label VARCHAR2(200);
+  v_level VARCHAR2(10);
+  v_comp  VARCHAR2(10);
+  v_grp   VARCHAR2(10);
+BEGIN
+  BEGIN
+    LBACSYS.LBAC_POLICY_ADMIN.APPLY_TABLE_POLICY(
+      policy_name => 'OLS_QLBV_POLICY', schema_name => 'QLBV', table_name => 'THONGBAO',
+      table_options => 'READ_CONTROL, WRITE_CONTROL');
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+
+  BEGIN
+    LBACSYS.SA_USER_ADMIN.SET_USER_LABELS(
+      policy_name => 'OLS_QLBV_POLICY', user_name => 'QLBV',
+      max_read_label => 'BGD:TH,TK,TM:HCM,HP,HN', max_write_label => 'BGD:TH,TK,TM:HCM,HP,HN',
+      def_label => 'BGD:TH,TK,TM:HCM,HP,HN', row_label => 'BGD:TH,TK,TM:HCM,HP,HN');
+    LBACSYS.SA_USER_ADMIN.SET_USER_PRIVS(
+      policy_name => 'OLS_QLBV_POLICY', user_name => 'QLBV', privileges => 'FULL');
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+
+  FOR nv IN (SELECT MANV, CAPBAC, MAKHOA, COSO FROM QLBV.NHANVIEN) LOOP
+    CASE nv.CAPBAC
+      WHEN N'Ban Giám đốc'   THEN v_level := 'BGD';
+      WHEN N'Lãnh đạo khoa'  THEN v_level := 'LDK';
+      WHEN N'Lãnh đạo phòng' THEN v_level := 'LDP';
+      ELSE v_level := 'NV';
+    END CASE;
+    CASE nv.MAKHOA
+      WHEN 'K001' THEN v_comp := 'TH';
+      WHEN 'K002' THEN v_comp := 'TK';
+      WHEN 'K003' THEN v_comp := 'TM';
+      ELSE v_comp := NULL;
+    END CASE;
+    CASE nv.COSO
+      WHEN N'Hồ Chí Minh' THEN v_grp := 'HCM';
+      WHEN N'Hải Phòng'   THEN v_grp := 'HP';
+      WHEN N'Hà Nội'      THEN v_grp := 'HN';
+      ELSE v_grp := NULL;
+    END CASE;
+    IF nv.CAPBAC = N'Ban Giám đốc' THEN
+      v_label := 'BGD:TH,TK,TM:HCM,HP,HN';
+    ELSIF nv.CAPBAC = N'Lãnh đạo phòng' AND nv.MAKHOA IS NULL THEN
+      v_label := 'LDP:TH,TK,TM:HCM,HP,HN';
+    ELSIF v_comp IS NOT NULL AND v_grp IS NOT NULL THEN
+      v_label := v_level || ':' || v_comp || ':' || v_grp;
+    ELSIF v_comp IS NOT NULL THEN
+      v_label := v_level || ':' || v_comp;
+    ELSIF v_grp IS NOT NULL THEN
+      v_label := v_level || '::' || v_grp;
+    ELSE
+      v_label := v_level;
+    END IF;
+    BEGIN
+      LBACSYS.SA_USER_ADMIN.SET_USER_LABELS(
+        policy_name => 'OLS_QLBV_POLICY', user_name => nv.MANV,
+        max_read_label => v_label, def_label => v_label, row_label => v_label);
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END LOOP;
+
+  EXECUTE IMMEDIATE 'GRANT SELECT ON QLBV.VW_KTV_XemHSBADV TO ROLE_KTV';
+  EXECUTE IMMEDIATE 'GRANT SELECT ON QLBV.VW_KTV_Xemthongtin TO ROLE_KTV';
+  EXECUTE IMMEDIATE 'GRANT UPDATE (KETQUA) ON QLBV.VW_KTV_XemHSBADV TO ROLE_KTV';
+  EXECUTE IMMEDIATE 'GRANT UPDATE (QUEQUAN, SODT) ON QLBV.VW_KTV_Xemthongtin TO ROLE_KTV';
+  EXECUTE IMMEDIATE 'GRANT SELECT, INSERT, UPDATE ON QLBV.BENHNHAN TO ROLE_DPV';
+  EXECUTE IMMEDIATE 'GRANT SELECT, INSERT ON QLBV.HSBA TO ROLE_DPV';
+  EXECUTE IMMEDIATE 'GRANT UPDATE (MAKHOA, MABS) ON QLBV.HSBA TO ROLE_DPV';
+  EXECUTE IMMEDIATE 'GRANT SELECT ON QLBV.HSBA_DV TO ROLE_DPV';
+  EXECUTE IMMEDIATE 'GRANT UPDATE (MAKTV) ON QLBV.HSBA_DV TO ROLE_DPV';
+  EXECUTE IMMEDIATE 'GRANT SELECT ON QLBV.NHANVIEN TO ROLE_DPV';
+  EXECUTE IMMEDIATE 'GRANT UPDATE (QUEQUAN, SODT) ON QLBV.NHANVIEN TO ROLE_DPV';
+  EXECUTE IMMEDIATE 'GRANT SELECT, INSERT, DELETE ON QLBV.HSBA_DV TO ROLE_BACSI';
+  EXECUTE IMMEDIATE 'GRANT SELECT ON QLBV.HSBA TO ROLE_BACSI';
+  EXECUTE IMMEDIATE 'GRANT UPDATE (CHANDOAN, DIEUTRI, KETLUAN) ON QLBV.HSBA TO ROLE_BACSI';
+  EXECUTE IMMEDIATE 'GRANT SELECT ON QLBV.BENHNHAN TO ROLE_BACSI';
+  EXECUTE IMMEDIATE 'GRANT UPDATE (TIENSUBENH, TIENSUBENHGD, DIUNGTHUOC) ON QLBV.BENHNHAN TO ROLE_BACSI';
+  EXECUTE IMMEDIATE 'GRANT SELECT, INSERT, UPDATE, DELETE ON QLBV.DONTHUOC TO ROLE_BACSI';
+  EXECUTE IMMEDIATE 'GRANT SELECT ON QLBV.NHANVIEN TO ROLE_BACSI';
+  EXECUTE IMMEDIATE 'GRANT UPDATE (QUEQUAN, SODT) ON QLBV.NHANVIEN TO ROLE_BACSI';
+
+  FOR nv IN (SELECT MANV FROM QLBV.NHANVIEN WHERE VAITRO = N'Kỹ thuật viên') LOOP
+    BEGIN EXECUTE IMMEDIATE 'GRANT ROLE_KTV TO ' || nv.MANV; EXCEPTION WHEN OTHERS THEN NULL; END;
+  END LOOP;
+  FOR nv IN (SELECT MANV FROM QLBV.NHANVIEN WHERE VAITRO = N'Điều phối viên') LOOP
+    BEGIN EXECUTE IMMEDIATE 'GRANT ROLE_DPV TO ' || nv.MANV; EXCEPTION WHEN OTHERS THEN NULL; END;
+  END LOOP;
+  FOR nv IN (SELECT MANV FROM QLBV.NHANVIEN WHERE VAITRO = N'Bác sĩ/Y sĩ') LOOP
+    BEGIN EXECUTE IMMEDIATE 'GRANT ROLE_BACSI TO ' || nv.MANV; EXCEPTION WHEN OTHERS THEN NULL; END;
+  END LOOP;
+
+  EXECUTE IMMEDIATE 'GRANT SELECT ON QLBV.THONGBAO TO PUBLIC';
+
+  FOR p IN (
+    SELECT object_name, policy_name FROM all_policies
+    WHERE object_owner = 'QLBV'
+      AND object_name IN ('NHANVIEN','HSBA','HSBA_DV','BENHNHAN','DONTHUOC')
+  ) LOOP
+    BEGIN DBMS_RLS.DROP_POLICY('QLBV', p.object_name, p.policy_name); EXCEPTION WHEN OTHERS THEN NULL; END;
+  END LOOP;
+
+  DBMS_RLS.ADD_POLICY(object_schema => 'QLBV', object_name => 'NHANVIEN', policy_name => 'VPD_NV_SEL',
+    function_schema => 'QLBV', policy_function => 'fn_vpdNhanVien', statement_types => 'SELECT');
+  DBMS_RLS.ADD_POLICY(object_schema => 'QLBV', object_name => 'NHANVIEN', policy_name => 'VPD_NV_EDIT',
+    function_schema => 'QLBV', policy_function => 'fn_vpdNhanVien', statement_types => 'UPDATE', update_check => TRUE);
+  DBMS_RLS.ADD_POLICY(object_schema => 'QLBV', object_name => 'HSBA', policy_name => 'VPD_HSBA_SEL',
+    function_schema => 'QLBV', policy_function => 'fn_vpdHSBA', statement_types => 'SELECT');
+  DBMS_RLS.ADD_POLICY(object_schema => 'QLBV', object_name => 'HSBA', policy_name => 'VPD_HSBA_EDIT',
+    function_schema => 'QLBV', policy_function => 'fn_vpdHSBA', statement_types => 'INSERT, UPDATE, DELETE', update_check => TRUE);
+  DBMS_RLS.ADD_POLICY(object_schema => 'QLBV', object_name => 'HSBA_DV', policy_name => 'VPD_HSBADV_SEL',
+    function_schema => 'QLBV', policy_function => 'fn_vpdHSBADV', statement_types => 'SELECT');
+  DBMS_RLS.ADD_POLICY(object_schema => 'QLBV', object_name => 'HSBA_DV', policy_name => 'VPD_HSBADV_EDIT',
+    function_schema => 'QLBV', policy_function => 'fn_vpdHSBADV', statement_types => 'INSERT, UPDATE, DELETE', update_check => TRUE);
+  DBMS_RLS.ADD_POLICY(object_schema => 'QLBV', object_name => 'BENHNHAN', policy_name => 'VPD_BN_SEL',
+    function_schema => 'QLBV', policy_function => 'fn_vpdBenhNhan', statement_types => 'SELECT');
+  DBMS_RLS.ADD_POLICY(object_schema => 'QLBV', object_name => 'BENHNHAN', policy_name => 'VPD_BN_EDIT',
+    function_schema => 'QLBV', policy_function => 'fn_vpdBenhNhan', statement_types => 'UPDATE', update_check => TRUE);
+  DBMS_RLS.ADD_POLICY(object_schema => 'QLBV', object_name => 'DONTHUOC', policy_name => 'VPD_DT_SEL',
+    function_schema => 'QLBV', policy_function => 'fn_vpdDonThuoc', statement_types => 'SELECT');
+  DBMS_RLS.ADD_POLICY(object_schema => 'QLBV', object_name => 'DONTHUOC', policy_name => 'VPD_DT_EDIT',
+    function_schema => 'QLBV', policy_function => 'fn_vpdDonThuoc', statement_types => 'INSERT, UPDATE, DELETE', update_check => TRUE);
+
+  BEGIN DBMS_FGA.DROP_POLICY('QLBV', 'DONTHUOC', 'AuditSuaDonThuoc'); EXCEPTION WHEN OTHERS THEN NULL; END;
+  BEGIN DBMS_FGA.DROP_POLICY('QLBV', 'HSBA', 'AuditBSUpdateHSBA_HopPhap'); EXCEPTION WHEN OTHERS THEN NULL; END;
+  DBMS_FGA.ADD_POLICY(
+    object_schema => 'QLBV', object_name => 'DONTHUOC', policy_name => 'AuditSuaDonThuoc',
+    audit_column => 'MAHSBA,NGAYDT,TENTHUOC,LIEUDUNG',
+    audit_condition => 'SYS_CONTEXT(''USERENV'', ''SESSION_USER'') LIKE ''BS%''',
+    statement_types => 'UPDATE');
+  DBMS_FGA.ADD_POLICY(
+    object_schema => 'QLBV', object_name => 'HSBA', policy_name => 'AuditBSUpdateHSBA_HopPhap',
+    audit_column => 'CHANDOAN,DIEUTRI,KETLUAN',
+    audit_condition => 'MABS = SYS_CONTEXT(''USERENV'', ''SESSION_USER'')',
+    statement_types => 'UPDATE');
+END;";
+
+        // run/06.sql §3.0 + §3.2 + §3.3.c/d — idempotent (SYSDBA)
+        private static void ApplyPostRestoreSysAudit(string sysPassword, string hostDescriptor, Action<string> log)
+        {
+            string[] prelude = {
+                "BEGIN EXECUTE IMMEDIATE 'NOAUDIT POLICY AuditSession'; EXCEPTION WHEN OTHERS THEN NULL; END;",
+                "BEGIN EXECUTE IMMEDIATE 'DROP AUDIT POLICY AuditSession'; EXCEPTION WHEN OTHERS THEN NULL; END;",
+                "CREATE AUDIT POLICY AuditSession ACTIONS LOGON",
+                "AUDIT POLICY AuditSession WHENEVER NOT SUCCESSFUL",
+                @"BEGIN
+    EXECUTE IMMEDIATE 'NOAUDIT UPDATE ON QLBV.BENHNHAN';
+    EXECUTE IMMEDIATE 'NOAUDIT UPDATE ON QLBV.HSBA';
+    EXECUTE IMMEDIATE 'NOAUDIT UPDATE ON QLBV.VW_KTV_XemHSBADV';
+    EXECUTE IMMEDIATE 'NOAUDIT UPDATE ON QLBV.DONTHUOC';
+    EXECUTE IMMEDIATE 'NOAUDIT UPDATE, DELETE ON QLBV.NHANVIEN';
+    EXECUTE IMMEDIATE 'NOAUDIT EXECUTE ON QLBV.sp_DieuPhoiNhanSu';
+    EXECUTE IMMEDIATE 'NOAUDIT EXECUTE ON QLBV.fn_KiemTraDiUngThuoc';
+    EXECUTE IMMEDIATE 'NOAUDIT EXECUTE ON QLBV.SP_XEM_LICHSU_DIEUTRI_BENHNHAN';
+EXCEPTION WHEN OTHERS THEN NULL; END;",
+                "AUDIT UPDATE ON QLBV.BENHNHAN BY ACCESS WHENEVER SUCCESSFUL",
+                "AUDIT UPDATE ON QLBV.HSBA BY ACCESS WHENEVER SUCCESSFUL",
+                "AUDIT UPDATE ON QLBV.VW_KTV_XemHSBADV BY ACCESS WHENEVER SUCCESSFUL",
+                "AUDIT UPDATE ON QLBV.DONTHUOC BY ACCESS WHENEVER SUCCESSFUL",
+                "AUDIT UPDATE, DELETE ON QLBV.NHANVIEN BY ACCESS WHENEVER NOT SUCCESSFUL",
+                "AUDIT EXECUTE ON QLBV.sp_DieuPhoiNhanSu BY ACCESS",
+                "AUDIT EXECUTE ON QLBV.fn_KiemTraDiUngThuoc BY ACCESS WHENEVER SUCCESSFUL",
+                "AUDIT EXECUTE ON QLBV.SP_XEM_LICHSU_DIEUTRI_BENHNHAN BY ACCESS",
+                "BEGIN EXECUTE IMMEDIATE 'NOAUDIT POLICY AuditIllegalUpdateHSBA'; EXCEPTION WHEN OTHERS THEN NULL; END;",
+                "BEGIN EXECUTE IMMEDIATE 'DROP AUDIT POLICY AuditIllegalUpdateHSBA'; EXCEPTION WHEN OTHERS THEN NULL; END;",
+                "CREATE AUDIT POLICY AuditIllegalUpdateHSBA ACTIONS UPDATE ON QLBV.HSBA",
+                "AUDIT POLICY AuditIllegalUpdateHSBA WHENEVER NOT SUCCESSFUL",
+                "BEGIN EXECUTE IMMEDIATE 'NOAUDIT POLICY AuditIllegalHSBADV'; EXCEPTION WHEN OTHERS THEN NULL; END;",
+                "BEGIN EXECUTE IMMEDIATE 'DROP AUDIT POLICY AuditIllegalHSBADV'; EXCEPTION WHEN OTHERS THEN NULL; END;",
+                @"CREATE AUDIT POLICY AuditIllegalHSBADV
+ACTIONS INSERT ON QLBV.HSBA_DV,
+        UPDATE ON QLBV.HSBA_DV,
+        DELETE ON QLBV.HSBA_DV",
+                "AUDIT POLICY AuditIllegalHSBADV WHENEVER NOT SUCCESSFUL"
+            };
+            foreach (string sql in prelude)
+            {
+                try
+                {
+                    ExecuteSysDba(sysPassword, hostDescriptor, sql);
+                }
+                catch (Exception ex)
+                {
+                    log?.Invoke($"   [audit] bỏ qua: {ex.Message}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Sau impdp full schema: khôi phục GRANT, Audit, RBAC, VPD, OLS, FGA (WinForm tự chạy SYSDBA).
+        /// </summary>
+        private bool RepairSecurityAfterFullRestore(string sysPassword, string hostDescriptor, Action<string> log, out string summary)
+        {
+            summary = null;
+            var notes = new List<string>();
+            try
+            {
+                EnsureQlbvUserExists(sysPassword, hostDescriptor, log);
+
+                log?.Invoke($"[{DateTime.Now:HH:mm:ss}] Post-restore: GRANT hệ thống cho QLBV...");
+                ExecuteSysDba(sysPassword, hostDescriptor, SqlPostRestoreSysGrants);
+                notes.Add("GRANT OK");
+
+                log?.Invoke($"[{DateTime.Now:HH:mm:ss}] Post-restore: Audit (06.sql §3.0/3.2/3.3.c/d)...");
+                ApplyPostRestoreSysAudit(sysPassword, hostDescriptor, log);
+                notes.Add("Audit OK");
+
+                log?.Invoke($"[{DateTime.Now:HH:mm:ss}] Post-restore: RBAC/VPD/OLS/FGA...");
+                try
+                {
+                    ExecuteSysDba(sysPassword, hostDescriptor, SqlPostRestoreSysRoles);
+                    ExecuteSysDba(sysPassword, hostDescriptor, SqlPostRestoreEnsureNvUsers);
+                    ExecuteSysDba(sysPassword, hostDescriptor, SqlPostRestoreQlbvSecurity);
+                    notes.Add("Security OK");
+                }
+                catch (Exception exSec)
+                {
+                    notes.Add("Security FAIL: " + exSec.Message);
+                    log?.Invoke($"   [LỖI security repair]: {exSec.Message}");
+                }
+
+                summary = string.Join("; ", notes);
+                bool ok = !notes.Any(n => n.Contains("FAIL"));
+                log?.Invoke($"[{DateTime.Now:HH:mm:ss}] Post-restore hoàn tất: {summary}");
+                return ok;
+            }
+            catch (Exception ex)
+            {
+                summary = ex.Message;
+                log?.Invoke($"[{DateTime.Now:HH:mm:ss}] Post-restore lỗi: {ex.Message}");
+                return false;
+            }
+        }
+
+        private static string BuildImpdpSysdbaArgs(string sysPassword, string hostDescriptor, string dumpFile, string logFile)
+        {
+            string connectValue = $"sys/{sysPassword}@{hostDescriptor} AS SYSDBA".Replace("'", "''");
+            return $"userid='{connectValue}' schemas=qlbv directory=backup_dir dumpfile={dumpFile} logfile={logFile} content=ALL table_exists_action=replace";
+        }
+
+        /// <summary>
+        /// Kill session QLBV, drop scheduler jobs, DROP USER CASCADE — tránh impdp ORA-31684 object already exists.
+        /// </summary>
+        private bool PrepareQlbvForFullRestore(string sysPassword, string hostDescriptor, Action<string> log, out string error)
+        {
+            error = null;
+            try
+            {
+                var connStr = $"User Id=sys;Password={sysPassword};Data Source={hostDescriptor};DBA Privilege=SYSDBA";
+                using (var conn = new OracleConnection(connStr))
+                {
+                    conn.Open();
+
+                    void RunPlSql(string sql, string stepMsg)
+                    {
+                        log?.Invoke($"[{DateTime.Now:HH:mm:ss}] {stepMsg}");
+                        using (var cmd = conn.CreateCommand())
+                        {
+                            cmd.CommandText = sql;
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
+
+                    RunPlSql(@"
+BEGIN
+  FOR s IN (
+    SELECT sid, serial# FROM v$session
+    WHERE UPPER(username) = 'QLBV'
+  ) LOOP
+    BEGIN
+      EXECUTE IMMEDIATE 'ALTER SYSTEM KILL SESSION ''' || s.sid || ',' || s.serial# || ''' IMMEDIATE';
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END LOOP;
+END;", "Kill session đang giữ user QLBV...");
+
+                    RunPlSql(@"
+BEGIN
+  FOR j IN (SELECT job_name FROM dba_scheduler_jobs WHERE owner = 'QLBV') LOOP
+    BEGIN
+      DBMS_SCHEDULER.DROP_JOB(job_name => 'QLBV.' || j.job_name, force => TRUE);
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END LOOP;
+END;", "Xóa Scheduler job QLBV (nếu còn)...");
+
+                    RunPlSql(@"ALTER SESSION SET ""_ORACLE_SCRIPT""=true", "Bật _ORACLE_SCRIPT (cho phép DROP user admin)...");
+
+                    RunPlSql(@"
+BEGIN
+  EXECUTE IMMEDIATE 'DROP USER QLBV CASCADE';
+EXCEPTION
+  WHEN OTHERS THEN NULL;
+END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
+
+                    using (var cmdChk = conn.CreateCommand())
+                    {
+                        cmdChk.CommandText = "SELECT COUNT(*) FROM dba_users WHERE username = 'QLBV'";
+                        int remaining = Convert.ToInt32(cmdChk.ExecuteScalar());
+                        if (remaining > 0)
+                        {
+                            error = "DROP USER QLBV không thành công — user vẫn còn trong DBA_USERS.\n" +
+                                    "Đóng mọi cửa sổ WinForm/SQL*Plus đang kết nối QLBV rồi thử lại.";
+                            return false;
+                        }
+                    }
+                }
+
+                log?.Invoke($"[{DateTime.Now:HH:mm:ss}] OK: QLBV không còn trong DBA_USERS — sẵn sàng tạo lại / impdp.");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                log?.Invoke($"[{DateTime.Now:HH:mm:ss}] LỖI prepare drop QLBV: {ex.Message}");
+                return false;
+            }
+        }
+
         private void RecordBackupHistory(string backupType, string fileName, int exitCode, string context, TextBox log = null)
         {
             string status = MapDataPumpStatus(exitCode);
@@ -2946,7 +3349,11 @@ namespace PhanHe1.Forms
                     return;
                 }
 
-                if (MessageBox.Show("CẢNH BÁO: Thao tác này sẽ DROP USER QLBV (xóa mọi dữ liệu) rồi restore toàn bộ schema từ file dump.\nBạn có chắc chắn?", "Restore Full Schema (SYS)", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+                if (MessageBox.Show(
+                    "CẢNH BÁO: Thao tác này sẽ DROP USER QLBV rồi impdp toàn bộ schema.\n\n" +
+                    "Sau impdp, WinForm tự chạy post-restore (GRANT, Audit, RBAC, VPD, OLS, FGA).\n\n" +
+                    "Bạn có chắc chắn?",
+                    "Restore Full Schema (SYS)", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
                     return;
 
                 string defaultDump = "qlbv_schema_latest.dmp";
@@ -2986,77 +3393,45 @@ namespace PhanHe1.Forms
                 SetDataPumpButtonsEnabled(flowBtn, false);
                 try
                 {
-                    txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Bắt đầu DROP user QLBV bằng SYSDBA...\r\n");
-
-                    // get host descriptor like host:port/service
                     SplitDataPumpConnect(out _, out string hostDescriptor);
 
-                    // Drop user QLBV using SYSDBA
-                    try
+                    if (!PrepareQlbvForFullRestore(sysPwd, hostDescriptor, msg => txtLog.AppendText(msg + "\r\n"), out string prepErr))
                     {
-                        var connStr = $"User Id=sys;Password={sysPwd};Data Source={hostDescriptor};DBA Privilege=SYSDBA";
-                        using (var conn = new OracleConnection(connStr))
-                        {
-                            conn.Open();
-                            using (var cmd = conn.CreateCommand())
-                            {
-                                cmd.CommandText = "BEGIN EXECUTE IMMEDIATE 'DROP USER QLBV CASCADE'; EXCEPTION WHEN OTHERS THEN NULL; END;";
-                                cmd.CommandType = CommandType.Text;
-                                cmd.ExecuteNonQuery();
-                            }
-                        }
-                        txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] OK: Drop user QLBV\r\n");
-                    }
-                    catch (Exception exDrop)
-                    {
-                        txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] LỖI: Không thể drop user QLBV: {exDrop.Message}\r\n");
-                        throw;
+                        Err("Không thể chuẩn bị DROP user QLBV:\n" + prepErr);
+                        return;
                     }
 
-                    // Run impdp as SYSDBA using userid= and proper quoting
-                    var connectValue = $"sys/{sysPwd}@{hostDescriptor} AS SYSDBA";
-                    var connectArg = "userid=" + QuoteCliArg(connectValue);
+                    EnsureQlbvUserExists(sysPwd, hostDescriptor, msg => txtLog.AppendText(msg + "\r\n"));
+
                     var logFile = "qlbv_schema_import_full.log";
-                    var args = $"{connectArg} schemas=qlbv directory=backup_dir dumpfile={df} logfile={logFile} content=ALL table_exists_action=replace";
+                    var args = BuildImpdpSysdbaArgs(sysPwd, hostDescriptor, df, logFile);
 
-                    txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Đang chạy impdp AS SYSDBA...\r\n");
-                    int code = await RunDataPumpCliAsync("impdp", args, txtLog);
+                    txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Đang chạy impdp AS SYSDBA (userid single-quote)...\r\n");
+                    int code = await RunDataPumpCliViaCmdAsync("impdp", args, txtLog);
 
-                    if (code != 0)
+                    if (code != 0 && code != 5)
                     {
-                        txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Lệnh impdp trả mã {code}. Thử fallback chạy qua cmd.exe để xử lý quoting...\r\n");
-                        int fallback = await RunDataPumpCliViaCmdAsync("impdp", args, txtLog);
-                        if (fallback == 0)
-                        {
-                            txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Fallback qua cmd.exe thành công (exit 0).\r\n");
-                            code = 0;
-                        }
-                        else
-                        {
-                            txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Fallback qua cmd.exe thất bại (exit {fallback}).\r\n");
-                            // Try alternate quoting: use single quotes around userid value (some impdp versions accept this)
-                            txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Thử lại với single-quote quanh userid...\r\n");
-                            var altConnectArg = "userid='" + connectValue + "'";
-                            var altArgs = $"{altConnectArg} schemas=qlbv directory=backup_dir dumpfile={df} logfile={logFile} content=ALL table_exists_action=replace";
-                            int alt = await RunDataPumpCliViaCmdAsync("impdp", altArgs, txtLog);
-                            if (alt == 0)
-                            {
-                                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Thử single-quote thành công (exit 0).\r\n");
-                                code = 0;
-                            }
-                            else
-                            {
-                                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Thử single-quote thất bại (exit {alt}).\r\n");
-                            }
-                        }
+                        txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] impdp exit {code} — thử lại qua Process trực tiếp...\r\n");
+                        int direct = await RunDataPumpCliAsync("impdp", args, txtLog);
+                        if (direct == 0 || direct == 5) code = direct;
                     }
 
-                    if (code == 0)
+                    if (code == 0 || code == 5)
                     {
-                        txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Full schema restore thành công (exit 0). File: {df}\r\n");
+                        if (code == 5)
+                            txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] impdp partial (exit 5) — tiếp tục post-restore repair...\r\n");
+
+                        bool repaired = RepairSecurityAfterFullRestore(sysPwd, hostDescriptor,
+                            msg => txtLog.AppendText(msg + "\r\n"), out string repairSummary);
+
+                        string restoreStatus = code == 0 ? "SUCCESS" : "PARTIAL";
+                        txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Full schema restore {restoreStatus.ToLower()} (exit {code}). File: {df}\r\n");
+                        txtLog.AppendText($"   Post-restore: {repairSummary}\r\n");
                         try
                         {
-                            service.ExecuteNonQuery($"INSERT INTO QLBV.RESTORE_HISTORY (RESTORE_TYPE, FILE_SRC, STATUS) VALUES ('IMPDP_SCHEMA_FULL', '{Esc(df)}', 'SUCCESS')");
+                            service.ExecuteNonQuery(
+                                $"INSERT INTO QLBV.RESTORE_HISTORY (RESTORE_TYPE, FILE_SRC, STATUS) " +
+                                $"VALUES ('IMPDP_SCHEMA_FULL', '{Esc(df)}', '{restoreStatus}')");
                             service.ExecuteNonQuery("COMMIT");
                             txtLog.AppendText("   => Đã ghi nhận vào QLBV.RESTORE_HISTORY.\r\n");
                         }
@@ -3064,7 +3439,11 @@ namespace PhanHe1.Forms
                         {
                             txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Không ghi được RESTORE_HISTORY: {exHist.Message}\r\n");
                         }
-                        Ok($"Đã restore full schema từ {df}");
+
+                        if (repaired)
+                            Ok($"Đã restore full schema từ {df}.\n\nPost-restore: {repairSummary}");
+                        else
+                            Err($"Restore dữ liệu xong nhưng post-restore chưa hoàn tất.\n\n{repairSummary}\n\nXem log phía trên.");
                     }
                     else
                     {
