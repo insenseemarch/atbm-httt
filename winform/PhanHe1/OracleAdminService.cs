@@ -804,7 +804,7 @@ namespace PhanHe1
         private static string BuildConnectionString(string host, string port, string serviceName, string userName, string password)
         {
             return string.Format(
-                "User Id={0};Password={1};Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST={2})(PORT={3}))(CONNECT_DATA=(SERVICE_NAME={4})));",
+                "User Id={0};Password={1};Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST={2})(PORT={3}))(CONNECT_DATA=(SERVICE_NAME={4})));Pooling=false;",
                 userName,
                 password,
                 host,
@@ -815,7 +815,7 @@ namespace PhanHe1
         private static string BuildSysConnectionString(string host, string port, string serviceName, string userName, string password)
         {
             return string.Format(
-                "User Id={0};Password={1};Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST={2})(PORT={3}))(CONNECT_DATA=(SERVICE_NAME={4})));DBA Privilege=SYSDBA;",
+                "User Id={0};Password={1};Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST={2})(PORT={3}))(CONNECT_DATA=(SERVICE_NAME={4})));DBA Privilege=SYSDBA;Pooling=false;",
                 userName,
                 password,
                 host,
