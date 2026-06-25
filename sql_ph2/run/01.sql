@@ -138,5 +138,16 @@ begin
 
     begin lbacsys.sa_label_admin.create_label('OLS_QLBV_POLICY', 50018, 'LDK:TH,TK:HP');          exception when others then null; end;
     begin lbacsys.sa_label_admin.create_label('OLS_QLBV_POLICY', 50019, 'BGD:TH,TK,TM:HCM,HP,HN'); exception when others then null; end;
+
+    -- Nhãn khi chọn cơ sở mà không chọn khoa (level::group)
+    begin lbacsys.sa_label_admin.create_label('OLS_QLBV_POLICY', 50031, 'NV::HCM');  exception when others then null; end;
+    begin lbacsys.sa_label_admin.create_label('OLS_QLBV_POLICY', 50032, 'NV::HP');   exception when others then null; end;
+    begin lbacsys.sa_label_admin.create_label('OLS_QLBV_POLICY', 50033, 'NV::HN');   exception when others then null; end;
+    begin lbacsys.sa_label_admin.create_label('OLS_QLBV_POLICY', 50034, 'LDP::HCM'); exception when others then null; end;
+    begin lbacsys.sa_label_admin.create_label('OLS_QLBV_POLICY', 50035, 'LDP::HP');  exception when others then null; end;
+    begin lbacsys.sa_label_admin.create_label('OLS_QLBV_POLICY', 50036, 'LDP::HN');  exception when others then null; end;
+    begin lbacsys.sa_label_admin.create_label('OLS_QLBV_POLICY', 50037, 'LDK::HCM'); exception when others then null; end;
+    begin lbacsys.sa_label_admin.create_label('OLS_QLBV_POLICY', 50038, 'LDK::HP');  exception when others then null; end;
+    begin lbacsys.sa_label_admin.create_label('OLS_QLBV_POLICY', 50039, 'LDK::HN');  exception when others then null; end;
 end;
 /

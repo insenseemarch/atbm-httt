@@ -6973,13 +6973,24 @@ END;");
                 }
 
                 // Tất cả khoa — chỉ dùng nhãn đã có trong 01.sql / 05.sql
-                if (allComp && (allGrp || selGrps.Count == 0))
+                if (allComp)
                 {
-                    if (level == "NV") { lblPreview.Text = "NV"; return; }
-                    if (level == "LDK") { lblPreview.Text = "LDK"; return; }
-                    if (level == "LDP")
+                    if (allGrp || selGrps.Count == 0)
                     {
-                        lblPreview.Text = !allGrp ? "LDP" : "LDP:TH,TK,TM:HCM,HP,HN";
+                        // Tất cả khoa + không chọn cơ sở
+                        if (level == "NV") { lblPreview.Text = "NV"; return; }
+                        if (level == "LDK") { lblPreview.Text = "LDK"; return; }
+                        if (level == "LDP")
+                        {
+                            lblPreview.Text = "LDP";
+                            return;
+                        }
+                    }
+                    else if (selGrps.Count > 0)
+                    {
+                        // Tất cả khoa + chọn cơ sở cụ thể → level::group (e.g., NV::HCM)
+                        string grpPart = string.Join(",", selGrps);
+                        lblPreview.Text = $"{level}::{grpPart}";
                         return;
                     }
                 }
