@@ -598,7 +598,7 @@ namespace PhanHe1
             return GetCurrentRolesInternal();
         }
 
-        /// <summary>Gán client_identifier cho Unified Audit (run/06.sql, 09.sql).</summary>
+        /// <summary>Gán client_identifier cho Unified Audit (PH2-ROLE).</summary>
         public void SetClientIdentifier(string clientIdentifier)
         {
             if (string.IsNullOrWhiteSpace(clientIdentifier)) return;

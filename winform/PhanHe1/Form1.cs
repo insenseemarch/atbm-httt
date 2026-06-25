@@ -9,6 +9,7 @@ using PhanHe1.Forms;
 
 namespace PhanHe1
 {
+    // PH1: Quản trị Oracle — user/role/privilege (Phân hệ 1)
     public partial class Form1 : Form
     {
         private readonly OracleAdminService service;

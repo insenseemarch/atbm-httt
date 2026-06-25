@@ -12,30 +12,25 @@ using Oracle.ManagedDataAccess.Client;
 
 namespace PhanHe1.Forms
 {
-    // ════════════════════════════════════════════════════════════════════════
-    // Phân hệ 2 — đồng bộ với sql_ph2/run/ (schema QLBV, audit 06.sql, backup 08.sql)
-    // ════════════════════════════════════════════════════════════════════════
+    // PH2: Form chính Phân hệ 2 — schema QLBV (DocCare)
     public class SubSystem2Form : Form
     {
+        #region PH2-CONST — Hằng số audit/backup
         private enum UserRole { Unknown, DPV, BACSI, KTV, BN, ADMIN, GIAMDOC }
 
         private enum ThongBaoSendMode { ViewOnly, AdminOlsPicker, BgdProcedure }
 
-        // run/06.sql §3.2 NC1–NC9 — khớp 08.sql PR_AUTO_ARCHIVE_AUDIT_LOG
         private const string AuditStandardPolicyInList =
             "'AUDITSUCDPVUPDATEBN','AUDITDPVUPDATEHSBA','AUDITSUCKTVUPDATEDV','AUDITSUCBSUPDATEDT'," +
             "'AUDITFAILBSUPDATENV','AUDITDIEUPHOINHANSU','AUDITSUCBSEXECPROC','AUDITSUCBSEXECFUNC'," +
             "'AUDITDPVXEMLICHSUBN','AUDITDPVXEMLICHSUBN_FAIL'";
 
-        // run/06.sql §3.3 FGA — cũng được archive (08.sql OR fga_policy_name)
         private const string AuditFgaPolicyInList =
             "'AUDITSUADONTHUOC','AUDITBSUPDATEHSBA_HOPPHAP'";
 
-        // run/06.sql §3.4.4 illegal policies
         private const string AuditIllegalPolicyInList =
             "'AUDITILLEGALUPDATEHSBA','AUDITILLEGALHSBADV'";
 
-        // run/08.sql [08-QLBV-02] — unified policies được gom vào AUDIT_ARCHIVE_LOG
         private const string AuditArchiveUnifiedPolicyInList =
             AuditStandardPolicyInList + "," + AuditIllegalPolicyInList;
 
@@ -46,7 +41,6 @@ namespace PhanHe1.Forms
             "FROM QLBV.BACKUP_HISTORY WHERE BACKUP_TYPE = 'AUDIT_LOG_AUTO' " +
             "ORDER BY BACKUP_TIME DESC FETCH FIRST 15 ROWS ONLY";
 
-        // run/08.sql [08-QLBV-01] — cột backup_type, file_name, status, description
         private const string SqlBackupHistory =
             "SELECT BACKUP_ID, " +
             "TO_CHAR(BACKUP_TIME, 'DD/MM/YYYY HH24:MI:SS') AS BACKUP_TIME, " +
@@ -64,7 +58,6 @@ namespace PhanHe1.Forms
         private readonly List<string> currentRoles;
         private readonly UserRole userRole;
 
-        // BN/NV form fields
         private TextBox txtBnFullName, txtBnCccd, txtBnGender, txtBnDob;
         private TextBox txtBnSonha, txtBnDuong, txtBnQuan, txtBnTinh;
         private TextBox txtBnMedicalHistory, txtBnFamilyHistory, txtBnDrugAllergies;
@@ -88,16 +81,6 @@ namespace PhanHe1.Forms
             BackColor = UiTheme.LightCyan;
             BuildUi();
 
-            /*if (this.autoTriggerFullRestore)
-            {
-                Shown += (s, e) => BeginInvoke((Action)delegate
-                {
-                    if (btnRestoreFull != null && btnRestoreFull.Visible && btnRestoreFull.Enabled)
-                    {
-                        btnRestoreFull.PerformClick();
-                    }
-                });
-            }*/
         }
 
         private static void SafeBalanceHorizontalSplit(SplitContainer split, double topRatio = 0.5, int minTop = 60, int minBottom = 60)
@@ -115,10 +98,9 @@ namespace PhanHe1.Forms
             catch { }
         }
 
-        // ── role detection ───────────────────────────────────────────────
-        // ✅ [GỘPCODE-1] ROLE_DPV, ROLE_BACSI, ROLE_KTV, ROLE_BENHNHAN đã đúng
-        //    Nguồn: admin_ph2.sql — các role được tạo và grant trên bảng QLBV.*.
-        // ✅ [GỘPCODE-A] GIAMDOC: detect via CAPBAC='Ban Giám đốc' từ QLBV.NHANVIEN (GD0001–GD0003)
+        #endregion
+
+        #region PH2-ROLE — Nhận diện vai trò
         private UserRole DetermineUserRole()
         {
             if (currentRoles.Contains("DBA") || string.Equals(currentUser, "APP_ADMIN", StringComparison.OrdinalIgnoreCase)
@@ -126,7 +108,6 @@ namespace PhanHe1.Forms
                 || string.Equals(currentUser, "SYS", StringComparison.OrdinalIgnoreCase))
                 return UserRole.ADMIN;
 
-            // Giám đốc trước DPV — CAPBAC 'Ban Giám đốc' (insert_nhanvien.sql GD0001–GD0003)
             try
             {
                 var dtCap = service.Query($"SELECT CAPBAC FROM QLBV.NHANVIEN WHERE MANV = '{Esc(currentUser)}'");
@@ -150,7 +131,7 @@ namespace PhanHe1.Forms
             return UserRole.Unknown;
         }
 
-        // run/09.sql: EXEC DBMS_SESSION.SET_IDENTIFIER('ROLE_*') trước mỗi thao tác audit
+        // PH2-ROLE: SET_IDENTIFIER cho unified audit
         private void ApplyAuditClientIdentifier()
         {
             string roleId = null;
@@ -181,8 +162,10 @@ namespace PhanHe1.Forms
             }
         }
 
-        // ── build shell ──────────────────────────────────────────────────
 
+        #endregion
+
+        #region PH2-SHELL — Khung UI theo role
         private void BuildUi()
         {
             Controls.Clear();
@@ -207,18 +190,15 @@ namespace PhanHe1.Forms
             return p;
         }
 
-        // ── header / infobar ─────────────────────────────────────────────
 
         private Panel BuildHeader()
         {
             var top = new Panel { Dock = DockStyle.Top, Height = 80, BackColor = UiTheme.BrandeisBlue, Padding = new Padding(18, 14, 18, 14) };
             top.Controls.Add(new Label { AutoSize = true, Text = $"DocCare  ·  {GetRoleTitle()}", Font = new Font("Segoe UI", 14F, FontStyle.Bold), ForeColor = UiTheme.WhiteText, Dock = DockStyle.Left });
 
-            // XỬ LÝ CHỮ TRÊN NÚT DỰA VÀO ROLE
             string btnText = (userRole == UserRole.ADMIN) ? "Đóng" : "Đăng xuất";
             var btnLogout = QuickBtn(btnText, Color.FromArgb(206, 17, 38), UiTheme.WhiteText, 120, 40);
 
-            // THÊM HỘP THOẠI XÁC NHẬN TRƯỚC KHI THOÁT
             btnLogout.Click += (s, e) => {
                 string actionText = (userRole == UserRole.ADMIN) ? "đóng phiên quản trị" : "đăng xuất khỏi hệ thống";
                 if (MessageBox.Show($"Bạn có chắc chắn muốn {actionText}?", "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
@@ -241,7 +221,6 @@ namespace PhanHe1.Forms
             return bar;
         }
 
-        // ── reusable helpers ─────────────────────────────────────────────
 
         /// Create a styled tab control with large, readable tabs
         private static TabControl MakeTabs()
@@ -305,6 +284,9 @@ namespace PhanHe1.Forms
 
         private static Label Note(string text) => new Label { Text = text, AutoSize = true, ForeColor = Color.FromArgb(100, 100, 120), Margin = new Padding(4, 10, 0, 0), Font = new Font("Segoe UI", 8.5F) };
 
+        #endregion
+
+        #region PH2-HELPER — Grid, Data Pump, archive
         private void LoadGrid(DataGridView grid, string sql)
         {
             try
@@ -317,7 +299,6 @@ namespace PhanHe1.Forms
             finally { UseWaitCursor = false; }
         }
 
-        // BS: HSBA_DV / DONTHUOC — lấy MAHSBA từ HSBA trước, tránh VPD full-scan bảng lớn
         private void LoadBsChildGridAsync(DataGridView grid, string table, string columns, string orderBy, string mahsbaKw = null)
         {
             if (grid == null) return;
@@ -421,7 +402,6 @@ namespace PhanHe1.Forms
             }
         }
 
-        // expdp: 0=OK, 5=completed with errors (partial — thường ORA-39181 OLS/VPD), khác=FAILED
         private static string MapDataPumpStatus(int exitCode)
         {
             if (exitCode == 0) return "SUCCESS";
@@ -452,10 +432,8 @@ namespace PhanHe1.Forms
             }
         }
 
-        // run/01.sql — mật khẩu schema QLBV mặc định
         private const string QlbvSchemaPassword = "123";
 
-        // Tạo user QLBV trống trước impdp / trước GRANT post-restore (tránh ORA-01917)
         private const string SqlEnsureQlbvUser = @"
 DECLARE
   v_cnt NUMBER;
@@ -475,7 +453,6 @@ END;";
             log?.Invoke($"[{DateTime.Now:HH:mm:ss}] OK: User QLBV sẵn sàng.");
         }
 
-        // Post-restore: GRANT hệ thống cho QLBV (WinForm — SYSDBA)
         private const string SqlPostRestoreSysGrants = @"
 BEGIN
     BEGIN EXECUTE IMMEDIATE 'ALTER SESSION SET ""_ORACLE_SCRIPT""=true'; EXCEPTION WHEN OTHERS THEN NULL; END;
@@ -497,7 +474,6 @@ BEGIN
     BEGIN EXECUTE IMMEDIATE 'GRANT EXECUTE ON LBACSYS.SA_SYSDBA TO QLBV'; EXCEPTION WHEN OTHERS THEN NULL; END;
 END;";
 
-        // run/03.sql — tạo role + user NV trước post-restore (SYSDBA)
         private const string SqlPostRestoreSysRoles = @"
 BEGIN
     BEGIN EXECUTE IMMEDIATE 'ALTER SESSION SET ""_ORACLE_SCRIPT""=true'; EXCEPTION WHEN OTHERS THEN NULL; END;
@@ -518,7 +494,6 @@ BEGIN
     END LOOP;
 END;";
 
-        // Post-restore: RBAC/VPD/OLS/FGA (WinForm — SYSDBA, khớp 03.sql + 04.sql + 06.sql)
         private const string SqlPostRestoreQlbvSecurity = @"
 DECLARE
   v_label VARCHAR2(200);
@@ -658,7 +633,6 @@ BEGIN
     statement_types => 'UPDATE');
 END;";
 
-        // run/06.sql §3.0 + §3.2 + §3.3.c/d — idempotent (SYSDBA)
         private static void ApplyPostRestoreSysAudit(string sysPassword, string hostDescriptor, Action<string> log)
         {
             string[] prelude = {
@@ -712,6 +686,7 @@ ACTIONS INSERT ON QLBV.HSBA_DV,
         /// <summary>
         /// Sau impdp full schema: khôi phục GRANT, Audit, RBAC, VPD, OLS, FGA (WinForm tự chạy SYSDBA).
         /// </summary>
+        // PH2-RESTORE: Sau impdp — GRANT, Audit, RBAC, VPD, OLS, FGA
         private bool RepairSecurityAfterFullRestore(string sysPassword, string hostDescriptor, Action<string> log, out string summary)
         {
             summary = null;
@@ -764,6 +739,7 @@ ACTIONS INSERT ON QLBV.HSBA_DV,
         /// <summary>
         /// Kill session QLBV, drop scheduler jobs, DROP USER CASCADE — tránh impdp ORA-31684 object already exists.
         /// </summary>
+        // PH2-RESTORE: Chuẩn bị DROP USER QLBV trước impdp full schema
         private bool PrepareQlbvForFullRestore(string sysPassword, string hostDescriptor, Action<string> log, out string error)
         {
             error = null;
@@ -851,7 +827,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             log?.AppendText($"[{DateTime.Now:HH:mm:ss}] Đã ghi BACKUP_HISTORY (status={status}, exit={exitCode}).\r\n");
         }
 
-        // TabControl lồng nhau: TabPage.Enter không luôn fire — hook cả SelectedIndexChanged
         private static void RegisterTabRefresh(TabControl owner, TabPage page, Action refresh)
         {
             page.Enter += (s, e) => refresh();
@@ -877,7 +852,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             };
         }
 
-        // BS: chỉ HSBA/DV/DT/BN thuộc bác sĩ đang login — tránh SELECT * full bảng (100k+ dòng)
         private string BsHsbaSql(string mabnKw = null)
         {
             string sql = "SELECT MAHSBA, MABN, NGAY, CHANDOAN, DIEUTRI, KETLUAN, MABS, MAKHOA FROM QLBV.HSBA WHERE MABS = USER";
@@ -894,7 +868,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             return sql + " ORDER BY MABN FETCH FIRST 200 ROWS ONLY";
         }
 
-        // DPV: giới hạn 200 dòng — tránh SELECT * full bảng lúc mở form
         private string DpvBenhNhanSql(string mabnKw = null)
         {
             string sql = "SELECT MABN, TENBN, PHAI, NGAYSINH, CCCD, SONHA, TENDUONG, QUANHUYEN, TINHTP, TIENSUBENH, TIENSUBENHGD, DIUNGTHUOC FROM QLBV.BENHNHAN";
@@ -921,7 +894,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             LoadAuditArchiveData(grid, showSummary: false);
         }
 
-        // run/08.sql [08-QLBV-01] — nhật ký đã archive từ PR_AUTO_ARCHIVE_AUDIT_LOG
         private void LoadAuditArchiveData(DataGridView grid, bool showSummary = true)
         {
             try
@@ -984,7 +956,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             }
         }
 
-        // Khớp WHERE trong 08.sql PR_AUTO_ARCHIVE_AUDIT_LOG
         private int QueryEligibleAuditArchiveCount()
         {
             try
@@ -1030,7 +1001,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             }
         }
 
-        // Gọi PR_AUTO_ARCHIVE_AUDIT_LOG — dùng chung Scheduler tab
         private bool RunArchiveAuditLog(Action<string> logLine, out string summary)
         {
             summary = null;
@@ -1170,7 +1140,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
 
         private async System.Threading.Tasks.Task<int> RunDataPumpCliViaCmdAsync(string tool, string args, TextBox log)
         {
-            // Build full command with quoted exe path to let cmd.exe handle quoting/escaping
             string exe = ResolveDataPumpExe(tool);
             var displayArgs = Regex.Replace(args, @"/[^/@\s""']+@", "/***@");
             log.AppendText($"[INFO] Thử chạy qua cmd.exe bằng batch tạm: {tool} {displayArgs}\r\n");
@@ -1180,7 +1149,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
                 try
                 {
                     tempBat = Path.Combine(Path.GetTempPath(), $"run_datapump_{Guid.NewGuid():N}.bat");
-                    // Create batch content; ensure percent signs are escaped by doubling
                     string safeArgs = args.Replace("%", "%%");
                     string line = '"' + exe + '"' + " " + safeArgs;
                     File.WriteAllText(tempBat, "@echo off\r\n" + line + "\r\nexit /b %ERRORLEVEL%", Encoding.Default);
@@ -1346,7 +1314,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             }
         }
 
-        // 07.sql [07-CMD] case 4 — impdp một bảng cụ thể từ file dump
         private (string table, string dumpFile)? PromptImpdpTableRestore(string preferDump = null)
         {
             using (var dlg = new Form())
@@ -1420,12 +1387,12 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             return p;
         }
 
-        // ═══════════════════════════════════════════════════════════════════
-        //  ĐIỀU PHỐI VIÊN  (TC#2)
-        // ═══════════════════════════════════════════════════════════════════
 
         private DataGridView dgvDpvBN, dgvDpvHSBA, dgvDpvDV;
 
+        #endregion
+
+        #region PH2-DPV — Điều phối viên (TC2)
         private void BuildDPVInterface(Panel parent)
         {
             var tabs = MakeTabs();
@@ -1442,7 +1409,7 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             parent.Controls.Add(tabs);
         }
 
-        // DPV – Bệnh Nhân
+        // PH2-DPV-BN: Quản lý bệnh nhân
         private void BuildDPV_BN(TabPage tab, TabControl ownerTabs)
         {
             dgvDpvBN = MakeGrid(true);
@@ -1530,7 +1497,7 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             if (n > 0) { Ok($"Đã lưu {n} thay đổi."); LoadGrid(dgvDpvBN, DpvBenhNhanSql()); } else Ok("Không có thay đổi nào.");
         }
 
-        // DPV – HSBA
+        // PH2-DPV-HSBA: Tạo/sửa hồ sơ bệnh án
         private void BuildDPV_HSBA(TabPage tab, TabControl ownerTabs)
         {
             dgvDpvHSBA = MakeGrid(true);
@@ -1605,7 +1572,7 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             if (n > 0) { Ok($"Đã lưu điều phối {n} HSBA."); LoadGrid(dgvDpvHSBA, DpvHsbaSql()); } else Ok("Không có thay đổi nào.");
         }
 
-        // DPV – Điều phối KTV (không nhập kết quả)
+        // PH2-DPV-DV: Phân công KTV (không nhập kết quả)
         private void BuildDPV_DV(TabPage tab, TabControl ownerTabs)
         {
             dgvDpvDV = MakeGrid(true);
@@ -1656,14 +1623,11 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
                     try { service.ExecuteNonQuery($"INSERT INTO QLBV.HSBA_DV(MAHSBA,LOAIDV,NGAYDV,MAKTV,KETQUA) VALUES('{Esc(f.MaHSBA)}',N'{Esc(f.LoaiDV)}',TO_DATE('{f.NgayDV:dd/MM/yyyy}','DD/MM/YYYY'),'{Esc(f.MaKTV)}',NULL)"); Ok("Đã điều phối KTV!"); LoadGrid(dgvDpvDV, DpvHsbaDvSql()); } catch (Exception ex) { Err(ex.Message); }
         }
 
-        // ═══════════════════════════════════════════════════════════════════
-        //  BÁC SĨ / Y SĨ  (TC#3)
-        //  - KHÔNG có nút thêm HSBA (điều phối viên mới tạo)
-        //  - Có cập nhật TENTHUOC/LIEUDUNG trên đơn thuốc (ghi vết qua trigger)
-        // ═══════════════════════════════════════════════════════════════════
-
         private DataGridView dgvBsHSBA, dgvBsBN, dgvBsDV, dgvBsDT;
 
+        #endregion
+
+        #region PH2-BACSI — Bác sĩ (TC3)
         private void BuildBacsiInterface(Panel parent)
         {
             var tabs = MakeTabs();
@@ -1682,7 +1646,7 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             parent.Controls.Add(tabs);
         }
 
-        // Bác sĩ – HSBA (không thêm, chỉ xóa + lưu CHANDOAN/DIEUTRI/KETLUAN)
+        // PH2-BS-HSBA: Cập nhật CHANDOAN/DIEUTRI/KETLUAN (không thêm mới)
         private void BuildBs_HSBA(TabPage tab, TabControl ownerTabs)
         {
             dgvBsHSBA = MakeGrid(true); // Cấm gõ trực tiếp lên lưới
@@ -1694,7 +1658,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             btnS.Click += (s, e) => { string kw = Val(txtS, "Tìm mã bệnh nhân..."); LoadGrid(dgvBsHSBA, BsHsbaSql(string.IsNullOrEmpty(kw) ? null : kw)); };
             btnRe.Click += (s, e) => LoadGrid(dgvBsHSBA, BsHsbaSql());
 
-            // Xử lý Double-click mở Form Cập nhật
             dgvBsHSBA.CellDoubleClick += (s, e) => {
                 if (e.RowIndex >= 0)
                 {
@@ -1734,7 +1697,7 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             if (n > 0) { Ok($"Đã lưu {n} thay đổi."); LoadGrid(dgvBsHSBA, BsHsbaSql()); } else Ok("Không có thay đổi nào.");
         }
 
-        // Bác sĩ – Bệnh Nhân
+        // PH2-BS-BN: Tra cứu bệnh nhân (VPD)
         private void BuildBs_BN(TabPage tab, TabControl ownerTabs)
         {
             dgvBsBN = MakeGrid(true); // Read-only
@@ -1784,7 +1747,7 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             if (n > 0) { Ok($"Đã cập nhật {n} bệnh nhân."); LoadGrid(dgvBsBN, BsBenhNhanSql()); } else Ok("Không có thay đổi nào.");
         }
 
-        // Bác sĩ – HSBA_DV
+        // PH2-BS-DV: Chỉ định dịch vụ (MAKTV=NULL, DPV phân công sau)
         private void BuildBs_DV(TabPage tab, TabControl ownerTabs)
         {
             dgvBsDV = MakeGrid(true);
@@ -1802,7 +1765,7 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             RegisterTabLazyLoad(ownerTabs, tab, () => LoadBsHsbaDvGrid(dgvBsDV));
         }
 
-        // BS chỉ định dịch vụ — MAKTV để NULL, DPV phân công KTV sau
+        // PH2-BS-DV-ADD: Chỉ định dịch vụ, MAKTV để NULL
         private void Bs_ThemDV()
         {
             using (var f = new HsbaDvAddForm(true, service))
@@ -1815,13 +1778,9 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
                     }
                     catch (Exception ex) { Err(ex.Message); }
         }
-        // ✅ [GỘPCODE-3] DELETE HSBA_DV dùng đúng PK composite (MAHSBA, LOAIDV, NGAYDV)
-        //    Nguồn: schema_phanhe2.sql — CONSTRAINT PK_HSBA_DV PRIMARY KEY (MAHSBA, LOAIDV, NGAYDV)
-        //    Trước: WHERE chỉ có MAHSBA + LOAIDV → xóa nhầm nhiều dòng cùng dịch vụ.
-        //    Sau: thêm AND NGAYDV=TO_DATE(...) → xóa đúng 1 dòng theo PK đầy đủ.
         private void Bs_XoaDV() { if (dgvBsDV.CurrentRow == null) { Err("Chọn dòng."); return; } string ma = dgvBsDV.CurrentRow.Cells["MAHSBA"].Value?.ToString(); string dv = dgvBsDV.CurrentRow.Cells["LOAIDV"].Value?.ToString(); string ngayDv = dgvBsDV.CurrentRow.Cells["NGAYDV"].Value != null ? Convert.ToDateTime(dgvBsDV.CurrentRow.Cells["NGAYDV"].Value).ToString("dd/MM/yyyy") : ""; if (MessageBox.Show($"Xóa DV '{dv}'?", "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes) try { service.ExecuteNonQuery($"DELETE FROM QLBV.HSBA_DV WHERE MAHSBA='{Esc(ma)}' AND LOAIDV=N'{Esc(dv)}' AND NGAYDV=TO_DATE('{ngayDv}','DD/MM/YYYY')"); Ok("Đã xóa."); LoadBsHsbaDvGrid(dgvBsDV); } catch (Exception ex) { Err(ex.Message); } }
 
-        // Bác sĩ – Đơn Thuốc  (thêm + xóa + sửa TENTHUOC/LIEUDUNG, ghi vết qua trigger)
+        // PH2-BS-DT: Đơn thuốc — FGA AuditSuaDonThuoc
         private void BuildBs_DT(TabPage tab, TabControl ownerTabs)
         {
             dgvBsDT = MakeGrid(true); // Read-only
@@ -1905,8 +1864,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             if (n > 0) { Ok($"Đã lưu {n} thay đổi."); LoadBsDonThuocGrid(dgvBsDT); } else Ok("Không có thay đổi nào.");
         }
 
-        //  CHỨC NĂNG MỞ RỘNG — UI nghiệp vụ bình thường, thao tác bị chặn → audit (09.sql)
-        // ═══════════════════════════════════════════════════════════════════
 
         private void HandleDemoAction(string code, string policy, string category, Action action)
         {
@@ -1952,6 +1909,9 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             return $"{category}: {msg}";
         }
 
+        #endregion
+
+        #region PH2-DEMO — Demo audit trái phép
         private void BuildAuditDemoTab(TabPage tab)
         {
             if (userRole == UserRole.ADMIN || userRole == UserRole.GIAMDOC || userRole == UserRole.Unknown)
@@ -1979,7 +1939,7 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             tab.Controls.Add(subTabs);
         }
 
-        // [TB4] DPV — quản lý HSBA có nút xóa (không được phép DELETE)
+        // PH2-DEMO-DPV-HSBA: 09-DPV-02 — AuditIllegalUpdateHSBA
         private void BuildDemo_DpvHsba(TabControl parent)
         {
             var page = MakeTab("Hồ Sơ Bệnh Án");
@@ -2026,12 +1986,12 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
         }
 
 
+        // PH2-DEMO-DPV-LICHSU: sp_XemLichSu — AuditDPVXemLichSuBN
         private void BuildDemo_DpvLichSu(TabControl parent)
         {
             var page = MakeTab("Lịch Sử Điều Trị");
             var grid = MakeGrid(true);
 
-            // ComboBox tìm kiếm và lọc BN
             var cboBenhNhan = new ComboBox
             {
                 Width = 280,
@@ -2116,7 +2076,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
                     return string.IsNullOrWhiteSpace(s) ? "Không có" : s;
                 }
 
-                // 1. Tạo cửa sổ Form mới
                 var f = new Form
                 {
                     Text = $"Chi Tiết Lịch Sử Điều Trị - {Get("TENBN")}",
@@ -2128,7 +2087,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
                     Font = UiTheme.BodyFont
                 };
 
-                // 2. Tạo Layout chuẩn của hệ thống (2 cột)
                 var layout = new TableLayoutPanel
                 {
                     Dock = DockStyle.Fill,
@@ -2162,7 +2120,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
                     layout.Controls.Add(lbl, 0, row); layout.Controls.Add(txt, 1, row); row++;
                 }
 
-                // 3. Đổ dữ liệu vào Form
                 AddHeader("👤 THÔNG TIN BỆNH NHÂN");
                 AddRow("Họ tên:", Get("TENBN"));
                 AddRow("Giới tính:", Get("PHAI"));
@@ -2186,7 +2143,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
                 AddRow("Thuốc:", $"{Get("TENTHUOC")} (Kê ngày: {Get("NGAYDT")})");
                 AddRow("Liều dùng:", Get("LIEUDUNG"));
 
-                // 4. Nút Đóng Form
                 layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 60F));
                 var pnlBtn = new Panel { Dock = DockStyle.Fill };
                 var btnClose = new Button { Text = "Đóng", Width = 120, Height = 36, BackColor = UiTheme.BrandeisBlue, ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
@@ -2204,7 +2160,7 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             page.Controls.Add(Wrap(grid, Toolbar(new Label { Text = "Chọn Bệnh Nhân:", AutoSize = true, Margin = new Padding(0, 10, 5, 0), Font = UiTheme.HeaderFont, ForeColor = UiTheme.DeepBlue }, cboBenhNhan, btnTraCuu)));
             parent.TabPages.Add(page);
         }
-        // run/09.sql + 06.sql: fn_KiemTraDiUngThuoc → AuditSucBSExecFunc
+        // PH2-DEMO-BS-FUNC: fn_KiemTraDiUngThuoc — AuditSucBSExecFunc
         private void BuildDemo_BsChiPhi(TabControl parent)
         {
             var page = MakeTab("Dị Ứng Thuốc");
@@ -2240,7 +2196,7 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             try { LoadGrid(grid, "SELECT MAHSBA, MABN, CHANDOAN FROM QLBV.HSBA WHERE MABS = USER"); } catch { }
         }
 
-        // run/06.sql NC9b: sp_BGD_ThongBaoOLS khi không phải BGD → AuditFailBGDTaoThongBao
+        // PH2-DEMO-BS-BGD: sp_BGD_ThongBaoOLS — AuditFailBGDTaoThongBao
         private void BuildDemo_BsBgdThongBao(TabControl parent)
         {
             var page = MakeTab("BGD Thông Báo (NC9b)");
@@ -2278,8 +2234,8 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
         }
 
 
-        // [TB1] BS —  UPDATE Kết quả trong HSBA (bị chặn)
 
+        // PH2-DEMO-BS-DV: TB1 — AuditFailBSUpdateNV / AuditIllegalHSBADV
         private void BuildDemo_BsHsbaDv(TabControl parent)
         {
             var page = MakeTab("Dịch Vụ (HSBA_DV)");
@@ -2318,7 +2274,7 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             try { LoadGrid(grid, "SELECT * FROM QLBV.HSBA_DV"); } catch { }
         }
 
-        // [TB2] BS — quản lý nhân viên (UPDATE/DELETE bị chặn)
+        // PH2-DEMO-BS-NV: TB2 — AuditFailBSUpdateNV
         private void BuildDemo_BsNhanVien(TabControl parent)
         {
             var page = MakeTab("Nhân Viên");
@@ -2360,7 +2316,7 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             parent.TabPages.Add(page);
         }
 
-        // [3.3.c] BS — sửa HSBA của bác sĩ khác (VPD)
+        // PH2-DEMO-BS-HSBA: 3.3.c — AuditIllegalUpdateHSBA (VPD)
         private void BuildDemo_BsHsbaKhac(TabControl parent)
         {
             var page = MakeTab("Hồ Sơ Bác Sĩ Khác");
@@ -2404,7 +2360,7 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             parent.TabPages.Add(page);
         }
 
-        // [TB3] KTV — đơn thuốc
+        // PH2-DEMO-KTV-DT: TB3 — AuditIllegalHSBADV
         private void BuildDemo_KtvDonThuoc(TabControl parent)
         {
             var page = MakeTab("Đơn Thuốc");
@@ -2432,7 +2388,7 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             parent.TabPages.Add(page);
         }
 
-        // [TB6] KTV — tra cứu bệnh nhân trực tiếp
+        // PH2-DEMO-KTV-BN: TB6 — SELECT BENHNHAN bị chặn
         private void BuildDemo_KtvBenhNhan(TabControl parent)
         {
             var page = MakeTab("Tra Cứu Bệnh Nhân");
@@ -2458,7 +2414,7 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             parent.TabPages.Add(page);
         }
 
-        // [3.3.d] KTV — thêm/xóa DV ngoài phạm vi
+        // PH2-DEMO-KTV-DV: 3.3.d — AuditIllegalHSBADV
         private void BuildDemo_KtvDichVu(TabControl parent)
         {
             var page = MakeTab("Dịch Vụ Mở Rộng");
@@ -2497,7 +2453,7 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             try { LoadGrid(grid, "SELECT * FROM QLBV.VW_KTV_XemHSBADV"); } catch { }
         }
 
-        // [TB2] BN — xóa HSBA
+        // PH2-DEMO-BN-HSBA: TB2 — AuditIllegalUpdateHSBA
         private void BuildDemo_BnHsba(TabControl parent)
         {
             var page = MakeTab("Hồ Sơ Bệnh Án");
@@ -2524,7 +2480,7 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             parent.TabPages.Add(page);
         }
 
-        // [TB5] BN — sửa kết quả dịch vụ
+        // PH2-DEMO-BN-DV: TB5 — AuditIllegalHSBADV
         private void BuildDemo_BnDichVu(TabControl parent)
         {
             var page = MakeTab("Kết Quả Dịch Vụ");
@@ -2560,12 +2516,12 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             parent.TabPages.Add(page);
         }
 
-        // ═══════════════════════════════════════════════════════════════════
-        //  KỸ THUẬT VIÊN
-        // ═══════════════════════════════════════════════════════════════════
 
         private DataGridView dgvKtvDV;
 
+        #endregion
+
+        #region PH2-KTV — Kỹ thuật viên (TC4)
         private void BuildKTVInterface(Panel parent)
         {
             var tabs = MakeTabs();
@@ -2580,10 +2536,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             parent.Controls.Add(tabs);
         }
 
-        // ✅ [GỘPCODE-2] Tên cột HSBA_DV đã sửa theo schema_phanhe2.sql
-        //    Nguồn: schema_phanhe2.sql — PRIMARY KEY (MAHSBA, LOAIDV, NGAYDV)
-        //    Trước: MADV, NGAY → Sau: LOAIDV, NGAYDV (đúng tên cột DDL).
-        //    UPDATE KETQUA dùng đúng PK composite (MAHSBA, LOAIDV, NGAYDV).
         private void BuildKTV_DV(TabPage tab)
         {
             dgvKtvDV = MakeGrid(true); // Read-only
@@ -2634,10 +2586,10 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             if (n > 0) { Ok($"Đã lưu kết quả {n} dịch vụ."); LoadGrid(dgvKtvDV, "SELECT * FROM QLBV.VW_KTV_XemHSBADV"); } else Ok("Không có thay đổi nào.");
         }
 
-        // ═══════════════════════════════════════════════════════════════════
-        //  BỆNH NHÂN  (TC#5)  — redesigned BG
-        // ═══════════════════════════════════════════════════════════════════
 
+        #endregion
+
+        #region PH2-BN — Bệnh nhân (TC5)
         private void BuildBNInterface(Panel parent)
         {
             var tabs = MakeTabs();
@@ -2649,12 +2601,10 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
 
         private void BuildBN_Info(TabPage tab)
         {
-            // Màu nền dịu mắt cho BN
             tab.BackColor = Color.FromArgb(240, 249, 255);
 
             var outer = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Color.FromArgb(240, 249, 255) };
 
-            // Card trắng nổi lên
             var card = new Panel
             {
                 Width = 740,
@@ -2666,12 +2616,10 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             };
             card.Paint += (s, e) =>
             {
-                // Nhẹ shadow bằng border
                 var rect = new Rectangle(0, 0, card.Width - 1, card.Height - 1);
                 e.Graphics.DrawRectangle(new System.Drawing.Pen(Color.FromArgb(190, 220, 240), 1), rect);
             };
 
-            // Header màu gradient nhẹ bên trong card
             var cardHeader = new Panel { Dock = DockStyle.Top, Height = 52, BackColor = UiTheme.BrandeisBlue };
             cardHeader.Controls.Add(new Label
             {
@@ -2699,7 +2647,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             BNField(layout, row++, "Tiền sử bệnh GĐ", out txtBnFamilyHistory, multiline: true);
             BNField(layout, row++, "Dị ứng thuốc", out txtBnDrugAllergies, multiline: true);
 
-            // Divider
             var divider = new Panel { Height = 2, BackColor = Color.FromArgb(200, 230, 250), Dock = DockStyle.Top, Margin = new Padding(0, 8, 0, 8) };
 
             var btnSave = QuickBtn("Cập Nhật Thông Tin", UiTheme.PastelGreen, UiTheme.DeepBlue, 200, 42);
@@ -2714,7 +2661,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             card.Controls.Add(layout);
             card.Controls.Add(cardHeader);
 
-            // Tự động căn giữa card khi resize cửa sổ
             outer.Resize += (s, e) => { card.Left = Math.Max(0, (outer.Width - card.Width) / 2); };
 
             outer.Controls.Add(card);
@@ -2773,15 +2719,9 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             catch (Exception ex) { Err("Lỗi: " + ex.Message); }
         }
 
-        // ═══════════════════════════════════════════════════════════════════
-        //  ADMIN
-        // ═══════════════════════════════════════════════════════════════════
-        // ═══════════════════════════════════════════════════════════════════
-        //  BAN GIÁM ĐỐC
-        // ═══════════════════════════════════════════════════════════════════
-        // ═══════════════════════════════════════════════════════════════════
-        //  BAN GIÁM ĐỐC — thông tin cá nhân + gửi thông báo OLS chi nhánh
-        // ═══════════════════════════════════════════════════════════════════
+        #endregion
+
+        #region PH2-GIAMDOC — Ban giám đốc
         private void BuildGiamDocInterface(Panel parent)
         {
             var tabs = MakeTabs();
@@ -2794,6 +2734,9 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             tabs.TabPages.AddRange(new[] { tInfo, tTB });
             parent.Controls.Add(tabs);
         }
+        #endregion
+
+        #region PH2-ADMIN — Quản trị
         private void BuildAdminInterface(Panel parent)
         {
             var tabs = MakeTabs();
@@ -2823,17 +2766,13 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             parent.Controls.Add(tabs);
         }
 
-        // ---------------------------------------------------------------------
-        //  TÍNH NĂNG KIỂM TOÁN (AUDIT) - YÊU CẦU 3 
-        // ---------------------------------------------------------------------
-        // ✅ [GỘPCODE-F] Audit UI: 2 chế độ xem — Nghiệp vụ QLBV + Đăng Nhập Thất Bại
-        //    Nguồn: sys_PH2.sql §3.1 — AuditSession (LOGON whenever not successful)
-        //           sys_PH2.sql §3.4 — Query đọc nhật ký
+        #endregion
+
+        #region PH2-AUDIT — Kiểm toán (YC3)
         private void BuildAdmin_Audit(TabPage tab)
         {
             var grid = MakeGrid(true);
 
-            // ── §3.4.5: Tất cả QLBV (tổng hợp Standard + FGA)
             var btnAll = QuickBtn("Tất cả", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 120);
             var btnLog = QuickBtn("Đăng nhập thất bại", Color.FromArgb(206, 17, 38), UiTheme.WhiteText, 165);
             var btnStd = QuickBtn("Nghiệp vụ", Color.FromArgb(0, 120, 180), UiTheme.WhiteText, 120);
@@ -2856,7 +2795,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
                     MessageBox.Show(cell.ToString(), "Chi Tiết Nhật Ký", MessageBoxButtons.OK, MessageBoxIcon.Information);
             };
 
-            // Toolbar
             var bar = new FlowLayoutPanel
             {
                 Dock = DockStyle.Top,
@@ -2877,16 +2815,15 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             wrapper.Controls.Add(grid);
             wrapper.Controls.Add(bar);
             tab.Controls.Add(wrapper);
-            // Lazy load: chỉ query khi user mở tab lần đầu
             bool _auditLoaded = false;
             tab.Enter += (s, e) => { if (_auditLoaded) return; _auditLoaded = true; LoadAuditData(grid); };
         }
 
+        // PH2-AUDIT: LOGON thất bại — UNIFIED_AUDIT_TRAIL
         private void LoadLoginFailures(DataGridView grid)
         {
             try
             {
-                // run/09.sql Phần IV #1 — AuditSession LOGON
                 string sql = @"
                     SELECT
                         TO_CHAR(EVENT_TIMESTAMP, 'DD/MM/YYYY HH24:MI:SS') AS ""THỜI GIAN"",
@@ -2911,7 +2848,7 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             }
         }
 
-        // ── §3.4.2: Standard Audit — khớp run/06.sql §3.2 + 09.sql query
+        // PH2-AUDIT: Standard audit — DBA_AUDIT_TRAIL
         private void LoadStandardAudit(DataGridView grid)
         {
             try
@@ -2941,7 +2878,7 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             }
         }
 
-        // ── §3.4.4: AuditIllegalUpdateHSBA + AuditIllegalHSBADV
+        // PH2-AUDIT: Truy cập trái phép — AuditIllegal*
         private void LoadIllegalAudit(DataGridView grid)
         {
             try
@@ -2969,12 +2906,11 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             }
         }
 
-        // ── §3.4.3: FGA policies (run/06.sql §3.3.a/b)
+        // PH2-AUDIT: FGA — AuditSuaDonThuoc, AuditBSUpdateHSBA_HopPhap
         private void LoadFgaAudit(DataGridView grid)
         {
             try
             {
-                // run/09.sql Phần IV #3 — FGA AuditSuaDonThuoc, AuditBSUpdateHSBA_HopPhap
                 string sql = $@"
                     SELECT
                         TO_CHAR(EVENT_TIMESTAMP, 'DD/MM/YYYY HH24:MI:SS') AS ""THỜI GIAN"",
@@ -3011,7 +2947,7 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             }
         }
 
-        // ✅ [GỘPCODE-5] Audit SQL gộp từ sys_PH2.sql §3.4
+        // PH2-AUDIT: Tổng hợp DBA + UNIFIED
         private void LoadAuditData(DataGridView grid)
         {
             try
@@ -3055,10 +2991,9 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             }
         }
 
-        // ---------------------------------------------------------------------
-        //  TÍNH NĂNG SAO LƯU & PHỤC HỒI (BACKUP/RESTORE) - YÊU CẦU 4
-        // ---------------------------------------------------------------------
-        // 07.sql + 08.sql: 6 sub-tab Sao Lưu & Phục Hồi
+        #endregion
+
+        #region PH2-BACKUP — Sao lưu & phục hồi (YC4)
         private void BuildAdmin_Backup(TabPage tab)
         {
             var subTabs = new TabControl { Dock = DockStyle.Fill };
@@ -3083,7 +3018,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             };
         }
 
-        // ── 08.sql [08-QLBV-01]: Data Pump + BACKUP_HISTORY tracking
         private Action BuildBackup_DataPump(TabPage tab, TabControl subTabs)
         {
             var pnl = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 14, 20, 0), BackColor = Color.White };
@@ -3133,7 +3067,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             btnReH.Click += (s, e) => RefreshHist();
             RegisterTabRefresh(subTabs, tab, RefreshHist);
 
-            // 07.sql [07-SYSDBA-01]: kiểm tra BACKUP_DIR và quyền
             btnCheckDir.Click += (s, e) =>
             {
                 try
@@ -3151,7 +3084,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
                 catch (Exception ex) { txtLog.AppendText($"[LỖI]: {ex.Message}\r\n"); }
             };
 
-            // Liệt kê bảng nghiệp vụ (WinForms helper)
             btnTableList.Click += (s, e) =>
             {
                 try
@@ -3167,7 +3099,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
                 catch (Exception ex) { txtLog.AppendText($"[LỖI]: {ex.Message}\r\n"); }
             };
 
-            // Đếm số dòng 4 bảng ưu tiên backup
             btnRowCount.Click += (s, e) =>
             {
                 try
@@ -3331,7 +3262,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
                 string df = PromptText("Restore Full Schema (SYS)", "Tên file .dmp trong backup_dir:", defaultDump);
                 if (df == null) return;
 
-                // prompt for SYS password
                 string sysPwd = null;
                 using (var dlg = new Form())
                 {
@@ -3422,7 +3352,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
                 finally { SetDataPumpButtonsEnabled(flowBtn, true); }
             };
 
-            // 07.sql [07-CMD] case 4 — impdp một bảng (table_exists_action=replace)
             btnRestoreTable.Click += async (s, e) =>
             {
                 var sel = PromptImpdpTableRestore();
@@ -3485,7 +3414,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             return RefreshHist;
         }
 
-        // ── 07.sql [07-CMD]: Tham chiếu lệnh expdp/impdp — sao chép hoặc chạy CMD thủ công (fallback)
         private void BuildBackup_CmdPanel(TabPage tab)
         {
             var pnl = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 14, 20, 0), BackColor = Color.White };
@@ -3656,7 +3584,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
                 catch (Exception ex) { Err($"Không thể mở CMD: {ex.Message}\r\nHãy sao chép lệnh và chạy thủ công."); }
             };
 
-            // 08.sql [08-QLBV-01]: ghi lịch sử backup sau expdp thủ công qua CMD
             btnManual.Click += (s, e) =>
             {
                 string dump = cmbDump.SelectedItem?.ToString()?.Trim();
@@ -3685,7 +3612,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             tab.Controls.Add(pnl);
         }
 
-        // ── 08.sql [08-QLBV-01]: Lịch sử sao lưu + phục hồi + phân tích sự cố
         private Action BuildBackup_HistoryPanel(TabPage tab, TabControl subTabs)
         {
             var split = new SplitContainer
@@ -3701,7 +3627,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             split.Resize += (s, e) => BalanceHistorySplit();
             tab.Enter += (s, e) => BalanceHistorySplit();
 
-            // PANEL TOP: BACKUP_HISTORY
             var gridB = MakeGrid(true);
             gridB.Dock = DockStyle.Fill;
             var btnRB = QuickBtn("Tải Lại", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 78, 26);
@@ -3712,7 +3637,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             split.Panel1.Controls.Add(barB);
             split.Panel1.Controls.Add(lblB);
 
-            // PANEL BOTTOM: RESTORE_HISTORY + controls
             var gridR = MakeGrid(true);
             gridR.Dock = DockStyle.Fill;
             var btnRR = QuickBtn("Tải Lại", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 78, 26);
@@ -3733,7 +3657,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
             btnRR.Click += (s, e) => RefreshR();
             RegisterTabRefresh(subTabs, tab, RefreshAll);
 
-            // 09.sql Phần IV: query audit trail xác định sự cố trước khi restore
             btnAudit.Click += (s, e) =>
             {
                 var dlg = new Form { Text = "Phân Tích Sự Cố — Audit Trail", Width = 1100, Height = 600, StartPosition = FormStartPosition.CenterParent };
@@ -3758,7 +3681,6 @@ END;", "DROP USER QLBV CASCADE (bỏ qua nếu user không tồn tại)...");
                         string sql;
                         if (cmb.SelectedIndex == 0)
                         {
-                            // 09.sql query theo bảng nghiệp vụ
                             sql = @"
                                 SELECT
                                     TO_CHAR(TIMESTAMP, 'DD/MM/YYYY HH24:MI:SS') AS EVENT_TIMESTAMP,
@@ -3853,7 +3775,6 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
                 dlg.ShowDialog();
             };
 
-            // 08.sql [08-QLBV-01]: INSERT vào restore_history sau impdp / flashback
             btnAdd.Click += (s, e) =>
             {
                 var dlg = new Form { Text = "Ghi Nhận Kết Quả Phục Hồi", Width = 520, Height = 340, StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false };
@@ -3916,7 +3837,6 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
             return RefreshAll;
         }
 
-        // Flashback Query — run/05.sql §Câu 4: Khôi phục dữ liệu theo thời điểm
         private void BuildBackup_Flashback(TabPage tab)
         {
             var pnl = new Panel { Dock = DockStyle.Fill, Padding = new Padding(24, 20, 24, 0), BackColor = Color.White };
@@ -3939,7 +3859,6 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
                 AutoSize = false
             };
 
-            // Input row: MABN
             var flowInput = new FlowLayoutPanel
             {
                 Dock = DockStyle.Top,
@@ -3955,7 +3874,6 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
             flowInput.Controls.Add(txtMabn);
             flowInput.Controls.Add(btnSelect);
 
-            // Step buttons + DateTimePicker
             var flowSteps = new FlowLayoutPanel
             {
                 Dock = DockStyle.Top,
@@ -4004,7 +3922,6 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
                 Text = "SQL> -- Sẵn sàng. Bấm 'Xem Dữ Liệu' bất cứ lúc nào để kiểm tra CCCD/NGAYSINH hiện tại.\r\n"
             };
 
-            // Closure state
             string savedTimestamp = null;
 
             btnSelect.Click += (s, e) =>
@@ -4112,7 +4029,6 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
                     "Xác nhận Flashback", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
                 try
                 {
-                    // run/05.sql §Câu 4 — Bước 3: SET (CCCD, NGAYSINH) AS OF TIMESTAMP
                     string restoreSql =
                         $"UPDATE QLBV.BENHNHAN SET (CCCD, NGAYSINH) = (" +
                         $"  SELECT CCCD, NGAYSINH FROM QLBV.BENHNHAN" +
@@ -4168,7 +4084,6 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
             tab.Controls.Add(pnl);
         }
 
-        // ── 08.sql [08-FLASHBACK]: FLASHBACK TABLE qlbv.donthuoc TO TIMESTAMP
         private void BuildBackup_FlashbackTable(TabPage tab)
         {
             const string tbl = "QLBV.DONTHUOC";
@@ -4252,7 +4167,6 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
             {
                 try
                 {
-                    // 08.sql: ghi mốc thời gian an toàn + xem dòng đối chứng + bật ROW MOVEMENT
                     var tsRow = service.Query("SELECT TO_CHAR(SYSTIMESTAMP, 'yyyy-mm-dd hh24:mi:ss') AS BEFORE_INCIDENT_TIME FROM DUAL");
                     savedTsFT = tsRow.Rows[0]["BEFORE_INCIDENT_TIME"].ToString();
                     if (DateTime.TryParseExact(savedTsFT, "yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateTime ts))
@@ -4334,7 +4248,6 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
             tab.Controls.Add(pnl);
         }
 
-        // ── 08.sql [08-QLBV-03]: DBMS_SCHEDULER + JOB_DAILY_ARCHIVE_AUDIT
         private void BuildBackup_Scheduler(TabPage tab)
         {
             var pnl = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 14, 20, 0), BackColor = Color.White };
@@ -4440,7 +4353,6 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
             pnl.Controls.Add(flowBtn);
             pnl.Controls.Add(lblTitle);
             tab.Controls.Add(pnl);
-            // Lazy load: chỉ query khi user mở tab lần đầu
             bool _schedLoaded = false;
             tab.Enter += (s, e) =>
             {
@@ -4451,9 +4363,9 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
             };
         }
 
-        // =====================================================================
-        //  QUẢN LÝ TÀI KHOẢN — Tạo NV / BN theo run/03.sql
-        // =====================================================================
+        #endregion
+
+        #region PH2-TK — Quản lý tài khoản (YC2)
         private void BuildAdmin_QuanLyTK(TabPage tab)
         {
             var grid = MakeGrid(true);
@@ -4477,7 +4389,6 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
 
             tab.Controls.Add(Wrap(grid, Toolbar(btnNV, btnBN, btnRe,
                 Note("Tạo tài khoản Oracle cho Nhân Viên / Bệnh Nhân. Double-click dòng để xem hồ sơ chi tiết."))));
-            // Lazy load: chỉ query NHANVIEN + BENHNHAN khi user mở tab lần đầu
             bool _tkLoaded = false;
             tab.Enter += (s, e) => { if (_tkLoaded) return; _tkLoaded = true; LoadDanhSachTaiKhoan(grid); };
         }
@@ -4796,7 +4707,6 @@ BEGIN
 END;";
         }
 
-        // Tính nhãn ghi mặc định theo run/06.sql PHẦN I
         private string ComputeOlsLabel(string capBac, string maKhoa, string coSo)
         {
             if (capBac == "Ban Giám đốc")
@@ -4821,9 +4731,6 @@ END;";
             return level;
         }
 
-        // ── Tạo tài khoản Nhân Viên ──────────────────────────────────────────
-        // Tuân theo run/03.sql: INSERT NHANVIEN → CREATE USER → GRANT CREATE SESSION → GRANT ROLE
-        // Nếu CAPBAC/MAKHOA/COSO có giá trị: gán OLS label theo run/06.sql
         private void TaoTaiKhoanNhanVien(DataGridView grid)
         {
             // Load danh sách khoa để hiển thị trong dropdown
@@ -4859,18 +4766,15 @@ END;";
                         $"'{Esc(f.Cmnd)}',N'{Esc(f.QueQuan)}','{Esc(f.SoDt)}'," +
                         $"N'{Esc(f.VaiTro)}',{maKhoa},{capBac},{coSo})");
 
-                    // 2. Tạo Oracle user — CREATE USER / GRANT CREATE SESSION (run/03.sql)
                     service.ExecuteNonQuery($"CREATE USER {f.MaNV} IDENTIFIED BY \"{f.MatKhau.Replace("\"", "\"\"")}\"");
                     service.ExecuteNonQuery($"GRANT CREATE SESSION TO {f.MaNV}");
 
-                    // 3. Grant role theo vai trò (run/03.sql)
                     string role;
                     if (f.VaiTro == "Bác sĩ/Y sĩ") role = "ROLE_BACSI";
                     else if (f.VaiTro == "Kỹ thuật viên") role = "ROLE_KTV";
                     else role = "ROLE_DPV";
                     service.ExecuteNonQuery($"GRANT {role} TO {f.MaNV}");
 
-                    // 4. Gán OLS label — run/06.sql PHẦN I
                     if (!string.IsNullOrEmpty(f.CapBac))
                     {
                         try { service.ExecuteNonQuery(BuildAssignOlsLabelsSql(f.MaNV, f.CapBac, f.MaKhoa, f.CoSo)); }
@@ -4885,8 +4789,6 @@ END;";
             }
         }
 
-        // ── Tạo tài khoản Bệnh Nhân ──────────────────────────────────────────
-        // Tuân theo run/03.sql: INSERT BENHNHAN → CREATE USER → GRANT CREATE SESSION → GRANT ROLE_BENHNHAN
         private void TaoTaiKhoanBenhNhan(DataGridView grid)
         {
             string suggestedId = NextAvailableBnId();
@@ -4909,11 +4811,9 @@ END;";
                         $"N'{Esc(f.QuanHuyen)}',N'{Esc(f.TinhTP)}'," +
                         $"N'{Esc(f.TienSuBenh)}',N'{Esc(f.TienSuBenhGD)}',N'{Esc(f.DiUngThuoc)}')");
 
-                    // 2. Tạo Oracle user (run/03.sql)
                     service.ExecuteNonQuery($"CREATE USER {f.MaBN} IDENTIFIED BY \"{f.MatKhau.Replace("\"", "\"\"")}\"");
                     service.ExecuteNonQuery($"GRANT CREATE SESSION TO {f.MaBN}");
 
-                    // 3. Grant ROLE_BENHNHAN (run/03.sql)
                     service.ExecuteNonQuery($"GRANT ROLE_BENHNHAN TO {f.MaBN}");
 
                     Ok($"Đã tạo tài khoản bệnh nhân {f.MaBN} thành công!\nRole Oracle: ROLE_BENHNHAN");
@@ -4923,9 +4823,9 @@ END;";
             }
         }
 
-        // =====================================================================
-        //  OLS BẢO MẬT — Quản lý thành phần nhãn + nhãn người dùng
-        // =====================================================================
+        #endregion
+
+        #region PH2-OLS — Quản lý OLS
         private void BuildAdmin_OLS(TabPage tab)
         {
             var inner = MakeTabs();
@@ -4985,7 +4885,6 @@ END;";
                 catch { /* OLS view không truy cập được — grid rỗng */ }
             }
 
-            // Lazy load: chỉ query DBA_SA_* khi user mở tab lần đầu
             bool _olsCompLoaded = false;
             tab.Enter += (s, e) =>
             {
@@ -4997,7 +4896,6 @@ END;";
             };
         }
 
-        // Grid DBA_SA_USER_LABELS + nút đồng bộ lại nhãn cho tất cả NV (run/06.sql)
         private void BuildAdmin_OLS_UserLabels(TabPage tab)
         {
             var grid = MakeGrid(true);
@@ -5012,14 +4910,12 @@ END;";
 
             tab.Controls.Add(Wrap(grid, Toolbar(btnRe, txtS, btnS, btnSync,
                 Note("Nhãn OLS xác định hàng nào trong THONGBAO mỗi user được đọc.  |  'Đồng Bộ' tính lại theo CAPBAC/MAKHOA/COSO."))));
-            // Lazy load: chỉ query DBA_SA_USER_LABELS khi user mở tab lần đầu
             bool _olsULLoaded = false;
             tab.Enter += (s, e) => { if (_olsULLoaded) return; _olsULLoaded = true; LoadOlsUserLabels(grid, ""); };
         }
 
         private void LoadOlsUserLabels(DataGridView grid, string filter)
         {
-            // run/06.sql — SELECT user_name, max_read_label, max_write_label, ...
             string sql =
                 "SELECT USER_NAME, MAX_READ_LABEL, MAX_WRITE_LABEL, MIN_WRITE_LABEL, " +
                 "DEFAULT_READ_LABEL, DEFAULT_WRITE_LABEL, DEFAULT_ROW_LABEL " +
@@ -5031,7 +4927,6 @@ END;";
             catch { grid.DataSource = null; }
         }
 
-        // run/06.sql PHẦN I — nguyên văn PL/SQL gán nhãn OLS (BGD tách read/write)
         private void SyncOlsLabels(DataGridView grid)
         {
             try
@@ -5158,10 +5053,10 @@ END;");
             return (bar, cmb);
         }
 
-        // ═══════════════════════════════════════════════════════════════════
-        //  THÔNG BÁO (OLS) — dùng chung
-        // ═══════════════════════════════════════════════════════════════════
 
+        #endregion
+
+        #region PH2-THONGBAO — Thông báo OLS
         private void BuildThongBaoTab(TabPage tab, TabControl ownerTabs, ThongBaoSendMode sendMode)
         {
             var grid = MakeGrid(true);
@@ -5330,7 +5225,6 @@ END;");
                     catch (Exception ex) { Err(ex.Message); }
         }
 
-        // ── event handler helpers ────────────────────────────────────────
 
         /// Lock specific columns (cancel edit on them)
         private static DataGridViewCellCancelEventHandler LockCols(DataGridView grid, string[] locked)
@@ -5340,10 +5234,11 @@ END;");
         private static DataGridViewCellCancelEventHandler AllowOnly(DataGridView grid, string[] allowed)
             => (s, e) => { foreach (var c in allowed) if (string.Equals(grid.Columns[e.ColumnIndex].Name, c, StringComparison.OrdinalIgnoreCase)) return; e.Cancel = true; };
 
-        // ═══════════════════════════════════════════════════════════════════
         //  THÔNG TIN CÁ NHÂN (Dùng chung cho NV: DPV, BACSI, KTV, GIAMDOC)
-        // ═══════════════════════════════════════════════════════════════════
 
+        #endregion
+
+        #region PH2-NVINFO — Thông tin NV
         private void BuildNV_Info(TabPage tab)
         {
             tab.BackColor = Color.FromArgb(240, 249, 255);
@@ -5430,14 +5325,11 @@ END;");
             }
             catch (Exception ex) { Err("Lỗi: " + ex.Message); }
         }
+
+        #endregion
     }
 
-
-
-    // ════════════════════════════════════════════════════════════════════════
-    //  DIALOG: Thêm / Sửa Bệnh Nhân (DPV)
-    // ════════════════════════════════════════════════════════════════════════
-
+    #region PH2-DIALOG-BN — Form bệnh nhân
     public sealed class BenhNhanFormValues
     {
         public string TenBN { get; set; }
@@ -5706,9 +5598,6 @@ END;");
         }
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  DIALOG: Tạo HSBA  (Điều phối viên điền — CHẨNĐOÁN/ĐIỀUTRỊ/KẾTLUẬN do bác sĩ cập nhật sau)
-    // ════════════════════════════════════════════════════════════════════════
 
     public class HsbaAddForm : Form
     {
@@ -6155,9 +6044,6 @@ END;");
         }
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  DIALOG: Điều phối HSBA — chọn Khoa → Bác sĩ (dropdown)
-    // ════════════════════════════════════════════════════════════════════════
 
     public class HsbaDieuPhoiForm : Form
     {
@@ -6475,13 +6361,7 @@ END;");
         }
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  DIALOG: Điều phối / Thêm HSBA_DV
-    // ════════════════════════════════════════════════════════════════════════
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  DIALOG: Điều phối / Thêm HSBA_DV (Tự động thích ứng theo Role)
-    // ════════════════════════════════════════════════════════════════════════
 
     public class HsbaDvAddForm : Form
     {
@@ -6832,9 +6712,6 @@ END;");
         }
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  DIALOG: DPV phân công / đổi MAKTV trên HSBA_DV
-    // ════════════════════════════════════════════════════════════════════════
     public class DpvAssignKtvForm : Form
     {
         private sealed class LookupItem
@@ -6988,9 +6865,6 @@ END;");
         }
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  DIALOG: Thêm Đơn Thuốc
-    // ════════════════════════════════════════════════════════════════════════
 
     public class DonThuocAddForm : Form
     {
@@ -7195,13 +7069,10 @@ END;");
         }
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  DIALOG: Gửi Thông Báo Khẩn — Chọn Nhãn OLS (run/01.sql components)
     //  Level:       RadioButton (BGD / LDK / LDP / NV)
     //  Compartment: CheckBox    (TH / TK / TM / Tất cả khoa)
     //  Group:       CheckBox    (HCM / HP / HN / Tất cả cơ sở)
     //  Preview:     Label hiển thị nhãn kết quả real-time
-    // ════════════════════════════════════════════════════════════════════════
     public class ThongBaoForm : Form
     {
         public string NoiDung { get; private set; }
@@ -7232,7 +7103,6 @@ END;");
             BackColor = UiTheme.LightCyan;
             Font = UiTheme.BodyFont;
 
-            // ── Outer layout: left (fields) | right (OLS picker) ──────────
             var outer = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -7245,7 +7115,6 @@ END;");
             outer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 52F));
             outer.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
-            // ── LEFT: nội dung / ngày giờ / địa điểm ─────────────────────
             var leftPanel = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -7304,7 +7173,6 @@ END;");
 
             outer.Controls.Add(leftPanel, 0, 0);
 
-            // ── RIGHT: OLS Label Picker ───────────────────────────────────
             var rightPanel = new Panel
             {
                 Dock = DockStyle.Fill,
@@ -7329,7 +7197,6 @@ END;");
                 Dock = DockStyle.Fill
             });
 
-            // ── LEVEL GroupBox ──
             var gbLevel = new GroupBox
             {
                 Text = "Cấp độ (Level)",
@@ -7406,7 +7273,6 @@ END;");
             btnPresetLdp.FlatAppearance.BorderSize = 0;
             rightLayout.Controls.Add(btnPresetLdp);
 
-            // ── COMPARTMENT GroupBox ──
             var gbComp = new GroupBox
             {
                 Text = "Khoa (Compartment)",
@@ -7439,7 +7305,6 @@ END;");
             rightLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 88F));
             rightLayout.Controls.Add(gbComp);
 
-            // ── GROUP GroupBox ──
             var gbGrp = new GroupBox
             {
                 Text = "Cơ sở (Group)",
@@ -7484,7 +7349,6 @@ END;");
                 }
             }
 
-            // ── Preview nhãn ──
             rightLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
             rightLayout.Controls.Add(new Label
             {
@@ -7523,7 +7387,6 @@ END;");
             rightPanel.Controls.Add(rightLayout);
             outer.Controls.Add(rightPanel, 1, 0);
 
-            // ── Hàm tính và cập nhật preview ─────────────────────────────
             void UpdatePreview()
             {
                 string level = "NV";
@@ -7693,7 +7556,6 @@ END;");
 
             UpdatePreview();
 
-            // ── Buttons ───────────────────────────────────────────────────
             var btmPanel = new FlowLayoutPanel
             {
                 Dock = DockStyle.Bottom,
@@ -7749,9 +7611,6 @@ END;");
         }
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  DIALOG: Cập nhật thông tin (Dùng chung cho mọi Role)
-    // ════════════════════════════════════════════════════════════════════════
     public class EditRowForm : Form
     {
         public Dictionary<string, string> NewValues { get; private set; } = new Dictionary<string, string>();
@@ -7796,9 +7655,6 @@ END;");
         }
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  DIALOG: Cập Nhật Đơn Thuốc (BS — sửa cả MAHSBA/NGAYDT cho FGA 3.a)
-    // ════════════════════════════════════════════════════════════════════════
     public class EditDonThuocForm : Form
     {
         private sealed class LookupItem
@@ -8003,7 +7859,6 @@ END;");
         }
     }
 
-    // ── DateTimePicker ngày sinh tùy chọn: trống khi mở form, chọn trên lịch, không quá hôm nay ──
     internal static class TaoTaiKhoanUi
     {
         internal static DateTimePicker CreateNgaySinhPicker()
@@ -8044,12 +7899,9 @@ END;");
         }
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  DIALOG: Tạo Tài Khoản Nhân Viên (QLBV Admin)
     //  — Dropdown VAITRO/PHAI/CAPBAC/COSO/MAKHOA theo schema_phanhe2.sql
     //  — Auto-suggest MANV nhỏ nhất chưa dùng, QLBV có thể sửa
     //  — Password đề xuất mặc định "nv123", QLBV tự thay
-    // ════════════════════════════════════════════════════════════════════════
     public class TaoNhanVienForm : Form
     {
         public string MaNV { get; private set; }
@@ -8120,17 +7972,14 @@ END;");
                 return c;
             }
 
-            // ── MANV ──
             AddLbl("Mã nhân viên *:", row);
             var txtMaNV = MakeTxt(suggestedId);
             layout.Controls.Add(txtMaNV, 1, row++);
 
-            // ── HỌ TÊN ──
             AddLbl("Họ tên *:", row);
             var txtHoTen = MakeTxt();
             layout.Controls.Add(txtHoTen, 1, row++);
 
-            // ── VAI TRÒ ──
             AddLbl("Vai trò *:", row);
             var cmbVaiTro = MakeCmb(new[] { "Điều phối viên", "Bác sĩ/Y sĩ", "Kỹ thuật viên" });
             layout.Controls.Add(cmbVaiTro, 1, row++);
@@ -8147,32 +7996,26 @@ END;");
                 }
             };
 
-            // ── PHÁI ──
             AddLbl("Phái:", row);
             var cmbPhai = MakeCmb(new[] { "Nam", "Nữ" }, blank: true);
             layout.Controls.Add(cmbPhai, 1, row++);
 
-            // ── NGÀY SINH ──
             AddLbl("Ngày sinh:", row);
             var dtpNgaySinh = TaoTaiKhoanUi.CreateNgaySinhPicker();
             layout.Controls.Add(dtpNgaySinh, 1, row++);
 
-            // ── CMND ──
             AddLbl("CMND/CCCD:", row);
             var txtCmnd = MakeTxt();
             layout.Controls.Add(txtCmnd, 1, row++);
 
-            // ── QUÊ QUÁN ──
             AddLbl("Quê quán:", row);
             var txtQueQuan = MakeTxt();
             layout.Controls.Add(txtQueQuan, 1, row++);
 
-            // ── SỐ ĐT ──
             AddLbl("Số điện thoại:", row);
             var txtSoDt = MakeTxt();
             layout.Controls.Add(txtSoDt, 1, row++);
 
-            // ── KHOA ──
             AddLbl("Khoa (MAKHOA):", row);
             var cmbKhoa = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
             cmbKhoa.Items.Add("-- Không chọn --");
@@ -8180,19 +8023,16 @@ END;");
             cmbKhoa.SelectedIndex = 0;
             layout.Controls.Add(cmbKhoa, 1, row++);
 
-            // ── CẤP BẬC ──
             AddLbl("Cấp bậc (OLS):", row);
             var cmbCapBac = MakeCmb(
                 new[] { "Ban Giám đốc", "Lãnh đạo khoa", "Lãnh đạo phòng", "Nhân viên" },
                 blank: true);
             layout.Controls.Add(cmbCapBac, 1, row++);
 
-            // ── CƠ SỞ ──
             AddLbl("Cơ sở (OLS):", row);
             var cmbCoSo = MakeCmb(new[] { "Hồ Chí Minh", "Hải Phòng", "Hà Nội" }, blank: true);
             layout.Controls.Add(cmbCoSo, 1, row++);
 
-            // ── MẬT KHẨU ──
             AddLbl("Mật khẩu:", row);
             var txtMatKhau = MakeTxt("nv123");
             layout.Controls.Add(txtMatKhau, 1, row++);
@@ -8276,12 +8116,9 @@ END;");
         }
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  DIALOG: Tạo Tài Khoản Bệnh Nhân (QLBV Admin)
     //  — Tất cả trường từ schema BENHNHAN (schema_phanhe2.sql)
     //  — Auto-suggest MABN nhỏ nhất chưa dùng, QLBV có thể sửa
     //  — Password đề xuất mặc định "bn123"
-    // ════════════════════════════════════════════════════════════════════════
     public class TaoBenhNhanForm : Form
     {
         public string MaBN { get; private set; }
@@ -8339,54 +8176,44 @@ END;");
             TextBox MakeTxt(string val = "") =>
                 new TextBox { Dock = DockStyle.Fill, Text = val, Margin = new Padding(0, 4, 0, 4) };
 
-            // ── MABN ──
             AddLbl("Mã bệnh nhân *:", row);
             var txtMaBN = MakeTxt(suggestedId);
             layout.Controls.Add(txtMaBN, 1, row++);
 
-            // ── TÊN BN ──
             AddLbl("Họ tên *:", row);
             var txtTenBN = MakeTxt();
             layout.Controls.Add(txtTenBN, 1, row++);
 
-            // ── PHÁI ──
             AddLbl("Phái:", row);
             var cmbPhai = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
             cmbPhai.Items.AddRange(new object[] { "", "Nam", "Nữ" });
             cmbPhai.SelectedIndex = 0;
             layout.Controls.Add(cmbPhai, 1, row++);
 
-            // ── NGÀY SINH ──
             AddLbl("Ngày sinh:", row);
             var dtpNgaySinh = TaoTaiKhoanUi.CreateNgaySinhPicker();
             layout.Controls.Add(dtpNgaySinh, 1, row++);
 
-            // ── CCCD ──
             AddLbl("CCCD:", row);
             var txtCCCD = MakeTxt();
             layout.Controls.Add(txtCCCD, 1, row++);
 
-            // ── SỐ NHÀ ──
             AddLbl("Số nhà:", row);
             var txtSoNha = MakeTxt();
             layout.Controls.Add(txtSoNha, 1, row++);
 
-            // ── TÊN ĐƯỜNG ──
             AddLbl("Tên đường:", row);
             var txtTenDuong = MakeTxt();
             layout.Controls.Add(txtTenDuong, 1, row++);
 
-            // ── QUẬN/HUYỆN ──
             AddLbl("Quận/Huyện:", row);
             var txtQuanHuyen = MakeTxt();
             layout.Controls.Add(txtQuanHuyen, 1, row++);
 
-            // ── TỈNH/TP ──
             AddLbl("Tỉnh/TP:", row);
             var txtTinhTP = MakeTxt();
             layout.Controls.Add(txtTinhTP, 1, row++);
 
-            // ── TIỀN SỬ BỆNH (multiline) ──
             AddLbl("Tiền sử bệnh:", row, 68);
             var txtTienSuBenh = new TextBox
             {
@@ -8398,7 +8225,6 @@ END;");
             };
             layout.Controls.Add(txtTienSuBenh, 1, row++);
 
-            // ── TIỀN SỬ BỆNH GIA ĐÌNH (multiline) ──
             AddLbl("Tiền sử bệnh GĐ:", row, 68);
             var txtTienSuBenhGD = new TextBox
             {
@@ -8410,12 +8236,10 @@ END;");
             };
             layout.Controls.Add(txtTienSuBenhGD, 1, row++);
 
-            // ── DỊ ỨNG THUỐC ──
             AddLbl("Dị ứng thuốc:", row);
             var txtDiUngThuoc = MakeTxt();
             layout.Controls.Add(txtDiUngThuoc, 1, row++);
 
-            // ── MẬT KHẨU ──
             AddLbl("Mật khẩu:", row);
             var txtMatKhau = MakeTxt("bn123");
             layout.Controls.Add(txtMatKhau, 1, row++);
@@ -8493,4 +8317,5 @@ END;");
             AcceptButton = ok;
         }
     }
+    #endregion
 }

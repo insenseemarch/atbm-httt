@@ -7,6 +7,7 @@ using Oracle.ManagedDataAccess.Client;
 
 namespace PhanHe1
 {
+    // PH1-PH2: Màn hình đăng nhập — chọn Phân hệ 1 (Oracle admin) hoặc Phân hệ 2 (DocCare)
     public class LoginForm : Form
     {
         private TextBox txtHost;
@@ -81,7 +82,7 @@ namespace PhanHe1
             txtPassword = new TextBox { Dock = DockStyle.Fill, UseSystemPasswordChar = true };
             panel.Controls.Add(txtPassword, 1, 5);
 
-            // ── Lựa chọn phân hệ (row 6)
+            // PH1: Chọn phân hệ đăng nhập
             rdoPh1 = new RadioButton
             {
                 Text = "Quản Trị Oracle",
