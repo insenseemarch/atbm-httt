@@ -72,9 +72,30 @@ CREATE OR REPLACE PROCEDURE sp_CreateUser(
 CREATE OR REPLACE PROCEDURE sp_DeleteUser(
     p_username IN VARCHAR2
 ) AS
-    BEGIN 
-         EXECUTE IMMEDIATE 'DROP USER ' || DBMS_ASSERT.SIMPLE_SQL_NAME(UPPER(p_username)) || ' CASCADE';
+    v_safe VARCHAR2(128) := DBMS_ASSERT.SIMPLE_SQL_NAME(UPPER(p_username));
+    v_package_exists INTEGER := 0;
+BEGIN
+    BEGIN
+        SELECT COUNT(*) INTO v_package_exists
+        FROM ALL_OBJECTS
+        WHERE OWNER = 'LBACSYS' AND OBJECT_NAME = 'SA_USER_ADMIN' AND OBJECT_TYPE = 'PACKAGE';
+    EXCEPTION WHEN OTHERS THEN
+        v_package_exists := 0;
     END;
+
+    IF v_package_exists > 0 THEN
+        BEGIN
+            LBACSYS.SA_USER_ADMIN.DROP_USER_ACCESS(
+                policy_name => 'OLS_QLBV_POLICY',
+                user_name   => v_safe
+            );
+        EXCEPTION WHEN OTHERS THEN
+            NULL;
+        END;
+    END IF;
+
+    EXECUTE IMMEDIATE 'DROP USER ' || v_safe || ' CASCADE';
+END;
 /
 
 -- 3. Đổi mật khẩu 

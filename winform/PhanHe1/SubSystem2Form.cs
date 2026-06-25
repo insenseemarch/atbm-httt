@@ -88,7 +88,7 @@ namespace PhanHe1.Forms
             BackColor = UiTheme.LightCyan;
             BuildUi();
 
-            if (this.autoTriggerFullRestore)
+            /*if (this.autoTriggerFullRestore)
             {
                 Shown += (s, e) => BeginInvoke((Action)delegate
                 {
@@ -97,7 +97,7 @@ namespace PhanHe1.Forms
                         btnRestoreFull.PerformClick();
                     }
                 });
-            }
+            }*/
         }
 
         private static void SafeBalanceHorizontalSplit(SplitContainer split, double topRatio = 0.5, int minTop = 60, int minBottom = 60)
@@ -1567,7 +1567,7 @@ namespace PhanHe1.Forms
             switch (userRole)
             {
                 case UserRole.DPV: BuildDemo_DpvHsba(subTabs); BuildDemo_DpvLichSu(subTabs); break;
-                case UserRole.BACSI: BuildDemo_BsChiPhi(subTabs); BuildDemo_BsNhanVien(subTabs); BuildDemo_BsHsbaKhac(subTabs); break;
+                case UserRole.BACSI: BuildDemo_BsChiPhi(subTabs); BuildDemo_BsNhanVien(subTabs); BuildDemo_BsHsbaKhac(subTabs); BuildDemo_BsHsbaDv(subTabs); break;
                 case UserRole.KTV: BuildDemo_KtvDichVu(subTabs); break;
                 case UserRole.BN: break;
             }
@@ -1582,7 +1582,6 @@ namespace PhanHe1.Forms
             var txtS = SearchBox("Tìm mã HSBA...", 200);
             var btnS = QuickBtn("Tìm", UiTheme.DeepBlue, UiTheme.WhiteText, 80);
             var btnRe = QuickBtn("Tải Lại", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 90);
-            var btnDel = QuickBtn("Sửa Chẩn Đoán", Color.FromArgb(206, 17, 38), UiTheme.WhiteText, 130);
 
             void Reload(string kw = "")
             {
@@ -1591,17 +1590,32 @@ namespace PhanHe1.Forms
 
             btnS.Click += (s, e) => Reload(Val(txtS, "Tìm mã HSBA..."));
             btnRe.Click += (s, e) => Reload();
-            btnDel.Click += (s, e) =>
+            grid.CellDoubleClick += (s, e) =>
             {
-                if (grid.CurrentRow == null) { Err("Chọn một hồ sơ bệnh án."); return; }
-                string ma = grid.CurrentRow.Cells["MAHSBA"].Value?.ToString();
-                if (MessageBox.Show($"Cập nhật chẩn đoán trái phép cho '{ma}'?", "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
-                HandleDemoAction("09-DPV-02", "AuditIllegalUpdateHSBA", "Vượt quyền UPDATE HSBA",
-                    () => service.ExecuteNonQuery($"UPDATE QLBV.HSBA SET CHANDOAN=N'Demo trai phep' WHERE MAHSBA='{Esc(ma)}'"));
+                if (e.RowIndex < 0) return;
+                var row = grid.Rows[e.RowIndex];
+                string ma = row.Cells["MAHSBA"].Value?.ToString();
+                var fields = new Dictionary<string, string>
+                {
+                    { "CHANDOAN", row.Cells["CHANDOAN"].Value?.ToString() },
+                    { "DIEUTRI",  row.Cells["DIEUTRI"].Value?.ToString() },
+                    { "KETLUAN",  row.Cells["KETLUAN"].Value?.ToString() }
+                };
+                using (var f = new EditRowForm($"Cập nhật trái phép cho '{ma}'", fields))
+                {
+                    if (f.ShowDialog(this) != DialogResult.OK) return;
+                    HandleDemoAction("09-DPV-02", "AuditIllegalUpdateHSBA", "Vượt quyền UPDATE HSBA",
+                        () => service.ExecuteNonQuery(
+                            $"UPDATE QLBV.HSBA SET " +
+                            $"CHANDOAN=N'{Esc(f.NewValues["CHANDOAN"])}', " +
+                            $"DIEUTRI=N'{Esc(f.NewValues["DIEUTRI"])}', " +
+                            $"KETLUAN=N'{Esc(f.NewValues["KETLUAN"])}' " +
+                            $"WHERE MAHSBA='{Esc(ma)}'"));
+                }
             };
 
-            page.Controls.Add(Wrap(grid, Toolbar(txtS, btnS, btnRe, btnDel,
-                Note("DPV chỉ được cập nhật MABS/MAKHOA — sửa chẩn đoán sẽ bị từ chối."))));
+            page.Controls.Add(Wrap(grid, Toolbar(txtS, btnS, btnRe,
+                Note("Nhấn đúp vào dòng → để cập nhật CHẨNĐOÁN/ĐIỀUTRỊ/KẾTLUẬN — sẽ bị VPD từ chối và ghi audit."))));
             parent.TabPages.Add(page);
             Reload();
         }
@@ -1653,7 +1667,6 @@ namespace PhanHe1.Forms
                     grid.DataSource = dtResult;
                     UiTheme.StyleGrid(grid);
 
-                    // --- ẨN CỘT THỪA & ĐỔI TÊN HEADER CHO ĐẸP DÁNG ---
                     string[] hideCols = { "MABN", "TENBN", "PHAI", "NGAYSINH", "TIENSUBENH", "TIENSUBENHGD", "DIUNGTHUOC", "DIEUTRI", "KETLUAN", "MA_BACSI", "KETQUA_DV", "LIEUDUNG", "TEN_KTV", "NGAYDT" };
                     foreach (var col in hideCols)
                         if (grid.Columns.Contains(col)) grid.Columns[col].Visible = false;
@@ -1856,44 +1869,48 @@ namespace PhanHe1.Forms
             parent.TabPages.Add(page);
         }
 
-        // run/09.sql [09-BACSI-03]: fn_CheckUserVaiTro — helper kiểm tra vai trò động
-        private void BuildDemo_BsVaiTro(TabControl parent)
+
+        // [TB1] BS —  UPDATE Kết quả trong HSBA (bị chặn)
+
+        private void BuildDemo_BsHsbaDv(TabControl parent)
         {
-            var page = MakeTab("Kiểm Tra Vai Trò");
-            var pnl = new Panel { Dock = DockStyle.Fill, Padding = new Padding(24, 20, 24, 20), BackColor = Color.White };
+            var page = MakeTab("Dịch Vụ (HSBA_DV)");
+            var grid = MakeGrid(true);
+            var btnRe = QuickBtn("Tải Lại", Color.FromArgb(210, 220, 230), UiTheme.DeepBlue, 90);
 
-            var lbl = new Label
-            {
-                Text = "Kiểm tra vai trò nghiệp vụ của tài khoản đang đăng nhập",
-                AutoSize = true, MaximumSize = new Size(700, 0), Font = new Font("Segoe UI", 10F), ForeColor = UiTheme.DeepBlue
-            };
-            var cmb = new ComboBox { Width = 320, DropDownStyle = ComboBoxStyle.DropDownList };
-            cmb.Items.AddRange(new object[] { "Điều phối viên", "Bác sĩ", "Kỹ thuật viên", "Ban Giám đốc" });
-            cmb.SelectedIndex = 0;
-            cmb.Location = new Point(0, 50);
+            btnRe.Click += (s, e) => { try { LoadGrid(grid, "SELECT * FROM QLBV.HSBA_DV"); } catch { } };
 
-            var btnCheck = QuickBtn("Kiểm Tra", UiTheme.BrandeisBlue, UiTheme.WhiteText, 140, 38);
-            btnCheck.Location = new Point(330, 48);
-            btnCheck.Click += (s, e) =>
+            grid.CellDoubleClick += (s, e) =>
             {
-                string vt = cmb.SelectedItem?.ToString() ?? "";
-                try
+                if (e.RowIndex < 0) return;
+                var row = grid.Rows[e.RowIndex];
+                string ma = row.Cells["MAHSBA"].Value?.ToString();
+                string dv = row.Cells["LOAIDV"].Value?.ToString();
+                string ngay = row.Cells["NGAYDV"].Value != null
+                    ? Convert.ToDateTime(row.Cells["NGAYDV"].Value).ToString("dd/MM/yyyy") : "";
+
+                var fields = new Dictionary<string, string>
                 {
-                    var dt = service.Query($"SELECT QLBV.fn_CheckUserVaiTro(N'{Esc(vt)}') AS KETQUA FROM DUAL");
-                    string kq = dt.Rows[0]["KETQUA"]?.ToString() ?? "";
-                    Ok($"fn_CheckUserVaiTro('{vt}') = {kq}\n\nTài khoản hiện tại: {service.CurrentUser}");
+                    { "KETQUA", row.Cells["KETQUA"].Value?.ToString() }
+                };
+                using (var f = new EditRowForm($"Cập nhật kết quả trái phép cho '{ma}'", fields))
+                {
+                    if (f.ShowDialog(this) != DialogResult.OK) return;
+                    HandleDemoAction("3.3.d-BS", "AuditIllegalHSBADV", "VPD/RBAC chặn BS sửa KETQUA",
+                        () => service.ExecuteNonQuery(
+                            $"UPDATE QLBV.HSBA_DV SET KETQUA=N'{Esc(f.NewValues["KETQUA"])}' " +
+                            $"WHERE MAHSBA='{Esc(ma)}' AND LOAIDV=N'{Esc(dv)}' " +
+                            $"AND NGAYDV=TO_DATE('{ngay}','DD/MM/YYYY')"));
                 }
-                catch (Exception ex) { Err(ex.Message); }
             };
 
-            pnl.Controls.Add(btnCheck);
-            pnl.Controls.Add(cmb);
-            pnl.Controls.Add(lbl);
-            page.Controls.Add(pnl);
+            page.Controls.Add(Wrap(grid, Toolbar(btnRe,
+                Note("Nhấn đúp vào dòng → thử sửa KẾTQUẢ — BS không có quyền, sẽ bị từ chối và ghi audit."))));
             parent.TabPages.Add(page);
+            try { LoadGrid(grid, "SELECT * FROM QLBV.HSBA_DV"); } catch { }
         }
 
-        // [TB1] BS — quản lý nhân viên (UPDATE/DELETE bị chặn)
+        // [TB2] BS — quản lý nhân viên (UPDATE/DELETE bị chặn)
         private void BuildDemo_BsNhanVien(TabControl parent)
         {
             var page = MakeTab("Nhân Viên");
@@ -2382,7 +2399,16 @@ namespace PhanHe1.Forms
             BuildAdmin_QuanLyTK(tTK);
             BuildAdmin_OLS(tOLS);
 
-            tabs.TabPages.AddRange(new[] { tTB, tAudit, tBackup, tTK, tOLS });
+            if (string.Equals(currentUser, "SYS", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(currentUser, "SYSDBA", StringComparison.OrdinalIgnoreCase))
+            {
+                tabs.TabPages.AddRange(new[] { tBackup });
+            }
+            else
+            {
+                tabs.TabPages.AddRange(new[] { tTB, tAudit, tBackup, tTK, tOLS });
+            }
+
             parent.Controls.Add(tabs);
         }
 
@@ -3738,7 +3764,7 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
             void AppendDonThuocSample(string prefix, bool singleRow = true)
             {
                 string sql = singleRow
-                    ? $"SELECT MAHSBA, TENTHUOC, LIEUDUNG FROM {tbl} WHERE ROWNUM = 1"
+                    ? $"SELECT MAHSBA, TENTHUOC, LIEUDUNG FROM {tbl} WHERE MAHSBA = 'HS000001'"
                     : $"SELECT MAHSBA, TENTHUOC, LIEUDUNG FROM {tbl} ORDER BY MAHSBA FETCH FIRST 20 ROWS ONLY";
                 var dt = service.Query(sql);
                 if (dt.Rows.Count == 0)
@@ -3785,7 +3811,7 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
                     txtLog.AppendText($"\r\nSQL> SELECT TO_CHAR(SYSTIMESTAMP, 'yyyy-mm-dd hh24:mi:ss') AS BEFORE_INCIDENT_TIME FROM DUAL;\r\n");
                     txtLog.AppendText($"BEFORE_INCIDENT_TIME: {savedTsFT}\r\n");
 
-                    txtLog.AppendText($"\r\nSQL> SELECT MAHSBA, TENTHUOC, LIEUDUNG FROM {tbl} WHERE ROWNUM = 1;\r\n");
+                    txtLog.AppendText($"\r\nSQL> SELECT MAHSBA, TENTHUOC, LIEUDUNG FROM {tbl} WHERE MAHSBA = 'HS000001';\r\n");
                     AppendDonThuocSample("  ");
 
                     txtLog.AppendText($"\r\nSQL> ALTER TABLE {tbl} ENABLE ROW MOVEMENT;\r\n");
@@ -3800,7 +3826,7 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
             btnS2.Click += (s, e) =>
             {
                 if (savedTsFT == null) { Err("Vui lòng thực hiện Bước 1 trước."); return; }
-                string corruptSql = $"UPDATE {tbl} SET LIEUDUNG = N'{corruptLieudung}' WHERE ROWNUM = 1";
+                string corruptSql = $"UPDATE {tbl} SET LIEUDUNG = N'{corruptLieudung}' WHERE MAHSBA = 'HS000001'";
                 if (MessageBox.Show($"Sẽ thực thi:\r\n\r\n{corruptSql};\r\nCOMMIT;\r\n\r\nXác nhận?", "Bước 2 - Giả Lập Sự Cố", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
                 try
                 {
@@ -3809,7 +3835,7 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
                     service.ExecuteNonQuery("COMMIT");
                     txtLog.AppendText("1 row updated.\r\nCommit complete.\r\n");
 
-                    txtLog.AppendText($"\r\nSQL> SELECT MAHSBA, TENTHUOC, LIEUDUNG FROM {tbl} WHERE ROWNUM = 1;\r\n");
+                    txtLog.AppendText($"\r\nSQL> SELECT MAHSBA, TENTHUOC, LIEUDUNG FROM {tbl} WHERE MAHSBA = 'HS000001';\r\n");
                     AppendDonThuocSample("  ");
 
                     txtLog.AppendText($"\r\n>> [BƯỚC 2 HOÀN THÀNH] Dữ liệu đã bị sai lệch.\r\n   => Kiểm tra DateTimePicker rồi bấm Bước 3.\r\n");
@@ -3828,7 +3854,7 @@ ORDER BY TIMESTAMP DESC FETCH FIRST 100 ROWS ONLY";
                     service.ExecuteNonQuery($"FLASHBACK TABLE {tbl} TO TIMESTAMP TO_TIMESTAMP('{flashTs}', 'yyyy-mm-dd hh24:mi:ss')");
                     txtLog.AppendText("Flashback complete.\r\n");
 
-                    txtLog.AppendText($"\r\nSQL> SELECT MAHSBA, TENTHUOC, LIEUDUNG FROM {tbl} WHERE ROWNUM = 1;\r\n");
+                    txtLog.AppendText($"\r\nSQL> SELECT MAHSBA, TENTHUOC, LIEUDUNG FROM {tbl} WHERE MAHSBA = 'HS000001';\r\n");
                     AppendDonThuocSample("  ");
                     txtLog.AppendText($"\r\n>> [BƯỚC 3 HOÀN THÀNH] ✓ {tbl} đã quay về trạng thái trước sự cố.\r\n");
 

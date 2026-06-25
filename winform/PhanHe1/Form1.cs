@@ -26,6 +26,7 @@ namespace PhanHe1
         private Button btnCreateRole;
         private Button btnRestoreSchema;
         private Button btnSubsystem2;
+        private bool openSubsystemOnShown = false;
 
         private TabControl tabMain;
         private TabPage tabManage;
@@ -221,82 +222,33 @@ namespace PhanHe1
 
         private void BuildUiForSysOnly()
         {
-            // Minimal header
-            var topPanel = new Panel
+            // Defer opening the subsystem until the form is shown to ensure ShowDialog flow works
+            openSubsystemOnShown = true;
+            this.Shown += SysOnly_Shown;
+        }
+
+        private void SysOnly_Shown(object sender, EventArgs e)
+        {
+            // Unsubscribe to avoid re-entry
+            this.Shown -= SysOnly_Shown;
+
+            try
             {
-                Dock = DockStyle.Top,
-                Height = 76,
-                BackColor = colorPanelBackground,
-                Padding = new Padding(12, 10, 12, 10)
-            };
+                // Hide the main form so the subsystem dialog appears without a white frame behind it
+                try { this.Hide(); } catch { }
 
-            var headerLeft = new FlowLayoutPanel
+                using (var subsystem2 = new SubSystem2Form(service, true))
+                {
+                    subsystem2.ShowDialog(this);
+                }
+            }
+            catch (Exception ex)
             {
-                Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false,
-                Padding = new Padding(0, 6, 0, 0),
-                BackColor = Color.Transparent
-            };
+                MessageBox.Show("Không thể mở Phân hệ 2: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
 
-            var picHeaderLogo = new PictureBox
-            {
-                Width = 170,
-                Height = 46,
-                SizeMode = PictureBoxSizeMode.Zoom,
-                Image = CreateHeaderLogoImage(170, 46),
-                Margin = new Padding(0, 0, 10, 0)
-            };
-
-            lblHeader = new Label
-            {
-                AutoSize = true,
-                TextAlign = ContentAlignment.MiddleLeft,
-                ForeColor = UiTheme.WhiteText,
-                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
-                Text = "Xin chào: @" + service.CurrentUser,
-                Margin = new Padding(0, 10, 0, 0)
-            };
-
-            headerLeft.Controls.Add(picHeaderLogo);
-            headerLeft.Controls.Add(lblHeader);
-
-            var buttonPanel = new FlowLayoutPanel
-            {
-                AutoSize = true,
-                AutoSizeMode = AutoSizeMode.GrowOnly,
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false,
-                Padding = new Padding(0, 6, 0, 0)
-            };
-
-            // Single big Restore button centered at bottom
-            btnRestoreSchema = new Button { Text = "Restore Full Schema - Dùng khi cần khôi phục dữ liệu", Width = 360, Height = 64, AutoSize = false };
-            StyleSecondaryButton(btnRestoreSchema);
-            btnRestoreSchema.Click += BtnRestoreSchema_Click;
-
-            var tip = new ToolTip();
-            tip.SetToolTip(btnRestoreSchema, "Cảnh báo: thao tác này sẽ xóa và khôi phục toàn bộ schema QLBV. Chỉ dùng khi thực sự cần.");
-
-            // Create a centered layout for the restore button
-            var wrapper = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 3 };
-            wrapper.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-            wrapper.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            wrapper.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-            wrapper.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
-            wrapper.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            wrapper.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
-
-            var btnHolder = new Panel { AutoSize = true, Dock = DockStyle.Fill };
-            btnHolder.Controls.Add(btnRestoreSchema);
-            btnRestoreSchema.Anchor = AnchorStyles.None;
-            wrapper.Controls.Add(btnHolder, 1, 1);
-
-            topPanel.Controls.Add(headerLeft);
-            topPanel.Controls.Add(buttonPanel);
-
-            Controls.Add(wrapper);
-            Controls.Add(topPanel);
+            // Return DialogResult.Cancel so Program.Main will loop back to the login screen
+            try { this.DialogResult = DialogResult.Cancel; this.Close(); } catch { }
         }
 
         private void BuildManageTab()

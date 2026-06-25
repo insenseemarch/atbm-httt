@@ -99,9 +99,10 @@ CREATE OR REPLACE PROCEDURE sp_CreateUser(
 CREATE OR REPLACE PROCEDURE sp_DeleteUser(
     p_username IN VARCHAR2
 ) AS
-    BEGIN 
-         EXECUTE IMMEDIATE 'DROP USER ' || DBMS_ASSERT.SIMPLE_SQL_NAME(UPPER(p_username)) || ' CASCADE';
-    END;
+    v_safe VARCHAR2(128) := DBMS_ASSERT.SIMPLE_SQL_NAME(UPPER(p_username));
+BEGIN
+    EXECUTE IMMEDIATE 'DROP USER ' || v_safe || ' CASCADE';
+END;
 /
 
 -- 3. Đổi mật khẩu 
