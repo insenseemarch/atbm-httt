@@ -17,10 +17,12 @@ namespace PhanHe1
         private readonly string port;
         private readonly string serviceName;
         private readonly string loginUser;
+        private readonly string loginPassword;
 
         public string CurrentUser { get; private set; }
+        public bool IsAdminSession { get; private set; }
 
-        private OracleAdminService(string connectionString, string host, string port, string serviceName, string loginUser)
+        private OracleAdminService(string connectionString, string host, string port, string serviceName, string loginUser, string loginPassword)
         {
             this.connectionString = connectionString;
             factory = DbProviderFactories.GetFactory(ProviderInvariantName);
@@ -28,9 +30,11 @@ namespace PhanHe1
             this.port = port;
             this.serviceName = serviceName;
             this.loginUser = (loginUser ?? string.Empty).Trim();
+            this.loginPassword = loginPassword ?? string.Empty;
+            this.CurrentUser = (loginUser ?? string.Empty).Trim().ToUpperInvariant();
         }
 
-        public static OracleAdminService LoginAsAdmin(string host, string port, string serviceName, string userName, string password)
+        public static OracleAdminService Login(string host, string port, string serviceName, string userName, string password)
         {
             if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(port) || string.IsNullOrWhiteSpace(serviceName)
                 || string.IsNullOrWhiteSpace(userName) || string.IsNullOrWhiteSpace(password))
@@ -38,10 +42,37 @@ namespace PhanHe1
                 throw new InvalidOperationException("Bạn cần nhập đầy đủ thông tin kết nối.");
             }
 
-            string connStr = BuildConnectionString(host, port, serviceName, userName, password);
 
-            var service = new OracleAdminService(connStr, host, port, serviceName, userName);
-            service.ValidateAdminSession();
+            string connStr = BuildConnectionString(host, port, serviceName, userName, password);
+            var realService = new OracleAdminService(connStr, host, port, serviceName, userName, password);
+            realService.ValidateAdminSession();
+            return realService;
+        }
+
+        /// <summary>
+        /// Login specifically as SYS with SYSDBA privilege. Caller must supply SYS password.
+        /// </summary>
+        public static OracleAdminService LoginAsSys(string host, string port, string serviceName, string sysPassword)
+        {
+            if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(port) || string.IsNullOrWhiteSpace(serviceName)
+                || string.IsNullOrWhiteSpace(sysPassword))
+            {
+                throw new InvalidOperationException("Bạn cần nhập đầy đủ thông tin kết nối và mật khẩu SYS.");
+            }
+
+            string connStr = BuildSysConnectionString(host, port, serviceName, "sys", sysPassword);
+            var realService = new OracleAdminService(connStr, host, port, serviceName, "SYS", sysPassword);
+            realService.ValidateAdminSession();
+            return realService;
+        }
+
+        public static OracleAdminService LoginAsAdmin(string host, string port, string serviceName, string userName, string password)
+        {
+            var service = Login(host, port, serviceName, userName, password);
+            if (!service.IsAdminSession)
+            {
+                throw new InvalidOperationException("Tài khoản đăng nhập không phải admin/DBA trên Oracle.");
+            }
             return service;
         }
 
@@ -529,30 +560,64 @@ namespace PhanHe1
 
         private void ValidateAdminSession()
         {
-            object isDba = ExecuteScalar("SELECT SYS_CONTEXT('USERENV','ISDBA') FROM DUAL");
             object sessionUser = ExecuteScalar("SELECT USER FROM DUAL");
             CurrentUser = sessionUser == null ? string.Empty : sessionUser.ToString();
 
-            bool admin = string.Equals(Convert.ToString(isDba), "TRUE", StringComparison.OrdinalIgnoreCase);
-            if (!admin)
-            {
-                object hasDbaRole = ExecuteScalar("SELECT COUNT(*) FROM SESSION_ROLES WHERE ROLE = 'DBA'");
-                int count = 0;
-                if (hasDbaRole != null)
-                {
-                    int.TryParse(hasDbaRole.ToString(), out count);
-                }
-
-                admin = count > 0;
-            }
-
-            if (!admin)
-            {
-                throw new InvalidOperationException("Tài khoản đăng nhập không phải admin/DBA trên Oracle.");
-            }
+            var roles = GetCurrentRolesInternal();
+            IsAdminSession = string.Equals(CurrentUser, "APP_ADMIN", StringComparison.OrdinalIgnoreCase)
+                             || string.Equals(CurrentUser, "ADMIN", StringComparison.OrdinalIgnoreCase)
+                             || string.Equals(CurrentUser, "SYS", StringComparison.OrdinalIgnoreCase)
+                             || roles.Contains("DBA")
+                             || roles.Contains("ROLE_ADMIN");
         }
 
-        private DataTable Query(string sql)
+        private List<string> GetCurrentRolesInternal()
+        {
+            var roles = new List<string>();
+            try
+            {
+                DataTable dt = Query("SELECT ROLE FROM SESSION_ROLES");
+                foreach (DataRow row in dt.Rows)
+                {
+                    if (row[0] != null)
+                    {
+                        roles.Add(row[0].ToString().Trim().ToUpperInvariant());
+                    }
+                }
+            }
+            catch
+            {
+                // Nếu người dùng không có quyền xem SESSION_ROLES, vẫn tiếp tục.
+            }
+
+            return roles;
+        }
+
+        public List<string> GetCurrentRoles()
+        {
+            return GetCurrentRolesInternal();
+        }
+
+        /// <summary>Gán client_identifier cho Unified Audit (PH2-ROLE).</summary>
+        public void SetClientIdentifier(string clientIdentifier)
+        {
+            if (string.IsNullOrWhiteSpace(clientIdentifier)) return;
+            string safe = clientIdentifier.Replace("'", "''");
+            ExecuteNonQuery($"BEGIN DBMS_SESSION.SET_IDENTIFIER('{safe}'); END;");
+        }
+
+        /// <summary>Chuỗi kết nối cho expdp/impdp CLI (dùng credential phiên đăng nhập hiện tại).</summary>
+        public string GetDataPumpConnectString()
+        {
+            return $"{loginUser}/{loginPassword}@{host}:{port}/{serviceName}";
+        }
+
+        public string GetDataPumpConnectStringMasked()
+        {
+            return $"{loginUser}/***@{host}:{port}/{serviceName}";
+        }
+
+        public DataTable Query(string sql)
         {
             using (DbConnection conn = factory.CreateConnection())
             {
@@ -573,7 +638,7 @@ namespace PhanHe1
             }
         }
 
-        private object ExecuteScalar(string sql)
+        public object ExecuteScalar(string sql)
         {
             using (DbConnection conn = factory.CreateConnection())
             {
@@ -588,7 +653,7 @@ namespace PhanHe1
             }
         }
 
-        private void ExecuteNonQuery(string sql)
+        public void ExecuteNonQuery(string sql)
         {
             using (DbConnection conn = factory.CreateConnection())
             {
@@ -739,7 +804,18 @@ namespace PhanHe1
         private static string BuildConnectionString(string host, string port, string serviceName, string userName, string password)
         {
             return string.Format(
-                "User Id={0};Password={1};Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST={2})(PORT={3}))(CONNECT_DATA=(SERVICE_NAME={4})));",
+                "User Id={0};Password={1};Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST={2})(PORT={3}))(CONNECT_DATA=(SERVICE_NAME={4})));Pooling=false;",
+                userName,
+                password,
+                host,
+                port,
+                serviceName);
+        }
+
+        private static string BuildSysConnectionString(string host, string port, string serviceName, string userName, string password)
+        {
+            return string.Format(
+                "User Id={0};Password={1};Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST={2})(PORT={3}))(CONNECT_DATA=(SERVICE_NAME={4})));DBA Privilege=SYSDBA;Pooling=false;",
                 userName,
                 password,
                 host,

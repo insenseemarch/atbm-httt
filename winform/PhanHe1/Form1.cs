@@ -1,12 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Data;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
+using PhanHe1.Forms;
 
 namespace PhanHe1
 {
+    // PH1: Quản trị Oracle — user/role/privilege (Phân hệ 1)
     public partial class Form1 : Form
     {
         private readonly OracleAdminService service;
@@ -22,6 +25,9 @@ namespace PhanHe1
         private Button btnRefreshAll;
         private Button btnCreateUser;
         private Button btnCreateRole;
+        private Button btnRestoreSchema;
+        private Button btnSubsystem2;
+        private bool openSubsystemOnShown = false;
 
         private TabControl tabMain;
         private TabPage tabManage;
@@ -72,17 +78,28 @@ namespace PhanHe1
             this.service = service;
             InitializeComponent();
             BuildUi();
-            LoadInitialData();
+            // Only load full initial data when we built the full UI (not SYS-only minimal UI)
+            if (!string.Equals(service.CurrentUser?.Trim(), "SYS", StringComparison.OrdinalIgnoreCase))
+            {
+                LoadInitialData();
+            }
             DialogResult = DialogResult.OK;
         }
 
         private void BuildUi()
         {
-            Text = "PHÂN HỆ 1 - QUẢN TRỊ ORACLE BỆNH VIỆN";
+            Text = "DocCare — Quản Trị Oracle";
             StartPosition = FormStartPosition.CenterScreen;
             MinimumSize = new Size(1200, 720);
             Font = UiTheme.BodyFont;
             BackColor = colorPageBackground;
+
+            // If logged in as SYS, present a minimal UI that only exposes Restore Schema
+            if (string.Equals(service.CurrentUser?.Trim(), "SYS", StringComparison.OrdinalIgnoreCase))
+            {
+                BuildUiForSysOnly();
+                return;
+            }
 
             var topPanel = new Panel
             {
@@ -125,8 +142,8 @@ namespace PhanHe1
 
             var buttonPanel = new FlowLayoutPanel
             {
-                Dock = DockStyle.Right,
-                Width = 550,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowOnly,
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = false,
                 Padding = new Padding(0, 6, 0, 0)
@@ -144,6 +161,15 @@ namespace PhanHe1
             StylePrimaryButton(btnCreateRole);
             btnCreateRole.Click += btnCreateRole_Click;
 
+            btnRestoreSchema = new Button { Text = "Restore Schema", Width = 132, Height = 40, Margin = new Padding(0, 0, 8, 0) };
+            StyleSecondaryButton(btnRestoreSchema);
+            btnRestoreSchema.Click += BtnRestoreSchema_Click;
+
+            btnSubsystem2 = new Button { Text = "Phân hệ 2", Width = 110, Height = 40, Margin = new Padding(0, 0, 8, 0) };
+            StylePrimaryButton(btnSubsystem2);
+            btnSubsystem2.Click += BtnSubsystem2_Click;
+
+
             var btnLogout = new Button { Text = "Đăng xuất", Width = 110, Height = 40, Margin = new Padding(0, 0, 0, 0) };
             StylePrimaryButton(btnLogout);
             btnLogout.Click += BtnLogout_Click;
@@ -151,10 +177,25 @@ namespace PhanHe1
             buttonPanel.Controls.Add(btnRefreshAll);
             buttonPanel.Controls.Add(btnCreateUser);
             buttonPanel.Controls.Add(btnCreateRole);
+            // Hide top-level Restore Schema and "Phân hệ 2" for APP_ADMIN accounts
+            if (!string.Equals(service.CurrentUser?.Trim(), "APP_ADMIN", StringComparison.OrdinalIgnoreCase))
+                buttonPanel.Controls.Add(btnRestoreSchema);
+            if (!string.Equals(service.CurrentUser?.Trim(), "APP_ADMIN", StringComparison.OrdinalIgnoreCase))
+                buttonPanel.Controls.Add(btnSubsystem2);
             buttonPanel.Controls.Add(btnLogout);
 
-            topPanel.Controls.Add(headerLeft);
-            topPanel.Controls.Add(buttonPanel);
+            var headerLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1
+            };
+            headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            headerLayout.Controls.Add(headerLeft, 0, 0);
+            headerLayout.Controls.Add(buttonPanel, 1, 0);
+
+            topPanel.Controls.Add(headerLayout);
 
             tabMain = new TabControl { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 10F, FontStyle.Bold) };
             tabManage = new TabPage("Quản lý User và Role");
@@ -178,6 +219,37 @@ namespace PhanHe1
 
             Controls.Add(tabMain);
             Controls.Add(topPanel);
+        }
+
+        private void BuildUiForSysOnly()
+        {
+            // Defer opening the subsystem until the form is shown to ensure ShowDialog flow works
+            openSubsystemOnShown = true;
+            this.Shown += SysOnly_Shown;
+        }
+
+        private void SysOnly_Shown(object sender, EventArgs e)
+        {
+            // Unsubscribe to avoid re-entry
+            this.Shown -= SysOnly_Shown;
+
+            try
+            {
+                // Hide the main form so the subsystem dialog appears without a white frame behind it
+                try { this.Hide(); } catch { }
+
+                using (var subsystem2 = new SubSystem2Form(service, true))
+                {
+                    subsystem2.ShowDialog(this);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Không thể mở Phân hệ 2: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+
+            // Return DialogResult.Cancel so Program.Main will loop back to the login screen
+            try { this.DialogResult = DialogResult.Cancel; this.Close(); } catch { }
         }
 
         private void BuildManageTab()
@@ -891,6 +963,34 @@ namespace PhanHe1
 
         private void LoadUserGrid()
         {
+            // Ensure dgvUsers exists (guard against initialization order issues)
+            if (dgvUsers == null)
+            {
+                dgvUsers = CreateUserGrid();
+                try
+                {
+                    // try to find existing group box inside tabManage -> SplitContainer.Panel1
+                    var split = tabManage?.Controls.OfType<SplitContainer>().FirstOrDefault();
+                    if (split != null)
+                    {
+                        var grp = split.Panel1.Controls.OfType<GroupBox>().FirstOrDefault();
+                        if (grp != null)
+                        {
+                            grp.Controls.Add(dgvUsers);
+                        }
+                        else
+                        {
+                            split.Panel1.Controls.Add(dgvUsers);
+                        }
+                    }
+                    else
+                    {
+                        tabManage?.Controls.Add(dgvUsers);
+                    }
+                }
+                catch { /* best-effort attach */ }
+            }
+
             dgvUsers.Rows.Clear();
             DataTable users = service.GetUsers();
             foreach (DataRow row in users.Rows)
@@ -926,6 +1026,33 @@ namespace PhanHe1
         }
         private void LoadRoleGrid()
         {
+            // Ensure dgvRoles exists (guard against initialization order issues)
+            if (dgvRoles == null)
+            {
+                dgvRoles = CreateRoleGrid();
+                try
+                {
+                    var split = tabManage?.Controls.OfType<SplitContainer>().FirstOrDefault();
+                    if (split != null)
+                    {
+                        var grp = split.Panel2.Controls.OfType<GroupBox>().FirstOrDefault();
+                        if (grp != null)
+                        {
+                            grp.Controls.Add(dgvRoles);
+                        }
+                        else
+                        {
+                            split.Panel2.Controls.Add(dgvRoles);
+                        }
+                    }
+                    else
+                    {
+                        tabManage?.Controls.Add(dgvRoles);
+                    }
+                }
+                catch { }
+            }
+
             dgvRoles.Rows.Clear();
             DataTable roles = service.GetRoles();
             foreach (DataRow row in roles.Rows)
@@ -981,7 +1108,9 @@ namespace PhanHe1
 
         private void FillCombo(ComboBox combo, List<string> values)
         {
+            if (combo == null) return;
             combo.Items.Clear();
+            if (values == null) return;
             foreach (string value in values)
             {
                 combo.Items.Add(value);
@@ -1185,6 +1314,28 @@ namespace PhanHe1
                 service.CreateRole(dlg.PrincipalName);
                 LoadInitialData();
                 MessageBox.Show("Đã tạo role thành công.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        private void BtnSubsystem2_Click(object sender, EventArgs e)
+        {
+            using (var subsystem2 = new SubSystem2Form(service))
+            {
+                subsystem2.ShowDialog(this);
+            }
+        }
+
+        private void BtnRestoreSchema_Click(object sender, EventArgs e)
+        {
+            if (!service.IsAdminSession)
+            {
+                MessageBox.Show("Restore schema chỉ dành cho tài khoản admin/DBA.", "Không đủ quyền", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            using (var subsystem2 = new SubSystem2Form(service, true))
+            {
+                subsystem2.ShowDialog(this);
             }
         }
 
